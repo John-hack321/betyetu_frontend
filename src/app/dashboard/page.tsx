@@ -1,50 +1,157 @@
 'use client'
-import NavBar from "../components/navBar"
+import { useEffect, useState } from "react"
+import Navigation from "../components/navigation"
+import { fetchAllFixtures } from "../api/matches"
+import FixtureCard from "../components/fixtureCard"
+import HeaderComponent from "../components/newHeader"
+import FooterComponent from "../components/footer"
 import ProtectedRoute from "../components/protectedRoute"
 
-function Dashboard() {
-    return (
-            <div className = "bg-white flex-col flex justify-between min-h-screen">
-                {/* the dashboard navbar here */}
-                <div className = "" >
-                    <h1 className = "text-black font-bold">.UVLT_GAMING</h1>
-                    <div className = 'flex gap-2 p-2'>
-                        <button className = "text-blue-800 rounded-lg bg-blue-100 text-sm p-2">
-                            Quick Match</button>
-                        <button className = "text-blue-800 rounded-lg bg-blue-100 p-2 text-sm">
-                            Tournaments
-                        </button>
-                        <button className = "text-blue-800 rounded-lg bg-blue-100 p-2 text-sm">
-                            Live matches
-                        </button>
-                    </div>
-                </div>
-                {/* navbar hero section */}
-                <div>
-                    {/* navbar hero text and relevant data */}
-                </div>
-                {/* time control section */}
-                <div>
-                    {/* time control chosing */}
-                </div>
-                {/* stake amount selector */}
-                <div>
+import { Fixture } from "../apiSchemas/matcheSchemas"
 
-                </div>
-                {/* mathc preferences */}
-                <div>
+function Dashboard(){
 
-                </div>
-                {/* match making section */}
-                <NavBar/>
+    const [matchesListData , setMatchesListData] = useState<Fixture[]>([]);
+    const [loading , setLoading] = useState(true);
+    const [error , setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        const loadFixturesData = async () => {
+            try {
+                console.log('Fetching fixtures...');
+                const fixturesObject = await fetchAllFixtures();
+                console.log('Fixtures data:', fixturesObject);
+                if (fixturesObject) { 
+                    const fixturesList = fixturesObject.data
+                    setMatchesListData(fixturesList);
+                }
+            } catch(err) {
+                console.error('Error:', err);
+                setError(err instanceof Error ? err.message : "Failed to load fixtures data");
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadFixturesData();
+    }, [])
+
+    {/* the loading component */}
+    if (loading) {
+        return (
+            <div className = "min-h-screen bg-gray-50 itmes-center flex justify-center">
+                <h3 className = 'text-black text-sm'>loading...</h3>
             </div>
+        )
+    }
+
+    {/* in case an error occurs */}
+    if (error) {
+        return (
+            <div className = "bg-gray-50 min-h-screen flext items-center justify-center">
+                <div className = "rounded-lg text-center bg-white flex flex-col">
+                    <h2>Failed to load data</h2>
+                    <p className = "text-sm text-red-600"></p>
+                    <button 
+                    onClick={() => window.location.reload()}
+                    className="text-center text-black bg-gray-300 hover:bg-gray-900 hover:text-white rounded-lg p-4">reload</button>
+                </div>
+            </div>
+        )
+    }                <h3 className = 'text-black text-sm'>loading...</h3>
+
+
+
+    if (!matchesListData) {
+        return (
+            <div className = "bg-gray-50 min-h-screen flex items-center justify-center ">
+                <div className = "rounded-lg shadow-sm max-w-md text-center p-6">
+                    <p className = "text-black">user data not found</p>
+                    <button 
+                    onClick={() => window.location.reload()}
+                    className= "text-black px-3 py-2 bg-gray-400 rounded-lg shadow-sm font-bold hover:bg-gray-300">reload</button>
+                </div>
+            </div>
+        )
+    }
+        
+    const handleUseInviteButtonClick = () => {
+        console.log(`the UseInviteLink button has been clicked`)
+    }
+
+    const handleQRCodeButtonClick = () => {
+         console.log(`the handleQRCodeButton has been clicked`)
+    }
+
+    return (
+        <div className="flex flex-col h-screen bg-background-blue">
+            {/* Fixed header section */}
+            <div className="flex-none">
+                <HeaderComponent/>
+                
+                {/* Invite options */}
+                <div className="flex gap-1 pb-2 mt-2">
+                    <button
+                        onClick={handleUseInviteButtonClick}
+                        className="text-black px-3 py-1 text-center rounded-full bg-green-components shadow-sm my-2 mx-2"
+                    >
+                        use invite link
+                    </button>
+                    <button
+                        onClick={handleQRCodeButtonClick}
+                        className="text-black px-3 py-1 text-center rounded-full bg-green-components shadow-sm my-2 mx-2"
+                    >
+                        scan QRcode
+                    </button>
+                </div>
+
+                {/* Navigation tabs */}
+                <div className="flex gap-4 px-3 pt-3 pb-1 ">
+                    <h3 className="text-sm text-gray-100">Leagues</h3>
+                    <h3 className="text-sm text-gray-100">Games</h3>
+                    <h3 className="text-sm text-gray-100">Live</h3>
+                    <h3 className="text-sm text-gray-100">Filter</h3>
+                    <h3 className='text-sm text-gray-100'>Top</h3>
+                </div>
+            </div>
+
+            {/* Scrollable games section */}
+            <div className="flex-1 overflow-y-auto">
+                {loading ? (
+                    <p className="text-white text-center py-4">Loading matches...</p>
+                ) : error ? (
+                    <p className="text-red-500 text-center py-4">Error: {error}</p>
+                ) : matchesListData && matchesListData.length > 0 ? (
+                    <div className="pb-16"> {/* Extra padding at bottom for fixed footer */}
+                        {matchesListData.map((match) => (
+                            <div key={match.match_id} className="m-2">
+                                <FixtureCard
+                                    league={match.league_name}
+                                    matchTime={match.match_date}
+                                    homeTeam={match.home_team}
+                                    awayTeam={match.away_team}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-white text-center py-4">No matches available</p>
+                )}
+            </div>
+
+            {/* Fixed footer */}
+            <div className="flex-none py-4 bg-background-blue">
+                <FooterComponent/>
+            </div>
+        </div>
     )
 }
 
-export default function DashboardPage () {
+
+export default function DashboardPage() {
     return (
         <ProtectedRoute>
             <Dashboard/>
         </ProtectedRoute>
+
     )
 }

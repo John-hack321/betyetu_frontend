@@ -10,9 +10,6 @@ import { UserProfileResponse } from "../api/users";
 import { fetchUserProfile } from "../api/users";
 import { doTransaction } from "../api/users";
 import AccountBalance from "../components/accountComponent";
-import { dot } from "node:test/reporters";
-import { transactoinSchema } from "../schemas/auth";
-import { setErrorMap } from "zod/v4";
 
 function ProfileContent() {
 

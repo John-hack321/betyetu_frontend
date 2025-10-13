@@ -1,4 +1,4 @@
-import { User, LayoutDashboard, Trophy, Sword } from 'lucide-react';
+import { User, LayoutDashboard, Trophy, Sword , Menu} from 'lucide-react';
 
 export const navBarIcons = [
     {
@@ -22,3 +22,5 @@ export const navBarIcons = [
         'redirectPath' : "/profile",
     }
 ]
+
+export const hambagerMenu = <Menu/>

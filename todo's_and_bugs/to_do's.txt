@@ -1,6 +1,1 @@
-for now the goal is just to build a simple 10 minute chess game that allows users to play online tournaments easily
-
-0) uderstand the react-chessbaord functionality as much as possible
-1) do a complete data and type definitions for the plartform. 
-2) make the chessgame playable as fast as possible since we need to launch as early as possible
-3) start writing the apis for interacting with the backend
+1. make most of the components reusable , like the login , navbar and reload buttons

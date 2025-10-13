@@ -1,7 +1,10 @@
-import { Chess } from "chess.js"
+import LandingHomePage from "./components/homePage"
 
 export default function Home() {
-  return <div className = "min-h-screen bg-white">
-    <div className = "text-black">this is the test for the tech stack</div>
-  </div>
+  return (
+    <div className = " h-full bg-white">
+      <LandingHomePage/>
+    </div>
+  )
 }
+  

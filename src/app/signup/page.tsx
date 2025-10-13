@@ -71,7 +71,7 @@ export default function SignUpPage(){
         <div className = 'flex min-h-screen w-full bg-white'>
             <div className = 'relative w-full lg:w-1/2 '>
             <div className = 'absolute left-8 top-6  p-2 '>
-                <span className = 'text-xl font-bold tracking-tight text-black lowercase'>.uvlt_gaming</span>
+                <span className = 'text-xl font-bold tracking-tight text-black lowercase'>.betyetu</span>
             </div>  
             {/*sing up form */}
             <div className = "flex min-h-screen items-center justify-center">
