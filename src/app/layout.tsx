@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "flag-icons/css/flag-icons.min.css";
-import { AuthProvider } from "./context/authContext";
-import { Provider } from "react-redux";
+
+import Clientprovider from "./clientProvider";
 
 import { store } from "./app_state/store";
 
@@ -32,11 +32,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Provider store={store}>
-          <AuthProvider>
+       <Clientprovider>
           {children}
-          </AuthProvider>
-        </Provider>
+       </Clientprovider>
       </body>
     </html>
   );

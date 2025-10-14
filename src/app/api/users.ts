@@ -18,6 +18,11 @@ export interface UserProfileResponse {
 
 // You can add more types here as your application grows
 
+export const userLoginApiCall = async () => {
+    try {} catch(err) {
+        console.log(`an error occured : ${err}`)
+    }
+}
 
 export const fetchUserProfile = async (): Promise<UserProfileResponse> => {
     try {

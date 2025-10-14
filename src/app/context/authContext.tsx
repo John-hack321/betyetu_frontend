@@ -4,6 +4,15 @@ import React, { createContext, useEffect , useState, ReactNode, useContext } fro
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 
+import { AppDispatch } from '../app_state/store';
+import { RootState } from '../app_state/store';
+import { UseDispatch } from 'react-redux';
+import { UserDataInterface } from '../app_state/slices/userData';
+import { UseSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
+import { updateUserIdAndUsername } from '../app_state/slices/userData';
+
 // the type of the user defined based on the kind of interaction that we have with the backend eg. the type of data that we expect from the backend 
 type User = {
   username : string;
@@ -33,6 +42,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading , setLoading] = useState(true);
 
   // based on best practices im told that we first have to check for the existing token on app load 
+
+   // redux functionalities
+   const useData = useSelector((state: RootState) => state.userData)
+
+   const dispatch = useDispatch<AppDispatch>()
 
   useEffect(() => {
     const checkAuthStatus = async () => {
@@ -71,6 +85,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const signup = async ( username : string , email : string ,phone : string ,  password : string ) => {
+
     try { // now we are going to define what happens on click of the sign up button 
       // since this time our data is going to be sent as payload rather than form data we are not going to use this for now 
     {/*
@@ -108,13 +123,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // now after the saving the access token in local storage we also need to store the current user in local storage 
 
       const payloadDecoded = JSON.parse(atob(accessToken.split('.')[1]));
-      setUser({
+
+      const userIdAndUsername = {
         id : payloadDecoded.id,
         username : payloadDecoded.sub,
-      })
+      }
+      setUser(userIdAndUsername)
 
-      // then is when we redirect the user to the dashboard page
-
+      // before redirecting to the dashboard we upadte the usedata in the react store with the userid and the username 
       router.push("/dashboard");
 
     }
@@ -146,10 +162,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // we will do thi setUser a little different for now we will get the actual specific data that we want 
       // we will first decode the jwt token 
       const payload = JSON.parse(atob(accessToken.split('.')[1]));
-      setUser({
+
+      const userIdAndUsername = {
         id : payload.id,
-        username : payload.sub, // and just like that we will have decoded the jwt and set the user for the local storage 
-      })
+        username : payload.sub,
+      }
+      setUser(userIdAndUsername)
+
+      // before redirecting to the dashboard we upadte the usedata in the react store with the userid and the username 
+      dispatch(updateUserIdAndUsername{userIdAndUsername})
 
       router.push('/dashboard'); // we then redirect the user to the landing page or a relevant page after loggin in now 
       // return true;

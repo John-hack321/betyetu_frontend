@@ -11,7 +11,6 @@ import { resolve } from "path";
 import { useAuth } from "../context/authContext";
 
 
-
 export default function SignInPage(){
 
     const [isLoading , setIsLoading] = useState(false);
@@ -168,3 +167,7 @@ export default function SignInPage(){
 // so i guess we are going to follow copilot's advise where we will only do the thing in a way such that we follow the common patterns 
 // if we encounter a difficult we use ai : and we will be done soon 
 
+
+
+
+// the redux global state management may seem to have a few weird commnets this is because i was implementing it as I learn the concept too 
