@@ -9,13 +9,29 @@ import ProtectedRoute from "../components/protectedRoute"
 
 import { Fixture } from "../apiSchemas/matcheSchemas"
 
+// redux setup imports
+import { AppDispatch, RootState } from "../app_state/store"
+import { Dispatch } from "@reduxjs/toolkit"
+import { UseDispatch } from "react-redux"
+import { UseSelector } from "react-redux"
+import { useSearchParams } from "next/navigation"
+import { useSelector } from "react-redux"
+import { useDispatch } from "react-redux"
+import { updateUserDataAsync } from "../app_state/slices/userData"
+
+
 function Dashboard(){
+
+    // redux setup
+    const userData = useSelector((state: RootState) => state.userData)
+    const dispatch = useDispatch<AppDispatch>()
 
     const [matchesListData , setMatchesListData] = useState<Fixture[]>([]);
     const [loading , setLoading] = useState(true);
     const [error , setError] = useState<string | null>(null)
 
     useEffect(() => {
+
         const loadFixturesData = async () => {
             try {
                 console.log('Fetching fixtures...');
@@ -32,7 +48,12 @@ function Dashboard(){
                 setLoading(false);
             }
         };
+
+        const loadUserData = async () => {
+            dispatch(updateUserDataAsync())
+        }
         loadFixturesData();
+        loadUserData();
     }, [])
 
     {/* the loading component */}
@@ -139,7 +160,7 @@ function Dashboard(){
             </div>
 
             {/* Fixed footer */}
-            <div className="flex-none py-4 bg-background-blue">
+            <div className="bottom-0 flex mb-0 fixed items-center justify-center py-2 w-full bg-background-blue">
                 <FooterComponent/>
             </div>
         </div>

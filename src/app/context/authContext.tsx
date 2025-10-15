@@ -163,14 +163,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // we will first decode the jwt token 
       const payload = JSON.parse(atob(accessToken.split('.')[1]));
 
-      const userIdAndUsername = {
-        id : payload.id,
-        username : payload.sub,
+      interface UserIdAndUsernameInterface {
+        id : number;
+        username : string;
+      }
+
+      // since the data from payload is of type any we need to convert it ot the desired string and number types
+      const userIdAndUsername : UserIdAndUsernameInterface = {
+        id : parseFloat(payload.id,),
+        username : String(payload.sub),
       }
       setUser(userIdAndUsername)
 
       // before redirecting to the dashboard we upadte the usedata in the react store with the userid and the username 
-      dispatch(updateUserIdAndUsername{userIdAndUsername})
+      dispatch(updateUserIdAndUsername(userIdAndUsername))
 
       router.push('/dashboard'); // we then redirect the user to the landing page or a relevant page after loggin in now 
       // return true;

@@ -9,7 +9,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localho
  */
 
 // src/types/index.ts
-export interface UserProfileResponse {
+export interface FetchUserDataResponse {
     username: string;
     email: string;
     phone: string;
@@ -24,7 +24,7 @@ export const userLoginApiCall = async () => {
     }
 }
 
-export const fetchUserProfile = async (): Promise<UserProfileResponse> => {
+export const fetchUserData = async (): Promise<FetchUserDataResponse> => {
     try {
         const accessToken = localStorage.getItem('token');
         
@@ -32,7 +32,7 @@ export const fetchUserProfile = async (): Promise<UserProfileResponse> => {
             throw new Error('No authentication token found');
         }
 
-        const response = await axios.get(`${API_BASE_URL}/users/me`, {
+        const response  = await axios.get(`${API_BASE_URL}/users/me`, {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -40,7 +40,9 @@ export const fetchUserProfile = async (): Promise<UserProfileResponse> => {
             }
         });
 
-        return response.data;
+        const responseData: FetchUserDataResponse = response.data
+
+        return responseData;
 
     } catch (error) {
         console.error('Failed to fetch user profile:', error);

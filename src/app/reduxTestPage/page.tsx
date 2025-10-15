@@ -32,7 +32,7 @@ export default function ReduxTest() {
             phone : phone,
             account_balance : parseFloat(account_balance),
         }
-        dispatch(updateUserDataAsync(userData))
+        // dispatch(updateUserDataAsync(userData))
     }
 
     return (
