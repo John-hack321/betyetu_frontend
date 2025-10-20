@@ -1,11 +1,23 @@
 'use client'
-import { hambagerMenu } from "@/constants"
-import { Menu } from "lucide-react"
 import HeaderComponent from "../components/newHeader"
 import DespositButton from "../components/depositButton"
 import FooterComponent from "../components/footer"
+import { truncateTeamName } from "../components/fixtureCard"
 
-export default function stakingPage() {
+// redux import setup
+import { AppDispatch, RootState } from "../app_state/store"
+import { UseSelector } from "react-redux"
+import { UseDispatch } from "react-redux"
+import { useSelector } from "react-redux"
+import ProtectedRoute from "../components/protectedRoute"
+
+function Staking() {
+
+    // redux data setup
+    const currentStakeData = useSelector((state: RootState) => state.currentStakeData)
+    const matchesData = useSelector((state: RootState) => state.allFixturesData)
+
+    const currentMatchData : {home: string; away: string} | null = null
 
     const handlePlaceButtonClick = () => {
         console.log('the place bet button has been clicked')
@@ -16,11 +28,18 @@ export default function stakingPage() {
            {/* the staking main content goes here now */}
            <div className="mt-14">
                 <h2 className = "text-4xl font-bold ml-10">Staking</h2>
-                <h2 className = "text-2xl mt-4 flex gap-3 ml-10">
-                    <span>Man U</span>
-                    <span>vs</span>
-                    <span>Liver</span>
-                </h2>
+                <div className= "ml-10 mt-4 bg-blue-700 flex">
+                    <div className ="flex flex-col w-1/2 h-40 bg-red-600">
+                        <button 
+                        className ="rounded-lg bg-green-800 mx-2 my-2 h-1/2 ">{truncateTeamName(currentStakeData.homeTeam)}</button>
+                        <button
+                        className ="rounded-lg bg-green-800 mx-2 my-2 h-1/2 ">{truncateTeamName(currentStakeData.awayTeam)}</button>
+                    </div>
+                    <div className="w-1/2 bg-yellow-500">
+                        <button 
+                        className="bg-green-700 h-36 rounded-lg w-40 mx-2 my-2">Draw</button>
+                    </div>
+                </div>
                 {/* staking amount entrance point */}
                 <div className="flex mt-3 ml-10 gap-8">
                     <h2 className = "text-xl">staking amount</h2>
@@ -59,5 +78,13 @@ export default function stakingPage() {
            </div>
         </div>
       
+    )
+}
+
+export default function StakingPage() {
+    return (
+        <ProtectedRoute>
+            <Staking/>
+        </ProtectedRoute>
     )
 }

@@ -1,20 +1,60 @@
 // this file will hold our redux store 
 
-import {configureStore} from "@reduxjs/toolkit";
-import userDataReducer from "./slices/userData"
-import allFixturesDataReducer from "./slices/matchData"
-import  currentStakeDataReducer  from "./slices/stakingData"
+import { configureStore } from "@reduxjs/toolkit";
+import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist';
+import storage from 'redux-persist/lib/storage';
+import { combineReducers } from 'redux';
+import type { WebStorage } from 'redux-persist';
 
+// Import your reducers
+import userDataReducer from "./slices/userData";
+import allFixturesDataReducer from "./slices/matchData";
+import currentStakeDataReducer from "./slices/stakingData";
+
+// Define persist config type
+type PersistConfig = {
+  key: string;
+  version: number;
+  storage: WebStorage;
+  whitelist?: string[];
+};
+
+// Root reducer
+export const rootReducer = combineReducers({
+  userData: userDataReducer,
+  allFixturesData: allFixturesDataReducer,
+  currentStakeData: currentStakeDataReducer,
+});
+
+export type RootState = ReturnType<typeof rootReducer>;
+
+export let persistor: ReturnType<typeof persistStore>;
+
+// Persist config
+const persistConfig: PersistConfig = {
+  key: 'root',
+  version: 1,
+  storage,
+  whitelist: ['userData', 'currentStakeData'],
+};
+
+// Create persisted reducer
+const persistedReducer = persistReducer(persistConfig, rootReducer as any);
+
+// Configure store with middleware
 export const store = configureStore({
-    reducer : {
-        userData: userDataReducer,
-        allFixturesData: allFixturesDataReducer,
-        currentStakeDAta: currentStakeDataReducer,
-    },
-})
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+      },
+    }),
+});
 
-export type RootState = ReturnType<typeof store.getState>;
+// Create persistor
+persistor = persistStore(store);
+
 export type AppDispatch = typeof store.dispatch;
-
 
 // and just like that we will have created our redux store

@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useState } from "react"
-import Navigation from "../components/navigation"
 import { fetchAllFixtures } from "../api/matches"
 import FixtureCard from "../components/fixtureCard"
 import HeaderComponent from "../components/newHeader"
 import FooterComponent from "../components/footer"
 import ProtectedRoute from "../components/protectedRoute"
+import { useRouter } from "next/navigation"
 
 // schema imports
 import { Fixture } from "../apiSchemas/matcheSchemas"
@@ -17,45 +17,62 @@ import { useSelector } from "react-redux"
 import { useDispatch } from "react-redux"
 import { updateUserDataAsync } from "../app_state/slices/userData"
 import { updateAllFixturesData } from "../app_state/slices/matchData"
-import { CurrentStakeData } from "../apiSchemas/stakingSchemas"
 import { updateMatchIdAndPlacement } from "../app_state/slices/stakingData"
 
-
 function Dashboard(){
+
+    // navigation setup
+    const router = useRouter()
 
     // redux setup
     const userData = useSelector((state: RootState) => state.userData)
     const matchData = useSelector((state : RootState) => state.allFixturesData)
     const dispatch = useDispatch<AppDispatch>()
 
-    // utility functions for different parts of the code functions
-    const updateStakeDataWithMatchIdAndPlacement = (stakeMatchId: number, stakeChoice: string) => {
-        const data : MatchIdAndPlacement = {
-            matchId : stakeMatchId,
-            placement : stakeChoice,
+    // UTILITY FUNCTION FOR DIFFERENT PARTS OF THE CODE FUNCTIONS
+    // redux utility functions
+    const updateStakeDataWithMatchIdAndPlacement = (stakeMatchId: number, stakeChoice: string, homeTeam: string, awayTeam: string) => {
+        const data: MatchIdAndPlacement = {
+            matchId: stakeMatchId,
+            placement: stakeChoice,
+            homeTeam: homeTeam,
+            awayTeam: awayTeam,
         }
         dispatch(updateMatchIdAndPlacement(data))
     }
 
-    // click handlers for the home , away and draw buttons
-    const handleOptionclick = (fixtureId: number, option: "home" | "away" | "draw", teamName: string) => {
-        const currentSelection : number = fixtureId;
-        
-    }
-    
-
     // STAKING STATE USESTATE HANDLERS
     // useState state handlers for the staking buttons { home, draw and away}
-    const [fixtureSelections, SetFixtureSelections] = useState<{
-        [fixtureId: number]: 'home' | 'draw' | 'away' | null
-    }>({})
-    const [clickedMatchId , setClickedMatchId] = useState<number>(0);
-    const [clickedChoice , setClickedChoice] = useState<string>("");
+    const [selectedOption, setSelectedOption]= useState<'home' | 'away' | 'draw' | null>(null)
+    const [selectedMatchId, setSElectedMatchId]= useState<number | null>(null)
 
     const [matchesListData , setMatchesListData] = useState<Fixture[]>([]);
     const [loading , setLoading] = useState(true);
     const [error , setError] = useState<string | null>(null)
 
+    // click handlers for the home , away and draw buttons
+    const handleOptionclick = (fixtureId: number,
+         option: "home" | "away" | "draw",
+         teamName: string,
+         homeTeam: string,
+         awayTeam: string) => {
+
+            // else we set the selectedMatchId and SelectedOption to the selected values
+            setSelectedOption(option)
+            setSElectedMatchId(fixtureId)
+            updateStakeDataWithMatchIdAndPlacement(fixtureId, teamName, homeTeam, awayTeam)
+
+            if (selectedMatchId=== fixtureId && selectedOption === option) {
+                setSelectedOption(null);
+                setSElectedMatchId(null);
+                updateStakeDataWithMatchIdAndPlacement(0, "", "", "")
+            }
+    }
+
+    const handleStakeButtonClick = () => {
+         router.push("/stakingPage")
+    }
+    
     useEffect(() => {
 
         const loadFixturesData = async () => {
@@ -100,7 +117,7 @@ function Dashboard(){
                     <h2>Failed to load data</h2>
                     <p className = "text-sm text-red-600"></p>
                     <button 
-                    onClick={() => window.location.reload()}
+                    onClick={() => window.location.reload()} // reloads the current page
                     className="text-center text-black bg-gray-300 hover:bg-gray-900 hover:text-white rounded-lg p-4">reload</button>
                 </div>
             </div>
@@ -174,17 +191,18 @@ function Dashboard(){
                             <div key={match.match_id} className="m-2">
                                 <FixtureCard
                                     keyId={match.match_id}
-                                    clickedFixtureId={clickedMatchId}
+                                    clickedFixtureId={selectedMatchId}
                                     league={match.league_name}
                                     matchTime={match.match_date}
                                     homeTeam={match.home_team}
                                     awayTeam={match.away_team}
-                                    onClickHomeButton={() => {handleHomeButtonClick(match.match_id, match.home_team)}}
-                                    onClickAwayButton={() => {handleAwayButtonClick(match.match_id, match.away_team)}}
-                                    onClickDrawButton={() => {handleDrawButtonClick(match.match_id)}}
-                                    homeButtonClicked={homeButtonClicked}
-                                    awayButtonClicked={awayButtonClicked}
-                                    drawButtonClicked={drawButtonClicked}
+                                    onClickHomeButton={()=> {handleOptionclick(match.match_id,"home",match.home_team,match.home_team,match.away_team)}}
+                                    onClickAwayButton={()=> {handleOptionclick(match.match_id,"away",match.away_team,match.home_team,match.away_team)}}
+                                    onClickDrawButton={()=> {handleOptionclick(match.match_id,"draw","draw",match.home_team,match.away_team)}}
+                                    onClickStakeButton={()=> {handleStakeButtonClick()}}
+                                    homeButtonClicked={selectedMatchId=== match.match_id && selectedOption==="home"}
+                                    awayButtonClicked={selectedMatchId=== match.match_id && selectedOption==="away"}
+                                    drawButtonClicked={selectedMatchId=== match.match_id && selectedOption==="draw"}
                                 />
                             </div>
                         ))}
