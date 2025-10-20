@@ -37,59 +37,18 @@ function Dashboard(){
         dispatch(updateMatchIdAndPlacement(data))
     }
 
-    // onClick handlers for the staking button on the fixture card
-    const handleHomeButtonClick= (stakeMatchId: number, stakeChoice: string) => {
-        /**
-         * set other stake buttons states to false
-         * set home button to clicked
-         * update the stakeData slice with the matchId and the placemnt (stakeChoice)
-         */
-        setDrawButtonClicked(false);
-        setAwayButtonClicked(false);
-        if (homeButtonClicked && (stakeChoice === clickedChoice)) {
-            console.log(`now running the true && true part , values before for homeclicked and clickedchoice are : ${homeButtonClicked} and stakechoice is ${clickedChoice}`)
-            setHomeButtonClicked(false);
-            setClickedChoice('')
-            console.log(`the valuse after doing the settings on click are : ${homeButtonClicked} and choice is marked as ${clickedChoice}`)
-        }
-        {/*
-        if (!homeButtonClicked && (stakeChoice != clickedChoice)) {
-            console.log(`now running the false && false part , values before for homeclicked and clickedchoice are : ${homeButtonClicked} and stakechoice is ${clickedChoice}`)
-            setHomeButtonClicked(true);
-            console.log(`the valuse after doing the settings on click are : ${homeButtonClicked} and choice is marked as ${clickedChoice}`)
-
-        }
-    */}
-        if (!homeButtonClicked) {
-            console.log(`now running the !homebuttonclicked , values before for homeclicked and clickedchoice are : ${homeButtonClicked} and stakechoice is ${clickedChoice}`)
-            setHomeButtonClicked(true)
-            console.log(`the valuse after doing the settings on click are : ${homeButtonClicked} and choice is marked as ${clickedChoice}`)
-
-        }
-        updateStakeDataWithMatchIdAndPlacement(stakeMatchId, stakeChoice);
-        setClickedMatchId(stakeMatchId)
-    }
-
-    const handleAwayButtonClick= (stakeMatchId: number, stakeChoice: string) => {
-        setHomeButtonClicked(false);
-        setDrawButtonClicked(false);
-        setAwayButtonClicked(!awayButtonClicked);
-        updateStakeDataWithMatchIdAndPlacement(stakeMatchId, stakeChoice);
-    }
-
-    const handleDrawButtonClick= (stakeMatchId: number, stakeChoice: string= "draw") => {
-        setHomeButtonClicked(false);
-        setAwayButtonClicked(false);
-        setDrawButtonClicked(!drawButtonClicked);
-        updateStakeDataWithMatchIdAndPlacement(stakeMatchId, stakeChoice);
+    // click handlers for the home , away and draw buttons
+    const handleOptionclick = (fixtureId: number, option: "home" | "away" | "draw", teamName: string) => {
+        const currentSelection : number = fixtureId;
+        
     }
     
 
     // STAKING STATE USESTATE HANDLERS
     // useState state handlers for the staking buttons { home, draw and away}
-    const [homeButtonClicked , setHomeButtonClicked] = useState(false);
-    const [awayButtonClicked , setAwayButtonClicked] = useState(false);
-    const [drawButtonClicked , setDrawButtonClicked] = useState(false);
+    const [fixtureSelections, SetFixtureSelections] = useState<{
+        [fixtureId: number]: 'home' | 'draw' | 'away' | null
+    }>({})
     const [clickedMatchId , setClickedMatchId] = useState<number>(0);
     const [clickedChoice , setClickedChoice] = useState<string>("");
 
