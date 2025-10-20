@@ -1,7 +1,8 @@
 import axios from 'axios';
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:8000';
-
 import { AllFixturesApiResponse , Fixture } from '../apiSchemas/matcheSchemas';
+
+
 
 export const fetchAllFixtures = async (): Promise<AllFixturesApiResponse | null> => {
     try {

@@ -7,24 +7,91 @@ import HeaderComponent from "../components/newHeader"
 import FooterComponent from "../components/footer"
 import ProtectedRoute from "../components/protectedRoute"
 
+// schema imports
 import { Fixture } from "../apiSchemas/matcheSchemas"
+import { MatchIdAndPlacement } from "../apiSchemas/stakingSchemas"
 
 // redux setup imports
 import { AppDispatch, RootState } from "../app_state/store"
-import { Dispatch } from "@reduxjs/toolkit"
-import { UseDispatch } from "react-redux"
-import { UseSelector } from "react-redux"
-import { useSearchParams } from "next/navigation"
 import { useSelector } from "react-redux"
 import { useDispatch } from "react-redux"
 import { updateUserDataAsync } from "../app_state/slices/userData"
+import { updateAllFixturesData } from "../app_state/slices/matchData"
+import { CurrentStakeData } from "../apiSchemas/stakingSchemas"
+import { updateMatchIdAndPlacement } from "../app_state/slices/stakingData"
 
 
 function Dashboard(){
 
     // redux setup
     const userData = useSelector((state: RootState) => state.userData)
+    const matchData = useSelector((state : RootState) => state.allFixturesData)
     const dispatch = useDispatch<AppDispatch>()
+
+    // utility functions for different parts of the code functions
+    const updateStakeDataWithMatchIdAndPlacement = (stakeMatchId: number, stakeChoice: string) => {
+        const data : MatchIdAndPlacement = {
+            matchId : stakeMatchId,
+            placement : stakeChoice,
+        }
+        dispatch(updateMatchIdAndPlacement(data))
+    }
+
+    // onClick handlers for the staking button on the fixture card
+    const handleHomeButtonClick= (stakeMatchId: number, stakeChoice: string) => {
+        /**
+         * set other stake buttons states to false
+         * set home button to clicked
+         * update the stakeData slice with the matchId and the placemnt (stakeChoice)
+         */
+        setDrawButtonClicked(false);
+        setAwayButtonClicked(false);
+        if (homeButtonClicked && (stakeChoice === clickedChoice)) {
+            console.log(`now running the true && true part , values before for homeclicked and clickedchoice are : ${homeButtonClicked} and stakechoice is ${clickedChoice}`)
+            setHomeButtonClicked(false);
+            setClickedChoice('')
+            console.log(`the valuse after doing the settings on click are : ${homeButtonClicked} and choice is marked as ${clickedChoice}`)
+        }
+        {/*
+        if (!homeButtonClicked && (stakeChoice != clickedChoice)) {
+            console.log(`now running the false && false part , values before for homeclicked and clickedchoice are : ${homeButtonClicked} and stakechoice is ${clickedChoice}`)
+            setHomeButtonClicked(true);
+            console.log(`the valuse after doing the settings on click are : ${homeButtonClicked} and choice is marked as ${clickedChoice}`)
+
+        }
+    */}
+        if (!homeButtonClicked) {
+            console.log(`now running the !homebuttonclicked , values before for homeclicked and clickedchoice are : ${homeButtonClicked} and stakechoice is ${clickedChoice}`)
+            setHomeButtonClicked(true)
+            console.log(`the valuse after doing the settings on click are : ${homeButtonClicked} and choice is marked as ${clickedChoice}`)
+
+        }
+        updateStakeDataWithMatchIdAndPlacement(stakeMatchId, stakeChoice);
+        setClickedMatchId(stakeMatchId)
+    }
+
+    const handleAwayButtonClick= (stakeMatchId: number, stakeChoice: string) => {
+        setHomeButtonClicked(false);
+        setDrawButtonClicked(false);
+        setAwayButtonClicked(!awayButtonClicked);
+        updateStakeDataWithMatchIdAndPlacement(stakeMatchId, stakeChoice);
+    }
+
+    const handleDrawButtonClick= (stakeMatchId: number, stakeChoice: string= "draw") => {
+        setHomeButtonClicked(false);
+        setAwayButtonClicked(false);
+        setDrawButtonClicked(!drawButtonClicked);
+        updateStakeDataWithMatchIdAndPlacement(stakeMatchId, stakeChoice);
+    }
+    
+
+    // STAKING STATE USESTATE HANDLERS
+    // useState state handlers for the staking buttons { home, draw and away}
+    const [homeButtonClicked , setHomeButtonClicked] = useState(false);
+    const [awayButtonClicked , setAwayButtonClicked] = useState(false);
+    const [drawButtonClicked , setDrawButtonClicked] = useState(false);
+    const [clickedMatchId , setClickedMatchId] = useState<number>(0);
+    const [clickedChoice , setClickedChoice] = useState<string>("");
 
     const [matchesListData , setMatchesListData] = useState<Fixture[]>([]);
     const [loading , setLoading] = useState(true);
@@ -39,7 +106,8 @@ function Dashboard(){
                 console.log('Fixtures data:', fixturesObject);
                 if (fixturesObject) { 
                     const fixturesList = fixturesObject.data
-                    setMatchesListData(fixturesList);
+                    setMatchesListData(fixturesList); // local state match saving
+                    dispatch(updateAllFixturesData(fixturesObject)) // global state match saving with redux
                 }
             } catch(err) {
                 console.error('Error:', err);
@@ -141,15 +209,23 @@ function Dashboard(){
                     <p className="text-white text-center py-4">Loading matches...</p>
                 ) : error ? (
                     <p className="text-red-500 text-center py-4">Error: {error}</p>
-                ) : matchesListData && matchesListData.length > 0 ? (
+                ) : matchData.data && matchData.data.length > 0 ? (
                     <div className="pb-16"> {/* Extra padding at bottom for fixed footer */}
-                        {matchesListData.map((match) => (
+                        {matchData.data.map((match) => (
                             <div key={match.match_id} className="m-2">
                                 <FixtureCard
+                                    keyId={match.match_id}
+                                    clickedFixtureId={clickedMatchId}
                                     league={match.league_name}
                                     matchTime={match.match_date}
                                     homeTeam={match.home_team}
                                     awayTeam={match.away_team}
+                                    onClickHomeButton={() => {handleHomeButtonClick(match.match_id, match.home_team)}}
+                                    onClickAwayButton={() => {handleAwayButtonClick(match.match_id, match.away_team)}}
+                                    onClickDrawButton={() => {handleDrawButtonClick(match.match_id)}}
+                                    homeButtonClicked={homeButtonClicked}
+                                    awayButtonClicked={awayButtonClicked}
+                                    drawButtonClicked={drawButtonClicked}
                                 />
                             </div>
                         ))}

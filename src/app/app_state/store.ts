@@ -2,10 +2,14 @@
 
 import {configureStore} from "@reduxjs/toolkit";
 import userDataReducer from "./slices/userData"
+import allFixturesDataReducer from "./slices/matchData"
+import  currentStakeDataReducer  from "./slices/stakingData"
 
 export const store = configureStore({
     reducer : {
         userData: userDataReducer,
+        allFixturesData: allFixturesDataReducer,
+        currentStakeDAta: currentStakeDataReducer,
     },
 })
 
