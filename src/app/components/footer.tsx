@@ -1,5 +1,7 @@
 'use client'
-import { User , Home , Plus , MenuSquare , LayoutDashboard} from "lucide-react"
+import { User , Home , Plus , MenuSquare , LayoutDashboard, UserRound, Trophy} from "lucide-react"
+import { useRouter } from "next/navigation"
+
 const Icons = [
     {'iconName' : 'profile', ' icon' : <User/>},
     {'iconName' : 'home', ' icon' : <Home/>},
@@ -9,31 +11,39 @@ const Icons = [
 ]
 
 export default function FooterComponent () {
+
+    const router = useRouter()
+
     return (
-        <div className = "flex gap-9 mx-1 items-center">
-            <div className="flex gap-8">
-                <div className = 'items-center flex flex-col'>
-                    <a href=""><Home/></a>
-                    <h3 className = 'text-sm text-gray-300'>home</h3>
-                </div>
-                <div className = "items-center flex flex-col">
-                    <a href=""><MenuSquare/></a>
-                    <h3 className = 'text-sm text-gray-300'>bets</h3>
-                </div>
-            </div>
-            <div className = "bg-yellow-components  text-black rounded-full p-2 ">
-                <Plus/>
-            </div>
-            <div className="flex gap-8 ">
-                <div className = 'flex flex-col items-center'>
-                    <a href=""><LayoutDashboard/></a>
-                    <h3 className = 'text-sm text-gray-300'>dahsboard</h3>
-                </div>
-                <div className = "items-center flex flex-col">
-                    <a href=""><User/></a>
-                    <h3 className = 'text-sm text-gray-300'>profile</h3>
-                </div>
-            </div>
+        <div className="flex-none bg-[#1a2633] border-t border-gray-800 px-2 py-3 shadow-2xl">
+        <div className="flex items-center justify-around relative">
+            <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <Home size={24} className="text-[#FED800]" />
+                <span className="text-xs text-[#FED800] font-medium">Home</span>
+            </button>
+            
+            <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <Trophy size={24} className="text-gray-400" />
+                <span className="text-xs text-gray-400">Bets</span>
+            </button>
+            
+            {/* Floating Action Button */}
+            <button className="bg-[#FED800] p-4 rounded-full shadow-2xl -mt-8 hover:bg-[#ffd700] transition-all transform hover:scale-110">
+                <Plus size={28} className="text-black" strokeWidth={3} />
+            </button>
+            
+            <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <LayoutDashboard size={24} className="text-gray-400" />
+                <span className="text-xs text-gray-400">Dashboard</span>
+            </button>
+            
+            <button 
+                onClick={() => router.push('/profile')}
+                className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <User size={24} className="text-gray-400" />
+                <span className="text-xs text-gray-400">Profile</span>
+            </button>
         </div>
+    </div>
     )
 }
