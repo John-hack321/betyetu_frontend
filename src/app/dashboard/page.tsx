@@ -11,7 +11,6 @@ import FooterComponent from "../components/footer"
 
 // schema imports
 import { Fixture } from "../apiSchemas/matcheSchemas"
-import { MatchIdAndPlacement } from "../apiSchemas/stakingSchemas"
 
 // redux setup imports
 import { AppDispatch, RootState } from "../app_state/store"
@@ -19,7 +18,7 @@ import { useSelector } from "react-redux"
 import { useDispatch } from "react-redux"
 import { updateUserDataAsync } from "../app_state/slices/userData"
 import { updateAllFixturesData } from "../app_state/slices/matchData"
-import { updateMatchIdAndPlacement } from "../app_state/slices/stakingData"
+import {addOwnerMatchIdAndPlacemntToCurrentStakeData } from "../app_state/slices/stakingData"
 
 function Dashboard(){
     const router = useRouter()
@@ -35,15 +34,25 @@ function Dashboard(){
     const [activeTab, setActiveTab] = useState('all')
 
     const updateStakeDataWithMatchIdAndPlacement = (stakeMatchId: number, stakeChoice: string, homeTeam: string, awayTeam: string) => {
-        const data: MatchIdAndPlacement = {
+        const data= {
             matchId: stakeMatchId,
             placement: stakeChoice,
-            homeTeam: homeTeam,
-            awayTeam: awayTeam,
+            home: homeTeam,
+            away: awayTeam,
         }
-        dispatch(updateMatchIdAndPlacement(data))
+        dispatch(addOwnerMatchIdAndPlacemntToCurrentStakeData(data))
     }
 
+    /**
+     * 
+     * @param fixtureId 
+     * @param option 
+     * @param teamName 
+     * @param homeTeam 
+     * @param awayTeam 
+     * 
+     * this function updates the stake data based on the choices on the stakingPage
+     */
     const handleOptionclick = (fixtureId: number,
          option: "home" | "away" | "draw",
          teamName: string,

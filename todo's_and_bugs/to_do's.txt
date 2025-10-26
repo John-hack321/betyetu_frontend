@@ -1,1 +1,1 @@
-1. make most of the components reusable , like the login , navbar and reload buttons
+1. finish building the backed logic for accepting stake initilaization data from the frontned

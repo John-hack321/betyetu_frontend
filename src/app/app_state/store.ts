@@ -10,6 +10,7 @@ import type { WebStorage } from 'redux-persist';
 import userDataReducer from "./slices/userData";
 import allFixturesDataReducer from "./slices/matchData";
 import currentStakeDataReducer from "./slices/stakingData";
+import stakeConnectionDataReducer from "./slices/stakeConnectionData"
 
 // Define persist config type
 type PersistConfig = {
@@ -24,6 +25,7 @@ export const rootReducer = combineReducers({
   userData: userDataReducer,
   allFixturesData: allFixturesDataReducer,
   currentStakeData: currentStakeDataReducer,
+  stakeConnectionData: stakeConnectionDataReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -35,7 +37,7 @@ const persistConfig: PersistConfig = {
   key: 'root',
   version: 1,
   storage,
-  whitelist: ['userData', 'currentStakeData'],
+  whitelist: ['userData', 'currentStakeData', 'allFixtureData', 'stakeConnectionData'],
 };
 
 // Create persisted reducer

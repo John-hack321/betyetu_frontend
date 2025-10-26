@@ -3,16 +3,17 @@ import HeaderComponent from "../components/newHeader"
 import DespositButton from "../components/depositButton"
 import FooterComponent from "../components/footer"
 import { truncateTeamName } from "../components/fixtureCard"
+import { initializeStakeApiCall, StakeConnectionData, StakeInitializationResponse } from "../api/stakes"
 
 import { useState } from "react"
 
 // redux import setup
 import { AppDispatch, RootState } from "../app_state/store"
-import { UseSelector } from "react-redux"
-import { UseDispatch } from "react-redux"
 import { useSelector } from "react-redux"
 import ProtectedRoute from "../components/protectedRoute"
-import { DiscAlbum } from "lucide-react"
+import { useDispatch } from "react-redux"
+import { updateOwnerPlacementOnCurrentStakeData, updateOwnerStakeAmountOnCurrentStakeData } from "../app_state/slices/stakingData"
+import { CurrentStakeData, StakeInitiatorPayload } from "../apiSchemas/stakingSchemas"
 
 function Staking() {
 
@@ -21,14 +22,39 @@ function Staking() {
     // redux data setup
     const currentStakeData = useSelector((state: RootState) => state.currentStakeData)
     const matchesData = useSelector((state: RootState) => state.allFixturesData)
+    const dispatch= useDispatch<AppDispatch>()
 
     const currentMatchData : {home: string; away: string} | null = null
 
-    const [stakeInitialized, setStakeInitialized]= useState<boolean>(true)
-    const [useQrCode, setUseQrCode] = useState(true)
+    const [stakeInitialized, setStakeInitialized]= useState<boolean>(false)
+    const [useQrCode, setUseQrCode]= useState(true)
+    const [stakeAmount, setStakeAmount]= useState<number | null>(null)
+    const [connectionData, setConnectionData]= useState<StakeConnectionData | null >(null)
 
-    const handlePlaceBetButtonClick = () => {
+    const handlePlaceBetButtonClick = async () => {
+        /**
+         * create the payload and send it to the backend
+         * update the redux store with the amount
+         */
         console.log('the place bet button has been clicked')
+        if (stakeAmount) { // null check
+            dispatch(updateOwnerStakeAmountOnCurrentStakeData(stakeAmount))
+        }
+        const payload: StakeInitiatorPayload= {
+            placement: currentStakeData.stakeOwner.stakePlacement,
+            stakeAmount: currentStakeData.stakeOwner.stakeAmount,
+            matchId: currentStakeData.matchId,
+            home: currentStakeData.homeTeam,
+            away: currentStakeData.awayTeam,
+        }
+        console.log(`${payload}`)
+
+        const response: StakeInitializationResponse | null = await initializeStakeApiCall(payload)
+        
+        if (response) {
+            const responseData= response.data
+            setConnectionData(responseData);
+        }
     }
 
     const handleQrCodeToggleButtonClick = () => {
@@ -36,10 +62,24 @@ function Staking() {
     }
 
     const handleHomeButtonClick= () => {
-        if (currentStakeData.homeTeam === currentStakeData.placement) {
+        if (currentStakeData.homeTeam === currentStakeData.stakeOwner.stakePlacement) {
             return;
         }
-        
+        dispatch(updateOwnerPlacementOnCurrentStakeData(currentStakeData.homeTeam))
+    }
+
+    const handleAwayButtonClick= () => {
+        if (currentStakeData.awayTeam === currentStakeData.stakeOwner.stakePlacement) {
+            return;
+        }
+        dispatch(updateOwnerPlacementOnCurrentStakeData(currentStakeData.awayTeam))
+    }
+
+    const handleDrawButtonClick= () => {
+        if (currentStakeData.stakeOwner.stakePlacement === "draw") {
+            return;
+        }
+        dispatch(updateOwnerPlacementOnCurrentStakeData("draw"))
     }
 
     return (
@@ -51,48 +91,56 @@ function Staking() {
                 <div className= " mx-4 mt-4  flex mr-2 ">
                     <div className ="flex flex-col w-1/2 h-35 ">
                     {/* the different buttons are rendered conditionaly based on whether they are the ones in the currentstake placement */}
-                        {(currentStakeData.placement === currentStakeData.homeTeam) ? (
+                        {(currentStakeData.stakeOwner.stakePlacement === currentStakeData.homeTeam) ? (
                             <button 
+                            onClick={()=> {handleHomeButtonClick()}}
                             className ="border border-black text-black bg-yellow-components rounded-lg mr-2 shadow-2xl text-xl my-2 h-1/2 ">
                                 {truncateTeamName(currentStakeData.homeTeam)}
                             </button>
                         ) : (
                             <button 
+                            onClick={()=> {handleHomeButtonClick()}}
                             className ="border border-gray-500 rounded-lg bg-lightblue-components mr-2 shadow-2xl text-xl my-2 h-1/2 ">
                                 {truncateTeamName(currentStakeData.homeTeam)}
                             </button>
                         )}
-                        {(currentStakeData.placement === currentStakeData.awayTeam) ? (
+                        {(currentStakeData.stakeOwner.stakePlacement === currentStakeData.awayTeam) ? (
                             <button
+                            onClick={()=> {handleAwayButtonClick()}}
                             className ="border bg-yellow-components text-black border-gray-500 rounded-lg  mr-2 shadow-2xl text-xl mb-2 h-1/2 ">
                                     {truncateTeamName(currentStakeData.awayTeam)}
                                 </button>
                         ) : (
                             <button
+                            onClick={()=> {handleAwayButtonClick()}}
                             className ="border border-gray-500 rounded-lg bg-lightblue-components mr-2 shadow-2xl text-xl mb-2 h-1/2 ">
                                 {truncateTeamName(currentStakeData.awayTeam)}
                             </button>
                         )}
                     </div>
                     <div className="w-1/2 ">
-                       {(currentStakeData.placement === "draw") ? (
+                       {(currentStakeData.stakeOwner.stakePlacement === "draw") ? (
                          <button 
+                         onClick={()=> {handleDrawButtonClick()}}
                          className="border border-gray-500 text-black bg-yellow-components h-30 rounded-lg w-40 shadow-2xl mx-2 my-2  text-xl">
                                 Draw
                             </button>
                        ) : (
                          <button 
+                         onClick={()=> {handleDrawButtonClick()}}
                          className="border border-gray-500 bg-lightblue-components h-30 rounded-lg w-40 shadow-2xl mx-2 my-2  text-xl">
                             Draw
                          </button>
                        )}
                     </div>
                 </div>
+
                 {/* staking amount entrance point */}
                 <div className="flex mt-3 ml-4 gap-3">
                     <h2 className = "text-xl">amount</h2>
                     <div className = "items-center justify-center flex px-2 py-1 border-1 border-gray-100 placeholder:text-black rounded-lg w-38 hover:bg-amber-200">
                         <input type="text"
+                        onChange={(e)=> {setStakeAmount(parseFloat(e.target.value))}}
                         placeholder="100"
                         className = "text-white focus:outline-none focus:ring-yellow-50 focus:border-transparent hover:font-extrabold font-bold w-38 pl-4" />
                     </div>

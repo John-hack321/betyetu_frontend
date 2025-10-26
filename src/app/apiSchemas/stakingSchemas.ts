@@ -1,18 +1,35 @@
 
-export interface CurrentStakeData {
-    placement: string; // placement as in where are you placing your money
-    amount: number;
+export interface StakeInitiatorPayload {
+    placement: string;
+    stakeAmount: number;
     matchId: number;
-    homeTeam: string;
-    awayTeam: string;
+    home: string;
+    away: string;
 }
 
-/**
- * we add the hometeam and awayteam  to make it easir for vewing the data on the stakePage
- */
-export interface MatchIdAndPlacement {
-    matchId : number;
-    placement : string;
+interface StakeInviterInterface {
+    stakeAmount: number;
+    stakePlacement: string;
+}
+
+interface StakeInviteeInterface {
+    stakeAmount: number;
+    stakePlacement: string;
+}
+
+export interface CurrentStakeData {
+    matchId: number;
+    stakeId: number;
     homeTeam: string;
     awayTeam: string;
+    stakeOwner: StakeInviterInterface;
+    stakeGuest: StakeInviteeInterface;
+}
+
+export interface invitedStakeDataApiResponse {
+    stakeId: number
+    home: string
+    away: string
+    inviterPlacement: string
+    inviterStakeAmount: number
 }

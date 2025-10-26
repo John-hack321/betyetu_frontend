@@ -50,7 +50,7 @@ export default function StakingPage () {
                     </div>
                 </div>
             )}
-            <div className = "bottom-0 flex mb-0 fixed items-center justify-center py-2 w-full">
+            <div className = "bottom-0 mb-0 fixed w-full ">
                 <FooterComponent/>
             </div>
         </div>

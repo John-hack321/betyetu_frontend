@@ -1,30 +1,38 @@
 import { CurrentStakeData } from "@/app/apiSchemas/stakingSchemas";
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { MatchIdAndPlacement } from "@/app/apiSchemas/stakingSchemas";
+import { Action, createSlice, PayloadAction } from "@reduxjs/toolkit";
+
 
 const initialState : CurrentStakeData = {
-    placement: "",
-    amount: 0,
     matchId: 0,
+    stakeId: 0,
     homeTeam: "",
     awayTeam: "",
+    stakeOwner: {stakeAmount: 0, stakePlacement: ""},
+    stakeGuest: {stakeAmount: 0, stakePlacement: ""},
 }
 
 const currentStakeSlice= createSlice({
     name: "currentStakeData",
     initialState,
     reducers: {
-        /**
+        /**s
          * in the update we also update the hometeam and awayteam 
          */
-        updateMatchIdAndPlacement: (state , action: PayloadAction<MatchIdAndPlacement>) => {
-            state.matchId= action.payload.matchId;
-            state.placement= action.payload.placement;
-            state.homeTeam= action.payload.homeTeam;
-            state.awayTeam= action.payload.awayTeam;
+        addOwnerMatchIdAndPlacemntToCurrentStakeData: (state, action: PayloadAction<{matchId: number, placement: string, home: string, away: string}>)=> {
+            if (!state.stakeOwner) {
+                state.stakeOwner= {stakeAmount: 0, stakePlacement: ""}
+            }
+
+            state.matchId= action.payload.matchId
+            state.stakeOwner.stakePlacement= action.payload.placement
+            state.homeTeam= action.payload.home
+            state.awayTeam= action.payload.away
         },
-        updateAmount: (state, action: PayloadAction<CurrentStakeData>) => {
-            state.placement = action.payload.placement;
+        updateOwnerPlacementOnCurrentStakeData: (state, action: PayloadAction<string>)=> {
+            state.stakeOwner.stakePlacement= action.payload
+        },
+        updateOwnerStakeAmountOnCurrentStakeData: (state, action: PayloadAction<number>)=> {
+            state.stakeOwner.stakeAmount= action.payload
         }
     },
     extraReducers: (builder) => {
@@ -32,4 +40,7 @@ const currentStakeSlice= createSlice({
 })
 
 export default currentStakeSlice.reducer;
-export const {updateMatchIdAndPlacement, updateAmount}= currentStakeSlice.actions;
+export const {addOwnerMatchIdAndPlacemntToCurrentStakeData,
+    updateOwnerPlacementOnCurrentStakeData,
+    updateOwnerStakeAmountOnCurrentStakeData
+}= currentStakeSlice.actions;
