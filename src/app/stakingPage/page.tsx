@@ -5,7 +5,7 @@ import FooterComponent from "../components/footer"
 import { truncateTeamName } from "../components/fixtureCard"
 import { initializeStakeApiCall, StakeConnectionData, StakeInitializationResponse } from "../api/stakes"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 // redux import setup
 import { AppDispatch, RootState } from "../app_state/store"
@@ -14,14 +14,18 @@ import ProtectedRoute from "../components/protectedRoute"
 import { useDispatch } from "react-redux"
 import { updateOwnerPlacementOnCurrentStakeData, updateOwnerStakeAmountOnCurrentStakeData } from "../app_state/slices/stakingData"
 import { CurrentStakeData, StakeInitiatorPayload } from "../apiSchemas/stakingSchemas"
+import { updateCurrentPage } from "../app_state/slices/pageTracking"
 
 function Staking() {
 
-    const quickAmountValues= [50, 100, 150, 200, 250, 300]
+    const thisPage= "home"
+
+    const quickAmountValues= [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
 
     // redux data setup
     const currentStakeData = useSelector((state: RootState) => state.currentStakeData)
     const matchesData = useSelector((state: RootState) => state.allFixturesData)
+    const currentPage= useSelector((state: RootState)=> state.currentPageData.page)
     const dispatch= useDispatch<AppDispatch>()
 
     const currentMatchData : {home: string; away: string} | null = null
@@ -30,6 +34,15 @@ function Staking() {
     const [useQrCode, setUseQrCode]= useState(true)
     const [stakeAmount, setStakeAmount]= useState<number | null>(null)
     const [connectionData, setConnectionData]= useState<StakeConnectionData | null >(null)
+
+    useEffect(()=> {
+        const updatePageData= (page: string)=> {
+            dispatch(updateCurrentPage(page))
+        };
+
+        updatePageData(thisPage)
+    },[])
+
 
     const handlePlaceBetButtonClick = async () => {
         /**
@@ -41,8 +54,8 @@ function Staking() {
             dispatch(updateOwnerStakeAmountOnCurrentStakeData(stakeAmount))
         }
         const payload: StakeInitiatorPayload= {
-            placement: currentStakeData.stakeOwner.stakePlacement,
-            stakeAmount: currentStakeData.stakeOwner.stakeAmount,
+            placement: currentStakeData.ownerStakeplacement,
+            stakeAmount: currentStakeData.ownerStakeAmount,
             matchId: currentStakeData.matchId,
             home: currentStakeData.homeTeam,
             away: currentStakeData.awayTeam,
@@ -62,21 +75,21 @@ function Staking() {
     }
 
     const handleHomeButtonClick= () => {
-        if (currentStakeData.homeTeam === currentStakeData.stakeOwner.stakePlacement) {
+        if (currentStakeData.homeTeam === currentStakeData.ownerStakeplacement) {
             return;
         }
         dispatch(updateOwnerPlacementOnCurrentStakeData(currentStakeData.homeTeam))
     }
 
     const handleAwayButtonClick= () => {
-        if (currentStakeData.awayTeam === currentStakeData.stakeOwner.stakePlacement) {
+        if (currentStakeData.awayTeam === currentStakeData.ownerStakeplacement) {
             return;
         }
         dispatch(updateOwnerPlacementOnCurrentStakeData(currentStakeData.awayTeam))
     }
 
     const handleDrawButtonClick= () => {
-        if (currentStakeData.stakeOwner.stakePlacement === "draw") {
+        if (currentStakeData.ownerStakeplacement === "draw") {
             return;
         }
         dispatch(updateOwnerPlacementOnCurrentStakeData("draw"))
@@ -91,7 +104,7 @@ function Staking() {
                 <div className= " mx-4 mt-4  flex mr-2 ">
                     <div className ="flex flex-col w-1/2 h-35 ">
                     {/* the different buttons are rendered conditionaly based on whether they are the ones in the currentstake placement */}
-                        {(currentStakeData.stakeOwner.stakePlacement === currentStakeData.homeTeam) ? (
+                        {(currentStakeData.ownerStakeplacement === currentStakeData.homeTeam) ? (
                             <button 
                             onClick={()=> {handleHomeButtonClick()}}
                             className ="border border-black text-black bg-yellow-components rounded-lg mr-2 shadow-2xl text-xl my-2 h-1/2 ">
@@ -104,7 +117,7 @@ function Staking() {
                                 {truncateTeamName(currentStakeData.homeTeam)}
                             </button>
                         )}
-                        {(currentStakeData.stakeOwner.stakePlacement === currentStakeData.awayTeam) ? (
+                        {(currentStakeData.ownerStakeplacement === currentStakeData.awayTeam) ? (
                             <button
                             onClick={()=> {handleAwayButtonClick()}}
                             className ="border bg-yellow-components text-black border-gray-500 rounded-lg  mr-2 shadow-2xl text-xl mb-2 h-1/2 ">
@@ -119,7 +132,7 @@ function Staking() {
                         )}
                     </div>
                     <div className="w-1/2 ">
-                       {(currentStakeData.stakeOwner.stakePlacement === "draw") ? (
+                       {(currentStakeData.ownerStakeplacement === "draw") ? (
                          <button 
                          onClick={()=> {handleDrawButtonClick()}}
                          className="border border-gray-500 text-black bg-yellow-components h-30 rounded-lg w-40 shadow-2xl mx-2 my-2  text-xl">
@@ -193,7 +206,7 @@ function Staking() {
                 )}
                 {/* the footer at the bottom */}
                 <div className="mb-0 bottom-0 fixed w-full">
-                    <FooterComponent/>
+                    <FooterComponent currentPage={currentPage} />
                 </div>
            </div>
         </div>

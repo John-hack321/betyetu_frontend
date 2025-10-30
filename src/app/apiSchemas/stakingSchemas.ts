@@ -1,3 +1,13 @@
+// payloads
+export interface StakeJoiningPayload {
+    stakeId: number;
+    stakeAmount: number;
+    stakePlacement: string;
+}
+
+export interface FetchStakeDataPayload {
+    inviteCode: string;
+}
 
 export interface StakeInitiatorPayload {
     placement: string;
@@ -6,6 +16,17 @@ export interface StakeInitiatorPayload {
     home: string;
     away: string;
 }
+
+// api responses
+export interface invitedStakeDataApiResponse {
+    stakeId: number
+    home: string
+    away: string
+    inviterPlacement: string
+    inviterStakeAmount: number
+}
+
+
 
 interface StakeInviterInterface {
     stakeAmount: number;
@@ -22,14 +43,9 @@ export interface CurrentStakeData {
     stakeId: number;
     homeTeam: string;
     awayTeam: string;
-    stakeOwner: StakeInviterInterface;
-    stakeGuest: StakeInviteeInterface;
+    ownerStakeAmount: number;
+    ownerStakeplacement: string;
+    guestStakeAmount: number;
+    guestStakePlacement: string;
 }
 
-export interface invitedStakeDataApiResponse {
-    stakeId: number
-    home: string
-    away: string
-    inviterPlacement: string
-    inviterStakeAmount: number
-}

@@ -6,23 +6,36 @@ import { useState , useEffect } from 'react';
 import { LogOut } from "lucide-react";
 import { useAuth } from "../context/authContext";
 import ProtectedRoute from "../components/protectedRoute";
-import { UserProfileResponse } from "../api/users";
-import { fetchUserProfile } from "../api/users";
+import { FetchUserDataResponse } from "../api/users";
+import { fetchUserData } from "../api/users";
 import { doTransaction } from "../api/users";
 import AccountBalance from "../components/accountComponent";
 
+// redux setup imports
+import { RootState } from "../app_state/store";
+import { AppDispatch } from "../app_state/store";
+import { UseDispatch } from "react-redux";
+import { useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
+import { updateCurrentPage } from "../app_state/slices/pageTracking";
+
 function ProfileContent() {
+    // redux data and utility functions setup
+    const dispatch= useDispatch<AppDispatch>()
+
+    const currentPage= useSelector((state: RootState)=> state.currentPageData.page)
 
     const transData = {
         'amount' : 0,
         'type' : 1
     }
     const [transactionData , setTransactionData] = useState(transData)
+    const thisPage= "profile";
 
     const [depositAmount, setDepositAmount] = useState('');
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [loading, setLoading] = useState(true);
-    const [userData, setUserData] = useState<UserProfileResponse | null>(null);
+    const [userData, setUserData] = useState<FetchUserDataResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const { logout } = useAuth();
 
@@ -38,7 +51,7 @@ function ProfileContent() {
     useEffect(() => {
         const loadUserData = async () => {
             try {
-                const data = await fetchUserProfile();
+                const data = await fetchUserData();
                 setUserData(data);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load profile');
@@ -47,7 +60,12 @@ function ProfileContent() {
             }
         };
 
+        const updatePageData= (page: string)=> {
+            dispatch(updateCurrentPage(page))
+        };
+
         loadUserData();
+        updatePageData(thisPage);
     }, []);
 
 

@@ -5,9 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import { signInFormValues, signInSchema } from "../schemas/auth";
 
-
 import { useForm } from 'react-hook-form';
-import { resolve } from "path";
 import { useAuth } from "../context/authContext";
 
 
@@ -57,25 +55,26 @@ export default function SignInPage(){
        }
 
     return (
-        <div className = 'flex min-h-screen w-full bg-white'>
+        <div className = 'flex min-h-screen w-full bg-background-blue'>
             <div className = 'relative w-full lg:w-1/2 '>
             <div className = 'absolute left-8 top-6  p-2 '>
-                <span className = 'text-xl font-bold tracking-tight text-black lowercase'>.uvlt_gaming</span>
+                <span className = 'text-xl font-bold tracking-tight text-yellow-components lowercase'>.bet</span>
+                <span className="text-xl font-bold tracking-tight text-custom-white-text-color lowercase">yetu</span>
             </div>  
             {/*sing up form */}
             <div className = "flex min-h-screen items-center justify-center">
                 <div className = "w-full max-w-md p-8">
-                    <h2 className = "mb-6 text-center text-2xl font-semibold text-black ">Log in to your account?</h2>
+                    <h2 className = "mb-6 text-center text-2xl font-semibold text-custom-white-text-color ">Log in to your account?</h2>
                     <form onSubmit = {handleSubmit(onSubmit)}>
                         <div className = "mb-4">
-                            <label htmlFor="username" className = "text-sm text-black mb-1 block font-medium ">
+                            <label htmlFor="username" className = "text-sm text-custom-white-text-color mb-1 block font-medium ">
                                 Username
                             </label>
                             <input type="username"
                             id = "username"
                             placeholder="enter your username"
                             {...register("username")}
-                            className="w-full p-2 placeholder:text-sm rounded-lg text-black placeholder:text-gray-600 focus:ring-black focus:outline-none focus:ring-1 border border-gray-600"
+                            className="w-full p-2 placeholder:text-sm rounded-lg text-custom-white-text-color placeholder:text-gray-400 focus:ring-yellow-components focus:outline-none focus:ring-1 border border-gray-400"
                              />
                              {errors.username && (
                                 <p className = "mt-1 text-red-500 text-xs">
@@ -84,14 +83,14 @@ export default function SignInPage(){
                              )}
                         </div>
                         <div className = 'mb-4 '>
-                            <label htmlFor="password" className = 'mb-1 block text-sm font-medium text-black'>
+                            <label htmlFor="password" className = 'mb-1 block text-sm font-medium text-custom-white-text-color'>
                                 Password
                             </label>
                             <input type="password" 
                             id = "password" 
                             {...register("password")}
                             placeholder="enter your password"
-                            className = " w-full text-black focus:border-black focus:ring-1 focus:ring-black placeholder:text-sm placeholder:text-gray-500 p-2 focus:outline-none border-gray-500 border rounded-lg" />
+                            className = " w-full text-custom-white-text-color focus:border-yellow-components focus:ring-1 focus:ring-black placeholder:text-sm placeholder:text-gray-400 p-2 focus:outline-none border-gray-400 border rounded-lg" />
                             {errors.password && (
                                 <p className = "mt-1 text-xs text-red-500">
                                     {errors.password.message}
@@ -101,7 +100,7 @@ export default function SignInPage(){
                         <button 
                         type = "submit"
                         disabled = {isLoading || !isFormValid}
-                        className = {`my-4 w-full   rounded-full py-2.5 text-sm text-black bg-transparent border border-black font-bold text-center p-2 transition-colors ${isLoading ? "cursor-not-allowed bg-gray-400" : isFormValid ? "bg-black" : "bg-gray-400 cursor-not-allowed"} `}
+                        className = {`my-4 w-full   rounded-full py-2.5 text-sm text-black bg-yellow-components border border-black font-bold text-center p-2 transition-colors ${isLoading ? "cursor-not-allowed bg-gray-400" : isFormValid ? "bg-black" : "bg-gray-400 cursor-not-allowed"} `}
                         >{isLoading ? (<span className = "flex justify-center  items-center">
                              <svg
         className="animate-spin h-5 w-5 mr-2 text-black"
@@ -128,7 +127,7 @@ export default function SignInPage(){
                         ("sign in") }
                         </button>
                         <div className = "text-center">
-                            <span className = "text-gray-700 text-sm">Don&apos;t have an account?
+                            <span className = "text-gray-200 text-sm">Don&apos;t have an account?
                                 <a href="/signup" className = "ml-2 underline text-blue">Sign Up</a>
                             </span>
                         </div>

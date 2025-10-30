@@ -11,7 +11,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localho
 // src/types/index.ts
 export interface FetchUserDataResponse {
     username: string;
-    email: string;
     phone: string;
     account_balance: number;
 }

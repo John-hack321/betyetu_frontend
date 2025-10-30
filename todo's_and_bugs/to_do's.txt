@@ -1,1 +1,10 @@
-1. finish building the backed logic for accepting stake initilaization data from the frontned
+big things to do : 
+    redesign and build the profile to match the new design for this project
+    finish building the stakes showcase page to completion: 
+        make the rendering of the status conditional with lost, won, live and pending as options
+        give the page a redesing with AI
+
+small things to do that im not lazy to do for now : 
+
+
+code red things that need to be done as soon as possible: 
