@@ -4,6 +4,7 @@ import DespositButton from "../components/depositButton"
 import FooterComponent from "../components/footer"
 import { truncateTeamName } from "../components/fixtureCard"
 import { initializeStakeApiCall, StakeConnectionData, StakeInitializationResponse } from "../api/stakes"
+import GeneratedQrCode from "../components/qrCode"
 
 import { useEffect, useState } from "react"
 
@@ -34,6 +35,7 @@ function Staking() {
     const [useQrCode, setUseQrCode]= useState(true)
     const [stakeAmount, setStakeAmount]= useState<number | null>(null)
     const [connectionData, setConnectionData]= useState<StakeConnectionData | null >(null)
+    const [inviteCode, setInviteCode]= useState<string | null>(null)
 
     useEffect(()=> {
         const updatePageData= (page: string)=> {
@@ -177,7 +179,13 @@ function Staking() {
                             <div className="flex items-center justify-center flex-col">
                                 <h2 className = "ml-4">Invite : Scan QR code below</h2>
                                 <div className = " mt-2  px-2 w-70 items-center justify-center">
-                                    <img src="/example_qr.png" alt="" />
+                                    {inviteCode && inviteCode != null ? (
+                                        <GeneratedQrCode code={inviteCode}/>
+                                    ) : (
+                                        <div>
+                                            the qr code should be rendered here
+                                        </div>
+                                    )}
                                 </div>
                                 <button
                                 onClick={() => [handleQrCodeToggleButtonClick()]}
