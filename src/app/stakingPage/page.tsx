@@ -16,6 +16,7 @@ import { useDispatch } from "react-redux"
 import { updateOwnerPlacementOnCurrentStakeData, updateOwnerStakeAmountOnCurrentStakeData } from "../app_state/slices/stakingData"
 import { CurrentStakeData, StakeInitiatorPayload } from "../apiSchemas/stakingSchemas"
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
+import { QrCode } from "lucide-react"
 
 function Staking() {
 
@@ -196,7 +197,11 @@ function Staking() {
                                  <div>
                                     <h2>copy invite link below</h2>
                                     <div className="flex gap-2">
-                                        <h2 className="text-xl">alfaijfhas</h2>
+                                        {inviteCode && inviteCode != null ? (
+                                            <h2 className="text-xl">{inviteCode}</h2>
+                                        ) : (
+                                            <h2>loading ...</h2>
+                                        )}
                                         <button className="bg-background-blue rounded-lg px-3 py text-white">copy</button>
                                     </div>
 
