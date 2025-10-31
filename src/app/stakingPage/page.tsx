@@ -181,6 +181,7 @@ function Staking() {
                                 <h2 className = "ml-4">Invite : Scan QR code below</h2>
                                 <div className = " mt-2  px-2 w-70 items-center justify-center">
                                     {inviteCode && inviteCode != null ? (
+                                        /* TODO: dont forget to update the qr code to also hold the website url alongside the code*/
                                         <GeneratedQrCode code={inviteCode}/>
                                     ) : (
                                         <div>
