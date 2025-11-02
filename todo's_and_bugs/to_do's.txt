@@ -5,6 +5,7 @@ big things to do :
         give the page a redesing with AI
 
 small things to do that im not lazy to do for now : 
+     find the way the payloads should be placed on the requests for fetching data using get requests
 
 
 code red things that need to be done as soon as possible: 
