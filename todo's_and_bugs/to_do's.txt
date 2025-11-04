@@ -1,4 +1,6 @@
 big things to do : 
+    update the fixuture and stake components with conditional live rendering for the case of live data
+        this will mean also updating the redux store for the matches to match this new live design
     redesign and build the profile to match the new design for this project
     finish building the stakes showcase page to completion: 
         make the rendering of the status conditional with lost, won, live and pending as options
