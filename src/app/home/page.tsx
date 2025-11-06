@@ -93,7 +93,7 @@ function Dashboard(){
     
     useEffect(()=> {
         const observer= new IntersectionObserver (
-            entries= {
+            (entries)=> {
                 // this code here will run when the element being observed appears
                 const first= entries[0];
 
@@ -115,16 +115,17 @@ function Dashboard(){
     useEffect(()=> {
         // since I already have a function that fetches match data on page load 
         // for this one we will have a flag that prevent it from fetching matches when page = 1
-
-        if (page > 1) {
-            dispatchEvent(setLoadingState())
-            const fixturesObject= await fetchAllFixtures(100, page);
-            if (fixturesObject) {
-                dispatch(appendFixturesData(fixturesObject));
-                // setMatchListData(matchData.data) for now i dont think this is necesary cause i don't need it
-            }
-        }
+        const fetchMoreData = async () => {
+                if (page > 1) {
+                    dispatch(setLoadingState());  // Fixed: dispatch instead of dispatchEvent
+                    const fixturesObject = await fetchAllFixtures(100, page);
+                    if (fixturesObject) {
+                        dispatch(appendFixturesData(fixturesObject));
+                    }
+                }
+            };
         
+            fetchMoreData();
     }, [page])
 
     useEffect(() => {
@@ -149,7 +150,7 @@ function Dashboard(){
         };
 
         const updatePageData= (page: string)=> {
-            updateCurrentPage(page)
+            dispatch(updateCurrentPage(page))
         };
 
         loadFixturesData();
@@ -233,7 +234,7 @@ function Dashboard(){
                     </button>
                     <button
                     onClick={()=> {handleUserQrCodeButtonClick()}}
-                     className="bg-[#60991A] text-black font-medium px-4 py-2 rounded-full text-sm whitespace-nowrap shadow-md hover:bg-[#4d7a15] transition-all">
+                    className="bg-[#60991A] text-black font-medium px-4 py-2 rounded-full text-sm whitespace-nowrap shadow-md hover:bg-[#4d7a15] transition-all">
                         📱 Scan QR Code
                     </button>
                 </div>
@@ -261,7 +262,7 @@ function Dashboard(){
 
             {/* Scrollable games section */}
             <div className="flex-1 overflow-y-auto">
-                <div className="pb-20 px-2 pt-2">
+                <div className="px-2 pt-2 pb-2">
                     {matchData.data && matchData.data.length > 0 ? (
                         matchData.data.map((match) => (
                             <div key={match.match_id} className="mb-2">
@@ -287,7 +288,7 @@ function Dashboard(){
                             <p className="text-gray-400">No matches available</p>
                         </div>
                     )}
-
+                    
                     {/* Loader element - observer watches this */}
                     <div ref={loaderRef} className="py-4">
                         {matchData.isLoading && (
@@ -299,10 +300,15 @@ function Dashboard(){
                         {!matchData.has_next_page && matchData.data.length > 0 && (
                             <p className="text-center text-gray-400 text-sm">No more matches</p>
                         )}
-                            </div>
-                        </div>
-                        <FooterComponent currentPage={currentPage}/>
                     </div>
+                </div>
+            </div>
+
+            {/* Footer - MOVED OUTSIDE scrollable container */}
+            <div className="flex-none">
+                <FooterComponent currentPage={currentPage}/>
+            </div>
+        </div>
     )
 }
 
