@@ -1,15 +1,15 @@
+// src/app/home/page.tsx
 'use client'
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo } from "react"
 import { fetchAllFixtures } from "../api/matches"
 import FixtureCard from "../components/fixtureCard"
 import ProtectedRoute from "../components/protectedRoute"
 import { useRouter } from "next/navigation"
 import { Menu, Search } from 'lucide-react'
-
 import FooterComponent from "../components/footer"
 import { Fixture } from "../apiSchemas/matcheSchemas"
 
-// redux setup imports
+// Redux imports
 import { AppDispatch, RootState } from "../app_state/store"
 import { useSelector } from "react-redux"
 import { useDispatch } from "react-redux"
@@ -20,45 +20,104 @@ import { updateCurrentPage } from "../app_state/slices/pageTracking"
 import { updateLeagueData } from "../app_state/slices/leagueData"
 import { getAvailableLeagues, LeagueInterface } from "../api/leagues"
 
+// Filter types for type safety
+type FilterType = 'all' | 'leagues' | 'live' | 'top';
+
+interface FilterState {
+    type: FilterType;
+    leagueId: number | null;
+}
+
 function Dashboard() {
     const loaderRef = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState<number>(1);
-    const [isFetching, setIsFetching] = useState(false); // Local fetching state
-
+    const [isFetching, setIsFetching] = useState(false);
     const router = useRouter()
 
-    //redx data setup
+    // Redux state
     const userData = useSelector((state: RootState) => state.userData)
     const matchData = useSelector((state: RootState) => state.allFixturesData)
     const currentPage = useSelector((state: RootState) => state.currentPageData.page)
-    const leagueListData= useSelector((state: RootState) => state.leagueData.leagues_list)
+    const leagueListData = useSelector((state: RootState) => state.leagueData.leagues_list)
     const dispatch = useDispatch<AppDispatch>()
 
+    // Local state
     const [selectedOption, setSelectedOption] = useState<'home' | 'away' | 'draw' | null>(null)
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null)
-    const [matchesListData, setMatchesListData] = useState<Fixture[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null)
-    const [activeTab, setActiveTab] = useState('all')
     const thisPage: string = "home"
-    const [isLeagueClicked, setIsLeagueClicked]= useState(true)// for now lets leave this at true
-    const [whichLeagueClicked, setWhichLeagueClicked]= useState<number | null>(null)
-    const [activeFilter, setActiveFilter]= useState<string | number>()
 
-    const filterTabItems: {id: number, name: string}[] = [
-        {id: 1, name: "All"},
-        {id: 2, name: "Leagues"},
-        {id: 3, name: "LIve"},
-        {id: 4, name: "Top"},
+    // Enhanced filter state
+    const [filterState, setFilterState] = useState<FilterState>({
+        type: 'all',
+        leagueId: null
+    });
+
+    // Filter tabs configuration
+    const filterTabs: { id: FilterType; name: string }[] = [
+        { id: 'all', name: "All" },
+        { id: 'leagues', name: "Leagues" },
+        { id: 'live', name: "Live" },
+        { id: 'top', name: "Top" },
     ]
 
-    const handleTabButtonclick= (tabName: string, tabId: number) => {
-        setActiveTab(tabName.toLowerCase())
-        if (tabId == 1) {
-            setIsLeagueClicked(!isLeagueClicked)
-        }
-    }
+    // Computed filtered fixtures using useMemo for performance
+    const filteredFixtures = useMemo(() => {
+        if (!matchData.data || matchData.data.length === 0) return [];
 
+        let filtered = [...matchData.data];
+
+        switch (filterState.type) {
+            case 'all':
+                // Return all fixtures
+                return filtered;
+
+            case 'leagues':
+                // If a specific league is selected, filter by it
+                if (filterState.leagueId !== null) {
+                    return filtered.filter(match => match.league_id === filterState.leagueId);
+                }
+                // Otherwise return all (will show league selector)
+                return filtered;
+
+            case 'live':
+                // Filter for live matches (you'll need to add is_live field to your Fixture type)
+                // For now, this is a placeholder
+                return filtered.filter(match => {
+                    // TODO: Add is_live field to your backend data
+                    // return match.is_live === true;
+                    return true; // Placeholder - show all for now
+                });
+
+            case 'top':
+                // Show top leagues or featured matches
+                // TODO: find data that we might want to show as top leageus
+                const topLeagueIds = leagueListData.slice(0, 5).map(league => league.id);
+                return filtered.filter(match => topLeagueIds.includes(match.league_id));
+
+            default:
+                return filtered;
+        }
+    }, [matchData.data, filterState, leagueListData]);
+
+    // Handler for tab clicks
+    const handleTabClick = (tabId: FilterType) => {
+        setFilterState({
+            type: tabId,
+            leagueId: tabId === 'leagues' ? filterState.leagueId : null
+        });
+    };
+
+    // Handler for league selection
+    const handleLeagueSelect = (leagueId: number) => {
+        setFilterState({
+            type: 'leagues',
+            leagueId: filterState.leagueId === leagueId ? null : leagueId
+        });
+    };
+
+    // Match selection handlers
     const updateStakeDataWithMatchIdAndPlacement = (stakeMatchId: number, stakeChoice: string, homeTeam: string, awayTeam: string) => {
         const data = {
             matchId: stakeMatchId,
@@ -89,75 +148,45 @@ function Dashboard() {
         router.push('/stakeLinking')
     }
 
-    const handleUserQrCodeButtonClick = () => {
-        router.push('/stakeLinking')
-    }
-
-    // Intersection Observer setup
+    // Intersection Observer for infinite scroll
     useEffect(() => {
         const currentLoader = loaderRef.current;
         
-        console.log('🔧 Setting up observer:', {
-            loaderExists: !!currentLoader,
-            hasNextPage: matchData.has_next_page,
-            isFetching: isFetching,
-            currentPage: page,
-            totalMatches: matchData.data?.length
-        });
-        
-        if (!currentLoader) {
-            console.error('❌ Loader ref is null!');
-            return;
-        }
+        if (!currentLoader) return;
 
         const observer = new IntersectionObserver(
             (entries) => {
                 const first = entries[0];
-                
-                console.log('👁️ Observer triggered:', {
-                    isIntersecting: first.isIntersecting,
-                    intersectionRatio: first.intersectionRatio,
-                    hasNextPage: matchData.has_next_page,
-                    isFetching: isFetching,
-                    currentPage: page
-                });
 
                 if (first.isIntersecting && matchData.has_next_page && !isFetching) {
-                    console.log('✅ Loading next page...', page + 1);
                     setPage(prev => prev + 1);
-                    console.log(`page has been set to ${page}`)
                 }
             },
             { 
                 threshold: 0.1,
-                rootMargin: '200px', // Even more aggressive
-                root: null // Use viewport as root
+                rootMargin: '200px',
+                root: null
             }
         );
 
         observer.observe(currentLoader);
-        console.log('✅ Observer attached to loader'); // observer has been attached to loader for better handling
 
         return () => {
             observer.unobserve(currentLoader);
-            console.log('🧹 Observer cleaned up');
         };
     }, [matchData.has_next_page, isFetching, page, matchData.data?.length])
 
     // Fetch more data when page changes
     useEffect(() => {
         const fetchMoreData = async () => {
-            console.log("the fetch more data useEffect has been initiated now running the fetch more data endpoing")
             if (page > 1 && !isFetching) {
                 try {
                     setIsFetching(true);
                     dispatch(setLoadingState());
                     
-                    console.log(`Fetching page ${page}...`);
                     const fixturesObject = await fetchAllFixtures(100, page);
                     
                     if (fixturesObject) {
-                        console.log(`Received ${fixturesObject.data.length} fixtures`);
                         dispatch(appendFixturesData(fixturesObject));
                     }
                 } catch (err) {
@@ -170,36 +199,28 @@ function Dashboard() {
         };
 
         fetchMoreData();
-        console.log("fetch more data function has just finished running")
-    }, [page, dispatch]); // Only trigger when page changes
+    }, [page, dispatch]);
 
     // Initial data load
     useEffect(() => {
-        const loadLeaguesData= async () => {
-            try{
-                // se we know the api returne the leagues in a list object so no need to parse the object
+        const loadLeaguesData = async () => {
+            try {
                 const data: LeagueInterface[] | null = await getAvailableLeagues()
 
-                if (!data) { // doing a null check first before using data
-                    console.log('the data returned from the api was undefined | null')
-                    throw new Error(`data received from api in not defined: loadLeaguesData: ${data}`)
-                    // return find a way to handle these two cases
+                if (!data) {
+                    throw new Error(`Data received from API is not defined`)
                 }
 
                 dispatch(updateLeagueData(data))
-
             } catch (err) {
-                console.log(`an error occured while loading leageu data: ${err}`)
+                console.error(`Error loading league data: ${err}`)
             }
         };
 
         const loadFixturesData = async () => {
-            console.log("the load fixture_data useEffect has been ignited and is now running")
             try {
                 const fixturesObject = await fetchAllFixtures(100, 1);
                 if (fixturesObject) {
-                    const fixturesList = fixturesObject.data
-                    setMatchesListData(fixturesList);
                     dispatch(updateAllFixturesData(fixturesObject))
                 }
             } catch (err) {
@@ -242,22 +263,7 @@ function Dashboard() {
                     <p className="text-gray-400 text-sm mb-4">{error}</p>
                     <button
                         onClick={() => window.location.reload()}
-                        className="text-black bg-[#FED800] hover:bg-[#ffd700] rounded-lg px-6 py-3 font-semibold transition-colors w-full">
-                        Reload
-                    </button>
-                </div>
-            </div>
-        )
-    }
-
-    if (!matchesListData) {
-        return (
-            <div className="bg-[#0F1419] min-h-screen flex items-center justify-center p-4">
-                <div className="rounded-lg bg-[#1a2633] p-6 text-center max-w-md w-full">
-                    <p className="text-gray-300 mb-4">Match data not found</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="text-black bg-[#FED800] hover:bg-[#ffd700] rounded-lg px-6 py-3 font-semibold transition-colors w-full">
+                        className="w-full bg-[#FED800] hover:bg-[#ffd700] text-black rounded-lg px-6 py-3 font-semibold transition-colors">
                         Reload
                     </button>
                 </div>
@@ -292,144 +298,126 @@ function Dashboard() {
                 {/* Quick Action Buttons */}
                 <div className="flex gap-2 overflow-x-auto pb-2">
                     <button
-                        onClick={() => { handleUseInviteLinkButtonClick() }}
+                        onClick={handleUseInviteLinkButtonClick}
                         className="bg-[#60991A] text-black font-medium px-4 py-2 rounded-full text-sm whitespace-nowrap shadow-md hover:bg-[#4d7a15] transition-all">
                         🔗 Use Invite Link
                     </button>
                     <button
-                        onClick={() => { handleUserQrCodeButtonClick() }}
+                        onClick={handleUseInviteLinkButtonClick}
                         className="bg-[#60991A] text-black font-medium px-4 py-2 rounded-full text-sm whitespace-nowrap shadow-md hover:bg-[#4d7a15] transition-all">
                         📱 Scan QR Code
                     </button>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex gap-6 mt-4 border-b border-gray-700 bg-yellow-500">
-                    {filterTabItems.map((tab) => (
+                {/* Filter Tabs */}
+                <div className="flex gap-6 mt-4 border-b border-gray-700">
+                    {filterTabs.map((tab) => (
                         <button
                             key={tab.id}
-                            onClick={() => handleTabButtonclick(tab.name, tab.id)}
-                            className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === tab.name.toLowerCase()
+                            onClick={() => handleTabClick(tab.id)}
+                            className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
+                                filterState.type === tab.id
                                     ? 'text-[#FED800]'
                                     : 'text-gray-400 hover:text-gray-200'
-                                }`}
+                            }`}
                         >
                             {tab.name}
-                            {activeTab === tab.name.toLowerCase() && (
+                            {filterState.type === tab.id && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]"></div>
                             )}
                         </button>
                     ))}
                 </div>
 
-                {/* leagues selection part */}
-                {isLeagueClicked && isLeagueClicked== true ? (
-                    <div
-                    className="bg-red-500">
-                    {leagueListData.map((league)=> (
-                        <div key={league.id}>
-                            <h3
-                            className="text-sm text-custom-white-text-color mx-2">{league.localizedName}</h3>
+                {/* League Selection (only shown when Leagues tab is active) */}
+                {filterState.type === 'leagues' && (
+                    <div className="mt-4 overflow-x-auto">
+                        <div className="flex gap-2 pb-2">
+                            {leagueListData.map((league) => (
+                                <button
+                                    key={league.id}
+                                    onClick={() => handleLeagueSelect(league.id)}
+                                    className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                                        filterState.leagueId === league.id
+                                            ? 'bg-[#FED800] text-black'
+                                            : 'bg-[#23313D] text-gray-300 hover:bg-[#2a3643]'
+                                    }`}
+                                >
+                                    {league.name}
+                                </button>
+                            ))}
                         </div>
-                    ))}</div>
-                ): (
-                    <div>
-                        <h3
-                        className="text-sm text-custom-white-text-color mx-2">no leagues found</h3>
                     </div>
                 )}
-
             </div>
 
             {/* Scrollable games section */}
             <div className="flex-1 overflow-y-auto">
                 <div className="px-2 pt-2 pb-24">
-                    {matchData.data && matchData.data.length > 0 ? (
-                        <>
-                            {isLeagueClicked && whichLeagueClicked !== null ? (
-                                <>
-                                    {(matchData.data.filter(match => match.match_id=== whichLeagueClicked)).map((filteredMatch)=> (
-                                        <div key={filteredMatch.match_id} className="mb-2">
-                                             <FixtureCard
-                                                keyId={filteredMatch.match_id}
-                                                clickedFixtureId={selectedMatchId}
-                                                league={filteredMatch.league_name}
-                                                matchTime={filteredMatch.match_date}
-                                                homeTeam={filteredMatch.home_team}
-                                                awayTeam={filteredMatch.away_team}
-                                                onClickHomeButton={() => handleOptionclick(filteredMatch.match_id, "home", filteredMatch.home_team, filteredMatch.home_team, filteredMatch.away_team)}
-                                                onClickAwayButton={() => handleOptionclick(filteredMatch.match_id, "away", filteredMatch.away_team, filteredMatch.home_team, filteredMatch.away_team)}
-                                                onClickDrawButton={() => handleOptionclick(filteredMatch.match_id, "draw", "draw", filteredMatch.home_team, filteredMatch.away_team)}
-                                                onClickStakeButton={handleStakeButtonClick}
-                                                homeButtonClicked={selectedMatchId === filteredMatch.match_id && selectedOption === "home"}
-                                                awayButtonClicked={selectedMatchId === filteredMatch.match_id && selectedOption === "away"}
-                                                drawButtonClicked={selectedMatchId === filteredMatch.match_id && selectedOption === "draw"}
-                                            />
-                                        </div>
-                                    ))}
-                                    {/* Loader element - MUST be visible and ABOVE footer */}
-                                    <div 
-                                        ref={loaderRef} 
-                                        className="py-8 flex justify-center items-center min-h-[100px] bg-[#0F1419]"
-                                        style={{ marginBottom: '80px' }}
-                                    >
-                                        {isFetching ? (
-                                            <div className="flex flex-col items-center gap-2">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]"></div>
-                                                <p className="text-gray-400 text-xs">Loading more...</p>
-                                            </div>
-                                        ) : matchData.has_next_page ? (
-                                            <p className="text-gray-500 text-xs">↓ Scroll for more ↓</p>
-                                        ) : (
-                                            <p className="text-gray-400 text-sm">✓ All matches loaded</p>
-                                        )}
-                                    </div>
-                                </>
-                            ):(
-                                <>
-                                    {matchData.data.map((match) => (
-                                        <div key={178475} className="mb-2">
-                                            <FixtureCard
-                                                keyId={match.match_id}
-                                                clickedFixtureId={selectedMatchId}
-                                                league={match.league_name}
-                                                matchTime={match.match_date}
-                                                homeTeam={match.home_team}
-                                                awayTeam={match.away_team}
-                                                onClickHomeButton={() => handleOptionclick(match.match_id, "home", match.home_team, match.home_team, match.away_team)}
-                                                onClickAwayButton={() => handleOptionclick(match.match_id, "away", match.away_team, match.home_team, match.away_team)}
-                                                onClickDrawButton={() => handleOptionclick(match.match_id, "draw", "draw", match.home_team, match.away_team)}
-                                                onClickStakeButton={handleStakeButtonClick}
-                                                homeButtonClicked={selectedMatchId === match.match_id && selectedOption === "home"}
-                                                awayButtonClicked={selectedMatchId === match.match_id && selectedOption === "away"}
-                                                drawButtonClicked={selectedMatchId === match.match_id && selectedOption === "draw"}
-                                            />
-                                        </div>
-                                    ))}
-
-                                    {/* Loader element - MUST be visible and ABOVE footer */}
-                                    <div 
-                                        ref={loaderRef} 
-                                        className="py-8 flex justify-center items-center min-h-[100px] bg-[#0F1419]"
-                                        style={{ marginBottom: '80px' }}
-                                    >
-                                        {isFetching ? (
-                                            <div className="flex flex-col items-center gap-2">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]"></div>
-                                                <p className="text-gray-400 text-xs">Loading more...</p>
-                                            </div>
-                                        ) : matchData.has_next_page ? (
-                                            <p className="text-gray-500 text-xs">↓ Scroll for more ↓</p>
-                                        ) : (
-                                            <p className="text-gray-400 text-sm">✓ All matches loaded</p>
-                                        )}
-                                    </div>
-                                </>
+                    {/* Results count */}
+                    {/* for now i dont think if its necesary to show the count of matches being shown
+                    <div className="mb-3 px-2">
+                        <p className="text-gray-400 text-sm">
+                            Showing {filteredFixtures.length} matches
+                            {filterState.type === 'leagues' && filterState.leagueId && (
+                                <span className="text-[#FED800] ml-1">
+                                    • {leagueListData.find(l => l.id === filterState.leagueId)?.localizedName}
+                                </span>
                             )}
+                        </p>
+                    </div>
+                    */}
+
+                    {filteredFixtures.length > 0 ? (
+                        <>
+                            {filteredFixtures.map((match) => (
+                                <div key={match.match_id} className="mb-2">
+                                    <FixtureCard
+                                        keyId={match.match_id}
+                                        clickedFixtureId={selectedMatchId}
+                                        league={match.league_name}
+                                        matchTime={match.match_date}
+                                        homeTeam={match.home_team}
+                                        awayTeam={match.away_team}
+                                        onClickHomeButton={() => handleOptionclick(match.match_id, "home", match.home_team, match.home_team, match.away_team)}
+                                        onClickAwayButton={() => handleOptionclick(match.match_id, "away", match.away_team, match.home_team, match.away_team)}
+                                        onClickDrawButton={() => handleOptionclick(match.match_id, "draw", "draw", match.home_team, match.away_team)}
+                                        onClickStakeButton={handleStakeButtonClick}
+                                        homeButtonClicked={selectedMatchId === match.match_id && selectedOption === "home"}
+                                        awayButtonClicked={selectedMatchId === match.match_id && selectedOption === "away"}
+                                        drawButtonClicked={selectedMatchId === match.match_id && selectedOption === "draw"}
+                                    />
+                                </div>
+                            ))}
+
+                            {/* Loader for infinite scroll */}
+                            <div 
+                                ref={loaderRef} 
+                                className="py-8 flex justify-center items-center min-h-[100px]"
+                                style={{ marginBottom: '80px' }}
+                            >
+                                {isFetching ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]"></div>
+                                        <p className="text-gray-400 text-xs">Loading more...</p>
+                                    </div>
+                                ) : matchData.has_next_page ? (
+                                    <p className="text-gray-500 text-xs">↓ Scroll for more ↓</p>
+                                ) : (
+                                    <p className="text-gray-400 text-sm">✓ All matches loaded</p>
+                                )}
+                            </div>
                         </>
                     ) : (
                         <div className="flex items-center justify-center h-64">
-                            <p className="text-gray-400">No matches available</p>
+                            <div className="text-center">
+                                <p className="text-gray-400 text-lg mb-2">No matches found</p>
+                                <p className="text-gray-500 text-sm">
+                                    {filterState.type === 'leagues' && filterState.leagueId
+                                        ? 'Try selecting a different league'
+                                        : 'Try changing your filter'}
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>

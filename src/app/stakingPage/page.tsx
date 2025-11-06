@@ -3,7 +3,7 @@ import HeaderComponent from "../components/newHeader"
 import DespositButton from "../components/depositButton"
 import FooterComponent from "../components/footer"
 import { truncateTeamName } from "../components/fixtureCard"
-import { initializeStakeApiCall, StakeConnectionData, StakeInitializationResponse } from "../api/stakes"
+import { initializeStakeApiCall, InsuficientAccountBalanceResponse, StakeConnectionData, StakeInitializationResponse } from "../api/stakes"
 import GeneratedQrCode from "../components/qrCode"
 
 import { useEffect, useState } from "react"
@@ -65,7 +65,7 @@ function Staking() {
         }
         console.log(`${payload}`)
 
-        const response: StakeInitializationResponse | null = await initializeStakeApiCall(payload)
+        const response: StakeInitializationResponse | InsuficientAccountBalanceResponse | null = await initializeStakeApiCall(payload)
         
         if (response) {
             const responseData= response.data
