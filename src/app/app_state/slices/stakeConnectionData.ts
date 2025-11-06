@@ -23,3 +23,4 @@ const stakeConnectionSlice= createSlice({
 })
 
 export default stakeConnectionSlice.reducer;
+export const {updateInviteCode}= stakeConnectionSlice.actions;

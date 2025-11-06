@@ -27,14 +27,14 @@ export interface InsuficientAccountBalanceResponse {
     detail: string;
 }
 
-export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): Promise<StakeInitializationResponse | InsuficientAccountBalanceResponse | null > => {
+export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): Promise<StakeInitializationResponse |  null > => {
     try {
         const accessToken= localStorage.getItem('token');
         if (!accessToken) {
             throw new Error(`an error occured while fetching the access token from local storage`)
         }
 
-        const response : StakeInitializationResponse | InsuficientAccountBalanceResponse | null = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`,payload, {
+        const response : StakeInitializationResponse | null = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`,payload, {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',

@@ -16,8 +16,7 @@ import { useDispatch } from "react-redux"
 import { updateOwnerPlacementOnCurrentStakeData, updateOwnerStakeAmountOnCurrentStakeData } from "../app_state/slices/stakingData"
 import { CurrentStakeData, StakeInitiatorPayload } from "../apiSchemas/stakingSchemas"
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
-import { QrCode } from "lucide-react"
-
+import { updateInviteCode } from "../app_state/slices/stakeConnectionData"
 function Staking() {
 
     const thisPage= "home"
@@ -65,12 +64,17 @@ function Staking() {
         }
         console.log(`${payload}`)
 
-        const response: StakeInitializationResponse | InsuficientAccountBalanceResponse | null = await initializeStakeApiCall(payload)
+        const response: StakeInitializationResponse | null = await initializeStakeApiCall(payload)
         
         if (response) {
             const responseData= response.data
             setConnectionData(responseData);
+            dispatch(updateInviteCode(responseData.code))
+            setStakeInitialized(true)
+            setInviteCode(responseData.code)
         }
+
+        
     }
 
     const handleQrCodeToggleButtonClick = () => {
