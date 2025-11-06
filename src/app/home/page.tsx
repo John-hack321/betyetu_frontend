@@ -43,6 +43,21 @@ function Dashboard() {
     const thisPage: string = "home"
     const [isLeagueClicked, setIsLeagueClicked]= useState(true)// for now lets leave this at true
     const [whichLeagueClicked, setWhichLeagueClicked]= useState<number | null>(null)
+    const [activeFilter, setActiveFilter]= useState<string | number>()
+
+    const filterTabItems: {id: number, name: string}[] = [
+        {id: 1, name: "All"},
+        {id: 2, name: "Leagues"},
+        {id: 3, name: "LIve"},
+        {id: 4, name: "Top"},
+    ]
+
+    const handleTabButtonclick= (tabName: string, tabId: number) => {
+        setActiveTab(tabName.toLowerCase())
+        if (tabId == 1) {
+            setIsLeagueClicked(!isLeagueClicked)
+        }
+    }
 
     const updateStakeDataWithMatchIdAndPlacement = (stakeMatchId: number, stakeChoice: string, homeTeam: string, awayTeam: string) => {
         const data = {
@@ -289,18 +304,18 @@ function Dashboard() {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex gap-6 mt-4 border-b border-gray-700">
-                    {['All', 'Leagues', 'Live', 'Top'].map((tab) => (
+                <div className="flex gap-6 mt-4 border-b border-gray-700 bg-yellow-500">
+                    {filterTabItems.map((tab) => (
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab.toLowerCase())}
-                            className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === tab.toLowerCase()
+                            key={tab.id}
+                            onClick={() => handleTabButtonclick(tab.name, tab.id)}
+                            className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === tab.name.toLowerCase()
                                     ? 'text-[#FED800]'
                                     : 'text-gray-400 hover:text-gray-200'
                                 }`}
                         >
-                            {tab}
-                            {activeTab === tab.toLowerCase() && (
+                            {tab.name}
+                            {activeTab === tab.name.toLowerCase() && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]"></div>
                             )}
                         </button>
@@ -309,7 +324,9 @@ function Dashboard() {
 
                 {/* leagues selection part */}
                 {isLeagueClicked && isLeagueClicked== true ? (
-                    <div>{leagueListData.map((league)=> (
+                    <div
+                    className="bg-red-500">
+                    {leagueListData.map((league)=> (
                         <div key={league.id}>
                             <h3
                             className="text-sm text-custom-white-text-color mx-2">{league.localizedName}</h3>
@@ -371,7 +388,7 @@ function Dashboard() {
                             ):(
                                 <>
                                     {matchData.data.map((match) => (
-                                        <div key={match.match_id} className="mb-2">
+                                        <div key={178475} className="mb-2">
                                             <FixtureCard
                                                 keyId={match.match_id}
                                                 clickedFixtureId={selectedMatchId}
