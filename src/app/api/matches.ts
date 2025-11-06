@@ -10,6 +10,10 @@ export const fetchAllFixtures = async (limit: number=100, page: number=1): Promi
         }
 
         const response = await axios.get(`${API_BASE_URL}/fixtures/`, {
+            params: {
+                limit,
+                page
+            },
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
