@@ -17,6 +17,8 @@ import { updateUserDataAsync } from "../app_state/slices/userData"
 import { updateAllFixturesData, appendFixturesData, setLoadingState } from "../app_state/slices/matchData"
 import { addOwnerMatchIdAndPlacemntToCurrentStakeData } from "../app_state/slices/stakingData"
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
+import { updateLeagueData } from "../app_state/slices/leagueData"
+import { getAvailableLeagues, LeagueInterface } from "../api/leagues"
 
 function Dashboard() {
     const loaderRef = useRef<HTMLDivElement>(null);
@@ -24,9 +26,12 @@ function Dashboard() {
     const [isFetching, setIsFetching] = useState(false); // Local fetching state
 
     const router = useRouter()
+
+    //redx data setup
     const userData = useSelector((state: RootState) => state.userData)
     const matchData = useSelector((state: RootState) => state.allFixturesData)
     const currentPage = useSelector((state: RootState) => state.currentPageData.page)
+    const leagueListData= useSelector((state: RootState) => state.leagueData.leagues_list)
     const dispatch = useDispatch<AppDispatch>()
 
     const [selectedOption, setSelectedOption] = useState<'home' | 'away' | 'draw' | null>(null)
@@ -36,6 +41,8 @@ function Dashboard() {
     const [error, setError] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState('all')
     const thisPage: string = "home"
+    const [isLeagueClicked, setIsLeagueClicked]= useState(true)// for now lets leave this at true
+    const [whichLeagueClicked, setWhichLeagueClicked]= useState<number | null>(null)
 
     const updateStakeDataWithMatchIdAndPlacement = (stakeMatchId: number, stakeChoice: string, homeTeam: string, awayTeam: string) => {
         const data = {
@@ -153,6 +160,24 @@ function Dashboard() {
 
     // Initial data load
     useEffect(() => {
+        const loadLeaguesData= async () => {
+            try{
+                // se we know the api returne the leagues in a list object so no need to parse the object
+                const data: LeagueInterface[] | null = await getAvailableLeagues()
+
+                if (!data) { // doing a null check first before using data
+                    console.log('the data returned from the api was undefined | null')
+                    throw new Error(`data received from api in not defined: loadLeaguesData: ${data}`)
+                    // return find a way to handle these two cases
+                }
+
+                dispatch(updateLeagueData(data))
+
+            } catch (err) {
+                console.log(`an error occured while loading leageu data: ${err}`)
+            }
+        };
+
         const loadFixturesData = async () => {
             console.log("the load fixture_data useEffect has been ignited and is now running")
             try {
@@ -177,6 +202,7 @@ function Dashboard() {
             dispatch(updateCurrentPage(page))
         };
 
+        loadLeaguesData();
         loadFixturesData();
         loadUserData();
         updatePageData(thisPage);
@@ -280,6 +306,22 @@ function Dashboard() {
                         </button>
                     ))}
                 </div>
+
+                {/* leagues selection part */}
+                {isLeagueClicked && isLeagueClicked== true ? (
+                    <div>{leagueListData.map((league)=> (
+                        <div key={league.id}>
+                            <h3
+                            className="text-sm text-custom-white-text-color mx-2">{league.localizedName}</h3>
+                        </div>
+                    ))}</div>
+                ): (
+                    <div>
+                        <h3
+                        className="text-sm text-custom-white-text-color mx-2">no leagues found</h3>
+                    </div>
+                )}
+
             </div>
 
             {/* Scrollable games section */}
@@ -287,43 +329,86 @@ function Dashboard() {
                 <div className="px-2 pt-2 pb-24">
                     {matchData.data && matchData.data.length > 0 ? (
                         <>
-                            {matchData.data.map((match) => (
-                                <div key={match.match_id} className="mb-2">
-                                    <FixtureCard
-                                        keyId={match.match_id}
-                                        clickedFixtureId={selectedMatchId}
-                                        league={match.league_name}
-                                        matchTime={match.match_date}
-                                        homeTeam={match.home_team}
-                                        awayTeam={match.away_team}
-                                        onClickHomeButton={() => handleOptionclick(match.match_id, "home", match.home_team, match.home_team, match.away_team)}
-                                        onClickAwayButton={() => handleOptionclick(match.match_id, "away", match.away_team, match.home_team, match.away_team)}
-                                        onClickDrawButton={() => handleOptionclick(match.match_id, "draw", "draw", match.home_team, match.away_team)}
-                                        onClickStakeButton={handleStakeButtonClick}
-                                        homeButtonClicked={selectedMatchId === match.match_id && selectedOption === "home"}
-                                        awayButtonClicked={selectedMatchId === match.match_id && selectedOption === "away"}
-                                        drawButtonClicked={selectedMatchId === match.match_id && selectedOption === "draw"}
-                                    />
-                                </div>
-                            ))}
-
-                            {/* Loader element - MUST be visible and ABOVE footer */}
-                            <div 
-                                ref={loaderRef} 
-                                className="py-8 bg-red-500 flex justify-center items-center min-h-[100px] bg-[#0F1419]"
-                                style={{ marginBottom: '80px' }}
-                            >
-                                {isFetching ? (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]"></div>
-                                        <p className="text-gray-400 text-xs">Loading more...</p>
+                            {isLeagueClicked && whichLeagueClicked !== null ? (
+                                <>
+                                    {(matchData.data.filter(match => match.match_id=== whichLeagueClicked)).map((filteredMatch)=> (
+                                        <div key={filteredMatch.match_id} className="mb-2">
+                                             <FixtureCard
+                                                keyId={filteredMatch.match_id}
+                                                clickedFixtureId={selectedMatchId}
+                                                league={filteredMatch.league_name}
+                                                matchTime={filteredMatch.match_date}
+                                                homeTeam={filteredMatch.home_team}
+                                                awayTeam={filteredMatch.away_team}
+                                                onClickHomeButton={() => handleOptionclick(filteredMatch.match_id, "home", filteredMatch.home_team, filteredMatch.home_team, filteredMatch.away_team)}
+                                                onClickAwayButton={() => handleOptionclick(filteredMatch.match_id, "away", filteredMatch.away_team, filteredMatch.home_team, filteredMatch.away_team)}
+                                                onClickDrawButton={() => handleOptionclick(filteredMatch.match_id, "draw", "draw", filteredMatch.home_team, filteredMatch.away_team)}
+                                                onClickStakeButton={handleStakeButtonClick}
+                                                homeButtonClicked={selectedMatchId === filteredMatch.match_id && selectedOption === "home"}
+                                                awayButtonClicked={selectedMatchId === filteredMatch.match_id && selectedOption === "away"}
+                                                drawButtonClicked={selectedMatchId === filteredMatch.match_id && selectedOption === "draw"}
+                                            />
+                                        </div>
+                                    ))}
+                                    {/* Loader element - MUST be visible and ABOVE footer */}
+                                    <div 
+                                        ref={loaderRef} 
+                                        className="py-8 flex justify-center items-center min-h-[100px] bg-[#0F1419]"
+                                        style={{ marginBottom: '80px' }}
+                                    >
+                                        {isFetching ? (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]"></div>
+                                                <p className="text-gray-400 text-xs">Loading more...</p>
+                                            </div>
+                                        ) : matchData.has_next_page ? (
+                                            <p className="text-gray-500 text-xs">↓ Scroll for more ↓</p>
+                                        ) : (
+                                            <p className="text-gray-400 text-sm">✓ All matches loaded</p>
+                                        )}
                                     </div>
-                                ) : matchData.has_next_page ? (
-                                    <p className="text-gray-500 text-xs">↓ Scroll for more ↓</p>
-                                ) : (
-                                    <p className="text-gray-400 text-sm">✓ All matches loaded</p>
-                                )}
-                            </div>
+                                </>
+                            ):(
+                                <>
+                                    {matchData.data.map((match) => (
+                                        <div key={match.match_id} className="mb-2">
+                                            <FixtureCard
+                                                keyId={match.match_id}
+                                                clickedFixtureId={selectedMatchId}
+                                                league={match.league_name}
+                                                matchTime={match.match_date}
+                                                homeTeam={match.home_team}
+                                                awayTeam={match.away_team}
+                                                onClickHomeButton={() => handleOptionclick(match.match_id, "home", match.home_team, match.home_team, match.away_team)}
+                                                onClickAwayButton={() => handleOptionclick(match.match_id, "away", match.away_team, match.home_team, match.away_team)}
+                                                onClickDrawButton={() => handleOptionclick(match.match_id, "draw", "draw", match.home_team, match.away_team)}
+                                                onClickStakeButton={handleStakeButtonClick}
+                                                homeButtonClicked={selectedMatchId === match.match_id && selectedOption === "home"}
+                                                awayButtonClicked={selectedMatchId === match.match_id && selectedOption === "away"}
+                                                drawButtonClicked={selectedMatchId === match.match_id && selectedOption === "draw"}
+                                            />
+                                        </div>
+                                    ))}
+
+                                    {/* Loader element - MUST be visible and ABOVE footer */}
+                                    <div 
+                                        ref={loaderRef} 
+                                        className="py-8 flex justify-center items-center min-h-[100px] bg-[#0F1419]"
+                                        style={{ marginBottom: '80px' }}
+                                    >
+                                        {isFetching ? (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]"></div>
+                                                <p className="text-gray-400 text-xs">Loading more...</p>
+                                            </div>
+                                        ) : matchData.has_next_page ? (
+                                            <p className="text-gray-500 text-xs">↓ Scroll for more ↓</p>
+                                        ) : (
+                                            <p className="text-gray-400 text-sm">✓ All matches loaded</p>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </>
                     ) : (
                         <div className="flex items-center justify-center h-64">

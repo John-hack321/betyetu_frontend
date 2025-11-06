@@ -6,7 +6,6 @@ import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 export interface UserDataInterface {
     id : number;
     username: string;
-    email: string;
     phone: string;
     account_balance: number;
 }
@@ -16,7 +15,6 @@ export interface UserDataInterface {
 const initialState : UserDataInterface = {
     id : 0,
     username : "name",
-    email : "example@gmail.com",
     phone : "0000000000",
     account_balance : 0,
 };
@@ -37,7 +35,6 @@ const userDataSlice = createSlice({
         builder
         .addCase(updateUserDataAsync.fulfilled, (state , action : PayloadAction<FetchUserDataResponse>) => {
             state.username = action.payload.username;
-            state.email = action.payload.email;
             state.phone = action.payload.phone;
             state.account_balance = Number(action.payload.account_balance);
         })
