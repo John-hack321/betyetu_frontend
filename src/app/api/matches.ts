@@ -2,7 +2,7 @@ import axios from 'axios';
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:8000';
 import { AllFixturesApiResponse , Fixture } from '../apiSchemas/matcheSchemas';
 
-export const fetchAllFixtures = async (): Promise<AllFixturesApiResponse | null> => {
+export const fetchAllFixtures = async (limit: number=100, page: number=1): Promise<AllFixturesApiResponse | null> => {
     try {
         const accessToken = localStorage.getItem('token');
         if (!accessToken) {

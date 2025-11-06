@@ -5,6 +5,7 @@ import FixtureCard from "../components/fixtureCard"
 import ProtectedRoute from "../components/protectedRoute"
 import { useRouter } from "next/navigation"
 import { Menu, Search} from 'lucide-react'
+import { useRef } from "react"
 
 // imports from othe files and self modules
 import FooterComponent from "../components/footer"
@@ -17,11 +18,17 @@ import { AppDispatch, RootState } from "../app_state/store"
 import { useSelector } from "react-redux"
 import { useDispatch } from "react-redux"
 import { updateUserDataAsync } from "../app_state/slices/userData"
-import { updateAllFixturesData } from "../app_state/slices/matchData"
-import {addOwnerMatchIdAndPlacemntToCurrentStakeData, updateGuestStakePlacementOnCurrentStakeData } from "../app_state/slices/stakingData"
+import { updateAllFixturesData, appendFixturesData, setLoadingState } from "../app_state/slices/matchData"
+import {addOwnerMatchIdAndPlacemntToCurrentStakeData, updateGuestStakePlacementOnCurrentStakeData, } from "../app_state/slices/stakingData"
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
 
 function Dashboard(){
+
+    // more data loading handlers
+    const loaderRef = useRef<HTMLDivElement>(null); // this will be used for monitoring our element of concer to know when to load more matches
+    const [page, setPage]= useState<number>(1);
+
+    // redux store setup 
     const router = useRouter()
     const userData = useSelector((state: RootState) => state.userData)
     const matchData = useSelector((state : RootState) => state.allFixturesData)
@@ -84,10 +91,47 @@ function Dashboard(){
         router.push('/stakeLinking')
     }
     
+    useEffect(()=> {
+        const observer= new IntersectionObserver (
+            entries= {
+                // this code here will run when the element being observed appears
+                const first= entries[0];
+
+                if (first.isIntersecting && matchData.has_next_page && !matchData.isLoading) {
+                    setPage(prev => prev + 1); // Load next page
+                }
+            },
+            { threshold: 0.1 } // Trigger when 10% visible
+        );
+
+        if (loaderRef.current) {
+            observer.observe(loaderRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, [matchData.has_next_page, matchData.isLoading])
+
+    // fetch data when page changes
+    useEffect(()=> {
+        // since I already have a function that fetches match data on page load 
+        // for this one we will have a flag that prevent it from fetching matches when page = 1
+
+        if (page > 1) {
+            dispatchEvent(setLoadingState())
+            const fixturesObject= await fetchAllFixtures(100, page);
+            if (fixturesObject) {
+                dispatch(appendFixturesData(fixturesObject));
+                // setMatchListData(matchData.data) for now i dont think this is necesary cause i don't need it
+            }
+        }
+        
+    }, [page])
+
     useEffect(() => {
+
         const loadFixturesData = async () => {
             try {
-                const fixturesObject = await fetchAllFixtures();
+                const fixturesObject = await fetchAllFixtures(100, 1);
                 if (fixturesObject) { 
                     const fixturesList = fixturesObject.data
                     setMatchesListData(fixturesList);
@@ -243,10 +287,22 @@ function Dashboard(){
                             <p className="text-gray-400">No matches available</p>
                         </div>
                     )}
-                </div>
-            </div>
-            <FooterComponent currentPage={currentPage}/>
-        </div>
+
+                    {/* Loader element - observer watches this */}
+                    <div ref={loaderRef} className="py-4">
+                        {matchData.isLoading && (
+                            <div className="flex justify-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]"></div>
+                            </div>
+                        )}
+                        
+                        {!matchData.has_next_page && matchData.data.length > 0 && (
+                            <p className="text-center text-gray-400 text-sm">No more matches</p>
+                        )}
+                            </div>
+                        </div>
+                        <FooterComponent currentPage={currentPage}/>
+                    </div>
     )
 }
 

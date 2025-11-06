@@ -1,3 +1,4 @@
+import { fetchInternalImage } from "next/dist/server/image-optimizer";
 
 // for now we will use snake case for the sake of the backend which sends the data in snake case format
 export interface Fixture {
@@ -17,6 +18,17 @@ export interface AllFixturesApiResponse {
     limit : number;
     total : number;
     total_page : number;
-    has_next_page : boolean
-    data : Fixture[]
+    has_next_page : boolean;
+    data : Fixture[];
+}
+
+export interface AllFixturesReduxStoreInterface {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+    has_next_page: boolean;
+    data: Fixture[];
+    isLoading: boolean;
+    hasReachedEnd: boolean;
 }
