@@ -8,7 +8,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localho
 
 
 export interface StakeConnectionData {
-    code : string;
+    inviteCode : string;
 }
 
 export interface StakeInitializationResponse {
@@ -27,14 +27,14 @@ export interface InsuficientAccountBalanceResponse {
     detail: string;
 }
 
-export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): Promise<StakeInitializationResponse |  null > => {
+export const initializeStakeApiCall = async (payload : StakeInitiatorPayload) => {
     try {
         const accessToken= localStorage.getItem('token');
         if (!accessToken) {
             throw new Error(`an error occured while fetching the access token from local storage`)
         }
 
-        const response : StakeInitializationResponse | null = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`,payload, {
+        const response = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`,payload, {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -42,7 +42,8 @@ export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): P
             }
         })
 
-        return response;
+        const responseData: StakeInitializationResponse = response.data;
+        return responseData
 
     } catch (err) {
         console.log(`an error occured while making the initialize stake api call ${err}`)

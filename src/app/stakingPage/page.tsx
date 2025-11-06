@@ -27,6 +27,7 @@ function Staking() {
     const currentStakeData = useSelector((state: RootState) => state.currentStakeData)
     const matchesData = useSelector((state: RootState) => state.allFixturesData)
     const currentPage= useSelector((state: RootState)=> state.currentPageData.page)
+    const reduxStoreInviteCode= useSelector((state: RootState)=> state.stakeConnectionData.inviteCode)
     const dispatch= useDispatch<AppDispatch>()
 
     const currentMatchData : {home: string; away: string} | null = null
@@ -68,10 +69,20 @@ function Staking() {
         
         if (response) {
             const responseData= response.data
+            console.log(`we have receive the connectoin data as: ${responseData}`)
             setConnectionData(responseData);
-            dispatch(updateInviteCode(responseData.code))
+            if (connectionData) {
+                console.log(`the local connection data has been set and its value is ${connectionData.inviteCode}`)
+            }
+
+            console.log(`now updating the redux sotre invite code`)
+            dispatch(updateInviteCode(responseData.inviteCode))
+            console.log(`the updated invite code is : ${reduxStoreInviteCode}`)
+
             setStakeInitialized(true)
-            setInviteCode(responseData.code)
+
+            setInviteCode(responseData.inviteCode)
+            console.log(`the local invited has been updated and its value has been set to ${inviteCode}`)
         }
 
         
@@ -186,7 +197,9 @@ function Staking() {
                                 <div className = " mt-2  px-2 w-70 items-center justify-center">
                                     {inviteCode && inviteCode != null ? (
                                         /* TODO: dont forget to update the qr code to also hold the website url alongside the code*/
-                                        <GeneratedQrCode code={inviteCode}/>
+                                        <div className="w-full">
+                                            <GeneratedQrCode code={inviteCode}/>
+                                        </div>
                                     ) : (
                                         <div>
                                             the qr code should be rendered here
