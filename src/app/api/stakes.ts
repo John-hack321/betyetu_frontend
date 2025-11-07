@@ -13,9 +13,8 @@ export interface StakeConnectionData {
 }
 
 export interface StakeInitializationResponse {
-    status: number;
-    message: string;
-    data: StakeConnectionData
+    statusCode: number;
+    inviteCode: string;
 }
 
 export interface StakeJoiningApiResponse {

@@ -35,7 +35,6 @@ function Staking() {
     const [stakeInitialized, setStakeInitialized]= useState<boolean>(false)
     const [useQrCode, setUseQrCode]= useState(true)
     const [stakeAmount, setStakeAmount]= useState<number | null>(null)
-    const [connectionData, setConnectionData]= useState<StakeConnectionData | null >(null)
     const [inviteCode, setInviteCode]= useState<string | null>(null)
 
     useEffect(()=> {
@@ -67,13 +66,8 @@ function Staking() {
         const response: StakeInitializationResponse | null = await initializeStakeApiCall(payload)
         
         if (response) {
-            const connectionCodeObject: StakeConnectionData= response.data
-            const connectionCode: string= connectionCodeObject.inviteCode
+            const connectionCode: string= response.inviteCode
             console.log(`we have receive the invite code as: ${connectionCode}`)
-            setConnectionData(connectionCodeObject);
-            if (connectionData) {
-                console.log(`the local connection data has been set and its value is ${connectionData.inviteCode}`)
-            }
 
             console.log(`now updating the redux sotre invite code`)
             dispatch(updateInviteCode(connectionCode))
