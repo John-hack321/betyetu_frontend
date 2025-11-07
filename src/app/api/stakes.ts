@@ -142,7 +142,7 @@ export const getUserStakesData= async (): Promise<StakeInterface[] | null> => {
             }
         })
 
-        const data: StakeInterface[]= response.data
+        const data: StakeInterface[]= await response.data
 
         return data // this is the list of the stakes returned from the backend
 
