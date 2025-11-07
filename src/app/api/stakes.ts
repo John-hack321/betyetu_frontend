@@ -4,6 +4,7 @@ import { CurrentStakeData, StakeInitiatorPayload, StakeJoiningPayload, FetchStak
 import { access } from 'fs';
 import { error } from 'console';
 import { promise } from 'zod';
+import { StakeInterface } from '../app_state/slices/stakesData';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:8000';
 
@@ -27,6 +28,11 @@ export interface InsuficientAccountBalanceResponse {
     detail: string;
 }
 
+export interface StakeCancellationResponse {
+    statusCode: number;
+    message: string;
+}
+
 export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): Promise<StakeInitializationResponse | null> => {
     try {
         const accessToken= localStorage.getItem('token');
@@ -34,7 +40,7 @@ export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): P
             throw new Error(`an error occured while fetching the access token from local storage`)
         }
 
-        const response: StakeInitializationResponse = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`,payload, {
+        const response = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`, payload, {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -42,14 +48,21 @@ export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): P
             }
         })
 
-        return response
+        const data: StakeInitializationResponse = response.data;
+        
+        console.log('Received from backend:', data);
+        
+        return data;
 
     } catch (err) {
-        console.log(`an error occured while making the initialize stake api call ${err}`)
+        console.error(`Error in initializeStakeApiCall:`, err);
+        if (axios.isAxiosError(err)) {
+            console.error('Response error:', err.response?.data);
+            console.error('Status:', err.response?.status);
+        }
         return null;
     }
 }
-
 
 // figure out how the paylaod is placed in a get request
 export const guestFetchStakeDataApiCall= async (payload: FetchStakeDataPayload)=> {
@@ -83,5 +96,58 @@ export const guestStakePlacementApiCall= async (payload: StakeJoiningPayload)=> 
         return response;
     } catch (err) {
         console.log(`an error occred: __joinStakeApiCall: detail : ${err}`)
+    }
+}
+
+
+
+export const cancelStakePlacementApiCall= async (payload: string): Promise<StakeCancellationResponse | null> => {
+    try {
+        const accessToken= localStorage.getItem('token')
+        if (!accessToken) {
+            throw new Error(`no access Token find in the local storage in the browser`)
+        }
+
+        const response= await axios.post(`${API_BASE_URL}/stakes/cancel_stake`, payload, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        })
+
+        const data: StakeCancellationResponse= await response.data
+
+        return data
+
+    } catch (err) {
+        console.log(`an error occured while cancelling stake in the backend ${err}`)
+        return null
+    }
+}
+
+
+export const getUserStakesData= async (): Promise<StakeInterface[] | null> => {
+    try {
+        const accessToken= localStorage.getItem('token')
+        if (!accessToken) {
+            throw new Error(`no access token found in local storage`)
+        }
+
+        const response= await axios.get(`${API_BASE_URL}/stakes/get_user_stakes`, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        })
+
+        const data: StakeInterface[]= response.data
+
+        return data // this is the list of the stakes returned from the backend
+
+    } catch (err) {
+        console.log(`an error occured while trying to fetch user stakes data`)
+        return null
     }
 }

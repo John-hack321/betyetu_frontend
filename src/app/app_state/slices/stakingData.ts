@@ -38,7 +38,8 @@ const currentStakeSlice= createSlice({
         },
         updateGuestStakeAmountOnCurrentStakeData: (state, action: PayloadAction<number>)=> {
             state.guestStakeAmount= action.payload
-        }
+        },
+        resetCurrentStakeData: (state)=> initialState,
     },
     extraReducers: (builder) => {
     }
@@ -50,4 +51,5 @@ export const {addOwnerMatchIdAndPlacemntToCurrentStakeData,
     updateOwnerStakeAmountOnCurrentStakeData,
     updateGuestStakeAmountOnCurrentStakeData,
     updateGuestStakePlacementOnCurrentStakeData,
+    resetCurrentStakeData
 }= currentStakeSlice.actions;
