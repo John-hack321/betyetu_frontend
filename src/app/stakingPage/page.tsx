@@ -63,25 +63,25 @@ function Staking() {
             home: currentStakeData.homeTeam,
             away: currentStakeData.awayTeam,
         }
-        console.log(`${payload}`)
 
         const response: StakeInitializationResponse | null = await initializeStakeApiCall(payload)
         
         if (response) {
-            const responseData= response.data
-            console.log(`we have receive the connectoin data as: ${responseData}`)
-            setConnectionData(responseData);
+            const connectionCodeObject: StakeConnectionData= response.data
+            const connectionCode: string= connectionCodeObject.inviteCode
+            console.log(`we have receive the invite code as: ${connectionCode}`)
+            setConnectionData(connectionCodeObject);
             if (connectionData) {
                 console.log(`the local connection data has been set and its value is ${connectionData.inviteCode}`)
             }
 
             console.log(`now updating the redux sotre invite code`)
-            dispatch(updateInviteCode(responseData.inviteCode))
+            dispatch(updateInviteCode(connectionCode))
             console.log(`the updated invite code is : ${reduxStoreInviteCode}`)
 
             setStakeInitialized(true)
 
-            setInviteCode(responseData.inviteCode)
+            setInviteCode(connectionCode)
             console.log(`the local invited has been updated and its value has been set to ${inviteCode}`)
         }
 

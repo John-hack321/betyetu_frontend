@@ -3,6 +3,7 @@ import axios from 'axios';
 import { CurrentStakeData, StakeInitiatorPayload, StakeJoiningPayload, FetchStakeDataPayload } from '../apiSchemas/stakingSchemas';
 import { access } from 'fs';
 import { error } from 'console';
+import { promise } from 'zod';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:8000';
 
@@ -12,7 +13,7 @@ export interface StakeConnectionData {
 }
 
 export interface StakeInitializationResponse {
-    status: string;
+    status: number;
     message: string;
     data: StakeConnectionData
 }
@@ -27,14 +28,14 @@ export interface InsuficientAccountBalanceResponse {
     detail: string;
 }
 
-export const initializeStakeApiCall = async (payload : StakeInitiatorPayload) => {
+export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): Promise<StakeInitializationResponse | null> => {
     try {
         const accessToken= localStorage.getItem('token');
         if (!accessToken) {
             throw new Error(`an error occured while fetching the access token from local storage`)
         }
 
-        const response = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`,payload, {
+        const response: StakeInitializationResponse = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`,payload, {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -42,8 +43,7 @@ export const initializeStakeApiCall = async (payload : StakeInitiatorPayload) =>
             }
         })
 
-        const responseData: StakeInitializationResponse = response.data;
-        return responseData
+        return response
 
     } catch (err) {
         console.log(`an error occured while making the initialize stake api call ${err}`)
