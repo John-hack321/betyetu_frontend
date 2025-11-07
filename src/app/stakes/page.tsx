@@ -24,7 +24,7 @@ interface FilterState {
 
 function StakesPage() {
 
-  const [isLoading, setIsLoading]= useState(false)
+  const [isLoading, setIsLoading]= useState(true)
   const [isMenuClicked, setIsMenuClicked]= useState(false)
 
   // redux data and utilities setup
@@ -52,55 +52,58 @@ function StakesPage() {
       type: tabId
     })
   }
-
   const filteredStakes= useMemo(()=> {
-    if (!stakeListData || stakeListData.length === 0 ) return []; // for redux store for stakes data is empty we return an empty list
+    // Check if stakeListData exists and is an array
+    if (!stakeListData || !Array.isArray(stakeListData) || stakeListData.length === 0) {
+        return [];
+    }
 
-    let filtered= [...stakeListData]
+    let filtered= [...stakeListData];
+    
     switch (filterState.type) {
-      case 'all' :
-        return filtered
+      case 'all':
+        return filtered;
 
       case 'live':
-        return filtered.filter((stake)=> stake.stakeStatus === filterState.type)
+        return filtered.filter((stake)=> stake.stakeStatus === filterState.type);
 
       case 'lost':
-        return filtered.filter((stake)=> stake.stakeResult === filterState.type)
+        return filtered.filter((stake)=> stake.stakeResult === filterState.type);
 
       case 'pending':
-        return filtered.filter((stake)=> stake.stakeStatus === filterState.type)
+        return filtered.filter((stake)=> stake.stakeStatus === filterState.type);
       
       case 'won':
-        return filtered.filter((stake)=> stake.stakeResult === filterState.type)
+        return filtered.filter((stake)=> stake.stakeResult === filterState.type);
 
       default:
-        return filtered
+        return filtered;
     }
+}, [stakeListData, filterState]);
 
-  }, [stakeListData, filterState])
   
   useEffect(()=> {
-
     const loadUserStakeData= async ()=> {
       try {
-        const stakeData: StakeInterface[] | null= await getUserStakesData()
+        setIsLoading(true); // Set at start
+        const stakeData: StakeInterface[] | null= await getUserStakesData();
       
-        if (!stakeData) { // null check to ensure we are handling the right data
-          throw new Error(`data returned from api is not defined`)
+        if (!stakeData) {
+          throw new Error(`data returned from api is not defined`);
         }
 
-        dispatch(setStakesData(stakeData))
-
+        dispatch(setStakesData(stakeData));
       } catch (err) {
-        console.log(`an error occured: stake data receinved from backend is not that defined`)
+        console.log(`an error occurred: stake data received from backend is not defined`);
+      } finally {
+        setIsLoading(false); // Always set to false
       }
-    }
+    };
 
-    setIsLoading(true)
-    dispatch(updateCurrentPage(thisPage))
-    loadUserStakeData()
-    setIsLoading(false)
-  }, [])
+    dispatch(updateCurrentPage(thisPage));
+    loadUserStakeData();
+  }, [dispatch]);
+
 
   if (isMenuClicked) {
     return (
@@ -116,8 +119,11 @@ function StakesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center bg-lightblue-components min-h-screen">
-        <h2>loading...</h2>
+      <div className="flex items-center justify-center bg-background-blue min-h-screen">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FED800]"></div>
+          <p className="text-gray-400 text-sm">Loading stakes...</p>
+        </div>
       </div>
     )
   }
@@ -126,7 +132,7 @@ function StakesPage() {
   return(
     <div className="bg-background-blue min-h-screen flex flex-col justify-between">
       {/* the header part goes here */}
-      <div className="flex-none  border-b-2 pb-4">
+      <div className="flex-none  border-b-2 pb-4 fixed">
         <HeaderComponent/>
         <div className="px-2">
           <h2 className="text-xl text-custom-white-text-color">my bets</h2>
