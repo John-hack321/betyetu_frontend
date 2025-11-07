@@ -68,25 +68,26 @@ export default function SignUpPage(){
 */}
 
     return (
-        <div className = 'flex min-h-screen w-full bg-white'>
+        <div className = 'flex min-h-screen w-full bg-background-blue'>
             <div className = 'relative w-full lg:w-1/2 '>
             <div className = 'absolute left-8 top-6  p-2 '>
-                <span className = 'text-xl font-bold tracking-tight text-black lowercase'>.betyetu</span>
+                <span className = 'text-xl font-bold tracking-tight text-yellow-components lowercase'>.bet</span>
+                <span className="text-xl font-bold tracking-tight text-custom-white-text-color">yetu</span>
             </div>  
             {/*sing up form */}
             <div className = "flex min-h-screen items-center justify-center">
                 <div className = "w-full max-w-md p-8">
-                    <h2 className = "mb-6 text-center text-2xl font-semibold text-black ">Create your account?</h2>
+                    <h2 className = "mb-6 text-center text-2xl font-semibold text-custom-white-text-color ">Create your account?</h2>
                     <form onSubmit = {handleSubmit(onSubmit)}>
                         <div className = "mb-4">
-                            <label htmlFor="username" className = "mb-1 block text-sm font-medium text-black">
+                            <label htmlFor="username" className = "mb-1 block text-sm font-medium text-custom-white-text-color">
                                 Username
                             </label>
                             <input type="username" 
                             id="username"
                             {...register("username")}
                             placeholder="enter your username"
-                            className = "text-black p-2 rounded-lg w-full  border border-gray-600 focus:ring-1 focus:ring-black focus:outline-none placeholder:text-gray-600  placeholder:text-sm "
+                            className = "text-custom-white-text-color p-2 rounded-lg w-full  border border-gray-400 focus:ring-1 focus:ring-yellow-components focus:border-yellow-components focus:outline-none placeholder:text-gray-400  placeholder:text-sm "
                             />
                             {errors.username && (
                                 <p className = "text-xs text-red-500 mt-1">
@@ -95,7 +96,7 @@ export default function SignUpPage(){
                             )}
                         </div>
                         <div className = "mb-4">
-                            <label htmlFor="email" className = 'mb-1 block text-sm  font-medium text-black'>
+                            <label htmlFor="email" className = 'mb-1 block text-sm  font-medium text-custom-white-text-color'>
                                 Email
                             </label>
                             <input 
@@ -103,7 +104,7 @@ export default function SignUpPage(){
                              id = "email"
                              {...register("email")}
                              placeholder="enter your email address"
-                             className = "w-full text-black rounded-lg border border-gray-600 p-2 placeholder:text-sm placeholder:text-gray-500 focus:border-black focus:outline-none focus:ring-black focus:ring-1"  />
+                             className = "w-full text-custom-white-text-color rounded-lg border border-gray-400 p-2 placeholder:text-sm placeholder:text-gray-400 focus:border-yellow-components focus:outline-none focus:ring-yellow-components focus:ring-1"  />
                              {errors.email && (
                                 <p className = "text-xs mt-1 text-red-500">
                                     {errors.email.message}
@@ -111,14 +112,14 @@ export default function SignUpPage(){
                              )}                        </div>
 
                         <div className = "mb-4">
-                            <label htmlFor="phone" className = "mb-1 block text-sm font-medium text-black">
+                            <label htmlFor="phone" className = "mb-1 block text-sm font-medium text-custom-white-text-color">
                                 Phone
                             </label>
                             <input type="tel"
                             id = "phone"
                             {...register("phone")}
                             placeholder="enter your phone number"
-                            className = "text-black focus:ring-black focus:ring-1 border-gray-600 placeholder:text-gray-500 placeholder:text-xs border w-full p-2 rounded-lg focus:outline-none"/>
+                            className = "text-custom-white-text-color border focus:ring-yellow-components focus:ring-1 border-gray-400 placeholder:text-gray-400 placeholder:text-xs focus:border-yellow-components  w-full p-2 rounded-lg focus:outline-none"/>
                             {errors.phone && (
                                 <p className = "text-xs text-red-500 mt-1">
                                     {errors.phone.message}
@@ -126,14 +127,14 @@ export default function SignUpPage(){
                             )}
                         </div>
                         <div className = 'mb-4 '>
-                            <label htmlFor="password" className = 'mb-1 block text-sm font-medium text-black'>
+                            <label htmlFor="password" className = 'mb-1 block text-sm font-medium text-custom-white-text-color'>
                                 Password
                             </label>
                             <input type="password" 
                             id = "password" 
                             {...register("password")}
                             placeholder="enter your password"
-                            className = " w-full text-black focus:border-black focus:ring-1 focus:ring-black placeholder:text-sm placeholder:text-gray-500 p-2 focus:outline-none border-gray-500 border rounded-lg" />
+                            className = " w-full text-custom-white-text-color focus:border-yellow-components focus:ring-1 focus:ring-yellow-components placeholder:text-sm placeholder:text-gray-400 p-2 focus:outline-none border-gray-400 border rounded-lg" />
                             {errors.password && (
                                 <p className = "mt-1 text-xs text-red-500">
                                     {errors.password.message}
@@ -143,7 +144,7 @@ export default function SignUpPage(){
                         <button 
                         type = "submit"
                         disabled = {isLoading || !isFormValid}
-                        className = {`my-4 w-full   rounded-full py-2.5 text-sm text-black bg-transparent border border-black font-bold text-center p-2 transition-colors ${isLoading ? "cursor-not-allowed bg-gray-400" : isFormValid ? "bg-black" : "bg-gray-400 cursor-not-allowed"} `}
+                        className = {`my-4 w-full rounded-full py-2.5 text-sm ${isFormValid ? 'text-black' : 'text-custom-white-text-color'} bg-transparent border border-yellow-components font-bold text-center p-2 transition-colors ${isLoading ? 'cursor-not-allowed bg-gray-400' : isFormValid ? 'bg-yellow-components' : 'bg-gray-400 cursor-not-allowed'}`}
                         >{isLoading ? (<span className = "flex justify-center  items-center">
                              <svg
         className="animate-spin h-5 w-5 mr-2 text-black"
@@ -170,7 +171,7 @@ export default function SignUpPage(){
                         ("signup") }
                         </button>
                         <div className = "text-center">
-                            <span className = "text-gray-700 text-sm">already have an account
+                            <span className = "text-custom-white-text-color text-sm">already have an account
                                 <a href="/login" className = "ml-2 underline text-blue">Sign in</a>
                             </span>
                         </div>

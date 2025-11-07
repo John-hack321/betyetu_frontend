@@ -6,5 +6,14 @@ interface QrCodeProps {
 }
 
 export default function GeneratedQrCode({code}: QrCodeProps){
-    return <QRCodeCanvas value={code}/>
+    return (
+        <div className="p-2 bg-white rounded">
+            <QRCodeCanvas 
+                value={code}
+                size={200}
+                level="H"
+                includeMargin={false}
+            />
+        </div>
+    )
 }

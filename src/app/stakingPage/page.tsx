@@ -183,40 +183,43 @@ function Staking() {
                     <h2 className= "text-sm">quick amounts</h2>
                     <div className="flex rounded-full gap-4 mt-2 border-r py-2 border-r-gray-500 border-l border-l-gray-500 flex-1 overflow-x-auto w-88">
                         {quickAmountValues.map((amount) => (
-                                <button
+                                <button key={amount}
                                 className= "px-3 py-1 rounded-full text-white  bg-lightblue-components">{amount}</button>
                         ))}
                     </div>
                 </div>
                 {/* bet invite part */}
                 {stakeInitialized ? (
-                     <div className = 'mt-2 ml-4 rounded-lg bg-lightblue-components flex flex-col justify-center items-center w-90 h-90'>
+                     <div className='mt-4 mx-4 p-4 rounded-lg bg-lightblue-components'>
                         {useQrCode ? (
-                            <div className="flex items-center justify-center flex-col">
-                                <h2 className = "ml-4">Invite : Scan QR code below</h2>
-                                <div className = " mt-2  px-2 w-70 items-center justify-center">
-                                    {inviteCode && inviteCode != null ? (
-                                        /* TODO: dont forget to update the qr code to also hold the website url alongside the code*/
-                                        <div className="w-full">
-                                            <GeneratedQrCode code={inviteCode}/>
+                            <div className='flex flex-col items-center'>
+                                <h2 className='text-lg font-medium mb-2'>Invite a Friend</h2>
+                                <p className='mb-4 text-center'>Scan the QR code below to share your bet</p>
+                                
+                                <div className='mb-4'>
+                                    {reduxStoreInviteCode && reduxStoreInviteCode != null ? (
+                                        <div className='flex justify-center'>
+                                            <GeneratedQrCode code={reduxStoreInviteCode}/>
                                         </div>
                                     ) : (
-                                        <div>
-                                            the qr code should be rendered here
-                                        </div>
+                                        <div>Loading QR code...</div>
                                     )}
                                 </div>
+                                
                                 <button
-                                onClick={() => [handleQrCodeToggleButtonClick()]}
-                                 className= "mt-2 underline text-sm">use invite code</button>
+                                    onClick={handleQrCodeToggleButtonClick}
+                                    className='text-sm underline hover:text-blue-200'
+                                >
+                                    Use invite code instead
+                                </button>
                             </div>
                         ) : (
                             <div className="mt-2 ml-4 mr-4  pb-2 shadow-2xl flex-col  rounded-lg flex items-center w-90 justify-center">
                                  <div>
                                     <h2>copy invite link below</h2>
                                     <div className="flex gap-2">
-                                        {inviteCode && inviteCode != null ? (
-                                            <h2 className="text-xl">{inviteCode}</h2>
+                                        {reduxStoreInviteCode && reduxStoreInviteCode != null ? (
+                                            <h2 className="text-xl">{reduxStoreInviteCode}</h2>
                                         ) : (
                                             <h2>loading ...</h2>
                                         )}
