@@ -3,6 +3,7 @@ import HeaderComponent from "../components/newHeader"
 import FooterComponent from "../components/footer"
 import { useState } from "react"
 import SearchIcon from "../components/searchIcon"
+import { useRouter } from "next/navigation"
 
 import { truncateTeamName } from "../components/fixtureCard"
 import ProtectedRoute from "../components/protectedRoute"
@@ -13,13 +14,17 @@ import { RootState } from "../app_state/store"
 import { useSelector } from "react-redux"
 import { useDispatch } from "react-redux"
 import { updateGuestStakeAmountOnCurrentStakeData, 
-    updateGuestStakePlacementOnCurrentStakeData } from "../app_state/slices/stakingData"
+    updateGuestStakePlacementOnCurrentStakeData, } from "../app_state/slices/stakingData"
+import { guestFetchStakeDataApiCall, GuestFetchStakeDataApiResponse, guestStakePlacementApiCall, GuestStakePlacementResponse } from "../api/stakes"
+import { StakeInterface } from "../app_state/slices/stakesData"
+import { CurrentStakeData, invitedStakeDataApiResponse } from "../apiSchemas/stakingSchemas"
+import { guestSetCurrentStakeData } from "../app_state/slices/stakingData"
+import { setLoadingState } from "../app_state/slices/matchData"
 
 function StakingPage () {
 
     // redux data setups
     const currentStakeData= useSelector((state: RootState)=> state.currentStakeData)
-
     const dispatch= useDispatch<AppDispatch>()
 
     // other data for use
@@ -47,15 +52,29 @@ function StakingPage () {
         dispatch(updateGuestStakePlacementOnCurrentStakeData("draw"))
     }
 
-    const handlePlaceBetButtonClick= ()=> {
+    const handlePlaceBetButtonClick= async ()=> {
+        setLoading(true)
         if (stakeAmount) {
             dispatch(updateGuestStakeAmountOnCurrentStakeData(stakeAmount))
         }
+
         const payload= {
             stakeId: currentStakeData.stakeId,
             stakeAmount: currentStakeData.guestStakeAmount,
-            stakePlacement: currentStakeData.guestStakePlacement,
+            placement: currentStakeData.guestStakePlacement,
         }
+
+        console.log(`the pyaload has been set to ${payload.stakeId}, ${payload.stakeAmount} and ${payload.placement}`)
+
+        const response: GuestStakePlacementResponse | null= await guestStakePlacementApiCall(payload)
+        // with a syccessful respne i think we need to show a success message then push the user to the stakes page after a few seconds right
+        if (response) {
+            if (response.status == 200) {
+                setBetSuccessfulyPlaced(true)
+                router.push("/stakes")
+            }
+        }
+        setLoading(false)
     }
 
     const handleQrCodeToggleButton = () => {
@@ -63,10 +82,50 @@ function StakingPage () {
         setScanWithLInk(!scanWithLink)
     }
 
+    const handleDoneButtonClick= async ()=> {
+        // make api call for fetching stake data for joining the stake
+        // set the stake data to the redux store and update a few state thing for conditional rendering
+        
+        setLoading(true)
+        if (enteredCode && enteredCode != null) {
+            const invitedStakeData: GuestFetchStakeDataApiResponse | null = await guestFetchStakeDataApiCall(enteredCode)
+            if (invitedStakeData) {
+                const stakeData: CurrentStakeData= {
+                    matchId: invitedStakeData.matchId,
+                    stakeId: invitedStakeData.stakeId,
+                    homeTeam: invitedStakeData.homeTeam,
+                    awayTeam: invitedStakeData.awayTeam,
+                    ownerStakeAmount: invitedStakeData.stakeOwner.stakeAmount,
+                    ownerStakeplacement: invitedStakeData.stakeOwner.stakePlacement,
+                    guestStakeAmount: 0,
+                    guestStakePlacement: "",
+            }; // solve this error here , the stake guesta data is comming back as undefined cause it is not returned
+
+            dispatch(guestSetCurrentStakeData(stakeData))
+            setStakeDataReceived(true)
+            }
+        }
+        setLoading(false)
+
+    }
+
     const [stakeDataReceived, setStakeDataReceived]= useState(false)
     const [stakeAmount, setStakeAmount]= useState<number | null>(null)
+    const [enteredCode, setEnteredCode]= useState<string | null>(null)
+    const [loading, setLoading]= useState<boolean>(false)
+    const [betSuccessfulyPlaced, setBetSuccessfulyPlaced]= useState<boolean>(false)
+    const router= useRouter()
 
     const [scanWithLink , setScanWithLInk] = useState<boolean>(true)
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-background-blue flex items-center justify-center">
+                <h2 className="text-sm">loading...</h2>
+            </div>
+        )
+    }
+
     return (
         <div>
             {stakeDataReceived ? (
@@ -172,7 +231,7 @@ function StakingPage () {
                         
                         {/* the footer at the bottom */}
                         <div className="mb-0 bottom-0 fixed w-full">
-                            <FooterComponent/>
+                            <FooterComponent currentPage={"home"} />
                         </div>
                     </div>
                 </div>
@@ -184,10 +243,17 @@ function StakingPage () {
                         <div className = 'pl-10 mt-20 bg-lightblue-components py-4 rounded-lg mx-2 shadow-sm'>
                             <h2 className = 'text-2xl text-gray-300 font-bold'>enter invite link </h2>
                             <div className = "flex gap-4 w-full mt-10 items-center ">
-                                <input type="text"
+                                
+                                {/* invite code enterance part */}
+                                <input
+                                onChange={(e)=> {setEnteredCode(e.target.value)}}
+                                type="text"
                                 placeholder="enter link here"
                                 className = 'border rounded-lg px-2 py w-60 h-10 text-white bg-gray-900 focus:border-gray-700' />
-                                <button className = 'text-black bg-green-components px-2 h-10 rounded-lg'>done</button>
+
+                                <button 
+                                onClick={()=> {handleDoneButtonClick()}}
+                                className = 'text-black bg-green-components px-2 h-10 rounded-lg'>done</button>
                             </div>
                             <div className = 'flex mt-4 gap-2 items-center pb-4'>
                                 <h2 className = 'text-custom-white-text-color'>click</h2>
@@ -216,7 +282,7 @@ function StakingPage () {
                         </div>
                     )}
                     <div className = "bottom-0 mb-0 fixed w-full ">
-                        <FooterComponent/>
+                        <FooterComponent currentPage={"home"}/>
                     </div>
                     </div>
 

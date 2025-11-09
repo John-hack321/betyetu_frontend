@@ -2,7 +2,7 @@
 export interface StakeJoiningPayload {
     stakeId: number;
     stakeAmount: number;
-    stakePlacement: string;
+    placement: string;
 }
 
 export interface FetchStakeDataPayload {

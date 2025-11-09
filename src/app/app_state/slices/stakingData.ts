@@ -20,6 +20,15 @@ const currentStakeSlice= createSlice({
         /**s
          * in the update we also update the hometeam and awayteam 
          */
+        guestSetCurrentStakeData: (state, action: PayloadAction<CurrentStakeData>)=> {
+            state.stakeId= action.payload.stakeId
+            state.matchId= action.payload.matchId
+            state.homeTeam= action.payload.homeTeam
+            state.awayTeam= action.payload.awayTeam
+            state.ownerStakeAmount= action.payload.ownerStakeAmount
+            state.ownerStakeplacement= action.payload.ownerStakeplacement
+        },
+
         addOwnerMatchIdAndPlacemntToCurrentStakeData: (state, action: PayloadAction<{matchId: number, placement: string, home: string, away: string}>)=> {
     
             state.matchId= action.payload.matchId
@@ -51,5 +60,6 @@ export const {addOwnerMatchIdAndPlacemntToCurrentStakeData,
     updateOwnerStakeAmountOnCurrentStakeData,
     updateGuestStakeAmountOnCurrentStakeData,
     updateGuestStakePlacementOnCurrentStakeData,
-    resetCurrentStakeData
+    resetCurrentStakeData,
+    guestSetCurrentStakeData
 }= currentStakeSlice.actions;

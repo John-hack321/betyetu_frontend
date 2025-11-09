@@ -11,4 +11,5 @@ small things to do that im not lazy to do for now :
 
 
 code red things that need to be done as soon as possible: 
+    buld the success card component for the stake linking page
     fix the fixture card rendering thing , make the filtering universal so that we can filter easily by anything

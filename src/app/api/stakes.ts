@@ -64,15 +64,37 @@ export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): P
     }
 }
 
+export interface StakeOwner {
+    stakeAmount: number;
+    stakePlacement: string;
+}
+
+export interface StakeGuest {
+    stakeAmount: number;
+    stakePlacemnt: string;
+}
+export interface GuestFetchStakeDataApiResponse {
+    matchId: number;
+    stakeId: number;
+    homeTeam: string;
+    awayTeam: string;
+    stakeOwner: StakeOwner;
+    stakeGuest: StakeGuest;
+}
+
 // figure out how the paylaod is placed in a get request
-export const guestFetchStakeDataApiCall= async (payload: FetchStakeDataPayload)=> {
+// the payload for this will be the invite code which is a string
+export const guestFetchStakeDataApiCall= async (inviteCode: string): Promise<GuestFetchStakeDataApiResponse | null> => {
     try{
         const accessToken= localStorage.getItem('token')
         if (!accessToken) {
             throw new Error(`failed to fetch token from local storage: __guestFetchStakeDataApicall `)
         }
 
-        const response= axios.get(`${API_BASE_URL}/stakes/get_stake_data`,{
+        const response= await axios.get(`${API_BASE_URL}/stakes/get_stake_data`,{
+            params: {
+                invite_code: inviteCode,
+            },
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -80,22 +102,42 @@ export const guestFetchStakeDataApiCall= async (payload: FetchStakeDataPayload)=
             }
         } )
 
+        const data: GuestFetchStakeDataApiResponse= await response.data // dont forget to parse this data before passing it to the redux store fist
+
+        return data
+
     } catch (err) {
         console.log(`an error occred: __guestFetchStakeDataApiCall detail: ${err}`)
+        return null
     }
 }
 
-export const guestStakePlacementApiCall= async (payload: StakeJoiningPayload)=> {
+export interface GuestStakePlacementResponse {
+    status: number;
+    message: string;
+}
+export const guestStakePlacementApiCall= async (payload: StakeJoiningPayload): Promise<GuestStakePlacementResponse | null> => {
     try{
         const accessToken= localStorage.getItem('token')
         if (!accessToken) {
             throw new Error(`an error occured while fetching access token from local storage`)
         }
 
-        const response: StakeJoiningApiResponse= await axios.post(`${API_BASE_URL}/stakes/place_guest_bet`)
-        return response;
+        const response= await axios.post(`${API_BASE_URL}/stakes/join_initiated_stake`, payload, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        })
+        
+        const data: GuestStakePlacementResponse | null= await response.data
+        
+        return data
+
     } catch (err) {
         console.log(`an error occred: __joinStakeApiCall: detail : ${err}`)
+        return null
     }
 }
 

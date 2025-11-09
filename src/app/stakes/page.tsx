@@ -63,12 +63,6 @@ function StakeCard({ stake }: StakeCardProps) {
       );
     }
 
-    // Default for completed but no result yet
-    return (
-      <div className="flex items-center gap-1 bg-gray-500 px-2 py-1 rounded-md text-xs font-bold">
-        COMPLETED
-      </div>
-    );
   };
 
   const handleCopyCode = () => {
