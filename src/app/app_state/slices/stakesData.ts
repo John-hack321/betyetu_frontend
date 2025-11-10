@@ -8,6 +8,7 @@ export interface StakeInterface {
     stakeStatus: string;
     stakeResult: string;
     date: string;
+    possibleWin: string | number
 }
 
 export interface StakesListDataInterface {

@@ -11,5 +11,6 @@ small things to do that im not lazy to do for now :
 
 
 code red things that need to be done as soon as possible: 
+    as soon as i get access to wifi use claude to fix the new style im using to implement the qr scanning part
     buld the success card component for the stake linking page
     fix the fixture card rendering thing , make the filtering universal so that we can filter easily by anything

@@ -87,7 +87,7 @@ function StakeCard({ stake }: StakeCardProps) {
   };
 
   const isPending = stake.stakeStatus.toLowerCase() === 'pending';
-  const potentialWin = stake.stakeAmount * 2; // Calculate 2x for now
+  const potentialWin = stake.possibleWin // we use the data from the backend to avoid manipulation by users
 
   return (
     <div className="[#1a2633] bg-background-blue rounded-lg border border-gray-700 overflow-hidden mb-1">
@@ -275,7 +275,16 @@ function StakesPage() {
       try {
         setIsLoading(true);
         const stakeData: StakeInterface[] | null = await getUserStakesData();
-      
+        
+        // for debugging purposes
+        if (stakeData) {
+          const length= stakeData.length
+          for(let i=0; i<=length; i++) {
+
+          }
+
+        }
+        
         if (!stakeData) {
           throw new Error(`data returned from api is not defined`);
         }
