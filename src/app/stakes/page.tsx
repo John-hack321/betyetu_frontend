@@ -66,7 +66,7 @@ function StakeCard({ stake }: StakeCardProps) {
   };
 
   const handleCopyCode = () => {
-    const inviteCode = `STAKE-${stake.stakeId}`;
+    const inviteCode = `${stake.inviteCode}`;
     navigator.clipboard.writeText(inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -140,7 +140,7 @@ function StakeCard({ stake }: StakeCardProps) {
             <div className="flex justify-between items-center">
               <span className="text-xs text-gray-400">Your Placement</span>
               <span className="text-sm font-semibold text-[#FED800] capitalize">
-                {stake.home} {/* This should be the actual placement from your data */}
+                {stake.placement} {/* This should be the actual placement from your data */}
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -189,25 +189,33 @@ function StakeCard({ stake }: StakeCardProps) {
                   </div>
 
                   {/* Invite Code */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-400 text-center">Or share this code:</p>
-                    <div className="flex items-center gap-2 bg-[#1a2633] rounded-lg p-3">
-                      <code className="flex-1 text-[#FED800] font-mono text-sm break-all">
-                        STAKE-{stake.stakeId}
-                      </code>
-                      <button
-                        onClick={handleCopyCode}
-                        className="bg-[#FED800] hover:bg-[#ffd700] text-black p-2 rounded-lg transition-colors shrink-0"
-                      >
-                        {copied ? <Check size={16} /> : <Copy size={16} />}
-                      </button>
+                  {stake.inviteCode && stake.inviteCode !== null ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-400 text-center">Or share this code:</p>
+                      <div className="flex items-center gap-2 bg-[#1a2633] rounded-lg p-3">
+                        <code className="flex-1 text-[#FED800] font-mono text-sm break-all">
+                          {stake.inviteCode}
+                        </code>
+                        <button
+                          onClick={handleCopyCode}
+                          className="bg-[#FED800] hover:bg-[#ffd700] text-black p-2 rounded-lg transition-colors shrink-0"
+                        >
+                          {copied ? <Check size={16} /> : <Copy size={16} />}
+                        </button>
+                      </div>
+                      {copied && (
+                        <p className="text-xs text-[#60991A] text-center animate-pulse">
+                          Code copied!
+                        </p>
+                      )}
                     </div>
-                    {copied && (
-                      <p className="text-xs text-[#60991A] text-center animate-pulse">
-                        Code copied!
-                      </p>
-                    )}
-                  </div>
+                  ): (
+                    <div>
+                      <h2 className="text-sm text-red-800">
+                        the invite code is not found : stake is not an owner stake
+                      </h2>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -269,6 +277,13 @@ function StakesPage() {
         return filtered;
     }
   }, [stakeListData, filterState]);
+
+
+  useEffect(() => {
+    const updateRedisCurrentpage= ()=> {
+      dispatch(updateCurrentPage(thisPage))
+    };
+  }, [thisPage, dispatch])
 
   useEffect(() => {
     const loadUserStakeData = async () => {

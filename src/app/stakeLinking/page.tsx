@@ -26,7 +26,8 @@ import {
     guestStakePlacementApiCall, 
     GuestStakePlacementResponse 
 } from "../api/stakes"
-import { CurrentStakeData } from "../apiSchemas/stakingSchemas"
+import { CurrentStakeData, StakeJoiningPayload } from "../apiSchemas/stakingSchemas"
+import { current } from "@reduxjs/toolkit"
 
 function StakingPage() {
     // Redux setup
@@ -68,14 +69,20 @@ function StakingPage() {
 
     const handlePlaceBetButtonClick = async () => {
         setLoading(true)
+
+        let payload: StakeJoiningPayload= {
+            stakeId: currentStakeData.stakeId,
+            stakeAmount: 0,
+            placement: currentStakeData.guestStakePlacement
+        }
         if (stakeAmount) {
             dispatch(updateGuestStakeAmountOnCurrentStakeData(stakeAmount))
-        }
 
-        const payload = {
-            stakeId: currentStakeData.stakeId,
-            stakeAmount: currentStakeData.guestStakeAmount,
-            placement: currentStakeData.guestStakePlacement,
+            payload = {
+                stakeId: currentStakeData.stakeId,
+                stakeAmount: stakeAmount,
+                placement: currentStakeData.guestStakePlacement,
+            }
         }
 
         const response: GuestStakePlacementResponse | null = await guestStakePlacementApiCall(payload)
@@ -197,36 +204,47 @@ function StakingPage() {
                         <div className="mb-6">
                             <h3 className="text-white font-bold text-lg mb-3">Your Prediction</h3>
                             <div className="grid grid-cols-3 gap-3">
-                                <button
-                                    onClick={handleHomeButtonClick}
-                                    className={`py-3 rounded-lg font-semibold transition-all ${
-                                        currentStakeData.guestStakePlacement === currentStakeData.homeTeam
+                            <button 
+                                onClick={currentStakeData.ownerStakeplacement == currentStakeData.homeTeam ? undefined : handleHomeButtonClick}
+                                disabled={currentStakeData.ownerStakeplacement == currentStakeData.homeTeam}
+                                className={`py-3 rounded-lg font-semibold transition-all ${
+                                    currentStakeData.ownerStakeplacement == currentStakeData.homeTeam 
+                                        ? 'bg-gray-600 text-gray-300 cursor-not-allowed opacity-50'
+                                        : currentStakeData.guestStakePlacement === currentStakeData.homeTeam
                                             ? 'bg-yellow-components text-black'
                                             : 'bg-lightblue-components text-white hover:bg-gray-700'
-                                    }`}
-                                >
-                                    Home
-                                </button>
-                                <button
-                                    onClick={handleDrawButtonClick}
-                                    className={`py-3 rounded-lg font-semibold transition-all ${
-                                        currentStakeData.guestStakePlacement === 'draw'
+                                }`}
+                            >
+                                {truncateTeamName(currentStakeData.homeTeam)}
+                            </button>
+
+                            <button
+                                onClick={currentStakeData.ownerStakeplacement == "draw" ? undefined : handleDrawButtonClick}
+                                disabled={currentStakeData.ownerStakeplacement == "draw"}
+                                className={`py-3 rounded-lg font-semibold transition-all ${
+                                    currentStakeData.ownerStakeplacement == "draw" 
+                                        ? 'bg-gray-600 text-gray-300 cursor-not-allowed opacity-50'
+                                        : currentStakeData.guestStakePlacement === 'draw'
                                             ? 'bg-yellow-components text-black'
                                             : 'bg-lightblue-components text-white hover:bg-gray-700'
-                                    }`}
-                                >
-                                    Draw
-                                </button>
-                                <button
-                                    onClick={handleAwayButtonClick}
-                                    className={`py-3 rounded-lg font-semibold transition-all ${
-                                        currentStakeData.guestStakePlacement === currentStakeData.awayTeam
+                                }`}
+                            >
+                                Draw
+                            </button>
+
+                            <button
+                                onClick={currentStakeData.ownerStakeplacement == currentStakeData.awayTeam ? undefined : handleAwayButtonClick}
+                                disabled={currentStakeData.ownerStakeplacement == currentStakeData.awayTeam}
+                                className={`py-3 rounded-lg font-semibold transition-all ${
+                                    currentStakeData.ownerStakeplacement === currentStakeData.awayTeam 
+                                        ? 'bg-gray-600 text-gray-300 cursor-not-allowed opacity-50'
+                                        : currentStakeData.guestStakePlacement === currentStakeData.awayTeam
                                             ? 'bg-yellow-components text-black'
                                             : 'bg-lightblue-components text-white hover:bg-gray-700'
-                                    }`}
-                                >
-                                    Away
-                                </button>
+                                }`}
+                            >
+                                {truncateTeamName(currentStakeData.awayTeam)}
+                            </button>
                             </div>
                         </div>
 

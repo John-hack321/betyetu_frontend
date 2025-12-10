@@ -63,10 +63,14 @@ export const fetchUserData = async (): Promise<FetchUserDataResponse> => {
 };
 
 
+
+// i will do a seperate transaction api file in version 2 so that transactions can be handled extensively right
+
+
 export const doTransaction = async (amount : number , transaction_type : number) => {
     console.log('do transaction has started here')
     try{
-        const accessToken = localStorage.getItem('token')
+        const accessToken = localStorage.getItem('access_token')
     if (!accessToken){
         throw new Error('No authentication token found')
     }

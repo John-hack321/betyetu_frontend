@@ -21,7 +21,19 @@ export default function FooterComponent ({currentPage}: FooterProps) {
     const router= useRouter()
 
     const handleTrophyButtonClick= ()=> {
+        router.push('/stakes')
+    }
+
+    const handleDashboardButtonClick= ()=> {
         router.push('/dashboard')
+    }
+
+    const handleProfileButtonClick= ()=> {
+        router.push('/profile')
+    }
+
+    const handleHomeButtonClick= ()=> {
+        router.push('/home')
     }
 
     return (
@@ -30,12 +42,16 @@ export default function FooterComponent ({currentPage}: FooterProps) {
 
             {/* the buttons will be rendered differently based on whether the use is on the current page */}
             {currentPage === "home" ? (
-                <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <button
+                 onClick={()=> router.push('/home')}
+                 className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
                     <Home size={24} className="text-[#FED800]" />
                     <span className="text-xs text-[#FED800] font-medium">Home</span>
                 </button>
             ) : (
-                <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <button
+                 onClick={()=> router.push('/home')}
+                 className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
                     <Home size={24} className="text-gray-400" />
                     <span className="text-xs text-gray-400 font-medium">Home</span>
                 </button>
@@ -64,12 +80,16 @@ export default function FooterComponent ({currentPage}: FooterProps) {
             </button>
             
             {currentPage === "dashboard" ? (
-                <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <button
+                onClick={()=> router.push('/dashboard')}
+                 className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
                     <LayoutDashboard size={24} className="text-[#FED800]" />
                     <span className="text-xs text-[#FED800]">Dashboard</span>
                 </button>
             ) : (
-                <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <button 
+                onClick={()=> router.push('/dashboard')}
+                className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
                     <LayoutDashboard size={24} className="text-gray-400" />
                     <span className="text-xs text-gray-400">Dashboard</span>
                 </button>

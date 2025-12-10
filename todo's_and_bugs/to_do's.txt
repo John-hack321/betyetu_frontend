@@ -8,6 +8,7 @@ big things to do :
 
 small things to do that im not lazy to do for now : 
      find the way the payloads should be placed on the requests for fetching data using get requests
+     make stake objects to also reflect the outcomes of the matches for a better user experience
 
 
 code red things that need to be done as soon as possible: 

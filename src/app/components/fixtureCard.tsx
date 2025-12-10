@@ -1,3 +1,5 @@
+import { formatMatchDate } from "@/utils/dateUtils";
+
 interface FixtureCardProps {
     keyId: number;
     clickedFixtureId: number | null;
@@ -43,7 +45,7 @@ export default function FixtureCard({
             {/* League and Time Header */}
             <div className='flex items-center justify-between mb-2 pb-2 border-b border-gray-600'>
                 <span className="text-xs text-gray-400 font-medium">{league}</span>
-                <span className='text-xs text-gray-300'>{matchTime}</span>
+                <span className='text-xs text-gray-300'>{formatMatchDate(matchTime)}</span>
             </div>
 
             {/* Main Betting Area */}

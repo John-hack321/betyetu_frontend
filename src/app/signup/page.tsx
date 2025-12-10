@@ -68,8 +68,8 @@ export default function SignUpPage(){
 */}
 
     return (
-        <div className = 'flex min-h-screen w-full bg-background-blue'>
-            <div className = 'relative w-full lg:w-1/2 '>
+        <div className='flex min-h-screen w-full overflow-hidden bg-background-blue'>
+            <div className='relative flex-1 lg:flex-none lg:w-1/2 overflow-y-auto'>
             <div className = 'absolute left-8 top-6  p-2 '>
                 <span className = 'text-xl font-bold tracking-tight text-yellow-components lowercase'>.bet</span>
                 <span className="text-xl font-bold tracking-tight text-custom-white-text-color">yetu</span>
@@ -101,15 +101,15 @@ export default function SignUpPage(){
                             </label>
                             <input 
                             type="email"
-                             id = "email"
-                             {...register("email")}
-                             placeholder="enter your email address"
-                             className = "w-full text-custom-white-text-color rounded-lg border border-gray-400 p-2 placeholder:text-sm placeholder:text-gray-400 focus:border-yellow-components focus:outline-none focus:ring-yellow-components focus:ring-1"  />
-                             {errors.email && (
+                            id = "email"
+                            {...register("email")}
+                            placeholder="enter your email address"
+                            className = "w-full text-custom-white-text-color rounded-lg border border-gray-400 p-2 placeholder:text-sm placeholder:text-gray-400 focus:border-yellow-components focus:outline-none focus:ring-yellow-components focus:ring-1"  />
+                            {errors.email && (
                                 <p className = "text-xs mt-1 text-red-500">
                                     {errors.email.message}
                                 </p>
-                             )}                        </div>
+                            )}                        </div>
 
                         <div className = "mb-4">
                             <label htmlFor="phone" className = "mb-1 block text-sm font-medium text-custom-white-text-color">
@@ -180,17 +180,17 @@ export default function SignUpPage(){
             </div>
             </div>
             {/* the right side of the sign up page  */}
-            <div className = "hidden py-[3vh] pr-[3vh] lg:block lg:w-1/2">
-            <div className = "hidden h-full rounded-3xl bg-gradient-to-b from-indigo-100 via-purple-100 to-[#5960d7] lg:block ">
+            <div className="hidden lg:block lg:w-1/2 overflow-hidden">
+            <div className="h-full rounded-3xl bg-gradient-to-b from-indigo-100 via-purple-100 to-[#5960d7] overflow-y-auto">
                 <div className = 'flex h-full flex-col p-12 '>
                     <div className = "flex h-full items-center justify-center">
                         <Image 
-                          src="/cod_actual.png" 
-                          alt="Chess game illustration" 
-                          width={500} 
-                          height={500}
-                          className="rounded-lg hover:opacity-100"
-                          priority
+                        src="/cod_actual.png" 
+                        alt="Chess game illustration" 
+                        width={500} 
+                        height={500}
+                        className="rounded-lg hover:opacity-100"
+                        priority
                         />
                         </div>
                         <div className = "w-full max-w-lg h-fit  p-2">

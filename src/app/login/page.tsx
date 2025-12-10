@@ -75,12 +75,12 @@ export default function SignInPage(){
                             placeholder="enter your username"
                             {...register("username")}
                             className="w-full p-2 placeholder:text-sm rounded-lg text-custom-white-text-color placeholder:text-gray-400 focus:ring-yellow-components focus:outline-none focus:ring-1 border border-gray-400"
-                             />
-                             {errors.username && (
+                            />
+                            {errors.username && (
                                 <p className = "mt-1 text-red-500 text-xs">
                                     {errors.username.message}
                                 </p>
-                             )}
+                            )}
                         </div>
                         <div className = 'mb-4 '>
                             <label htmlFor="password" className = 'mb-1 block text-sm font-medium text-custom-white-text-color'>
@@ -97,32 +97,41 @@ export default function SignInPage(){
                                 </p>
                             )}
                         </div>
+                        {/** the forgot password part */}
+                        <div className="flex justify-between items-center mb-4">
+                            <a 
+                                href="/forgot-password" 
+                                className="text-sm text-yellow-components hover:underline"
+                            >
+                                Forgot password?
+                            </a>
+                        </div>
                         <button 
                         type = "submit"
                         disabled = {isLoading || !isFormValid}
                         className = {`my-4 w-full   rounded-full py-2.5 text-sm text-black bg-yellow-components border border-black font-bold text-center p-2 transition-colors ${isLoading ? "cursor-not-allowed bg-gray-400" : isFormValid ? "bg-black" : "bg-gray-400 cursor-not-allowed"} `}
                         >{isLoading ? (<span className = "flex justify-center  items-center">
-                             <svg
+                            <svg
         className="animate-spin h-5 w-5 mr-2 text-black"
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
-      >
+    >
         <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
         ></circle>
         <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 "
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 "
         ></path>
-      </svg>
-      Signing in...
+    </svg>
+    Signing in...
                         </span>) :
                         ("sign in") }
                         </button>
@@ -141,12 +150,12 @@ export default function SignInPage(){
                 <div className = 'flex h-full flex-col p-12 '>
                     <div className = "flex h-full items-center justify-center">
                         <Image 
-                          src="/cod_actual.png" 
-                          alt="Chess game illustration" 
-                          width={500} 
-                          height={500}
-                          className="rounded-lg hover:opacity-100"
-                          priority
+                        src="/cod_actual.png" 
+                        alt="Chess game illustration" 
+                        width={500} 
+                        height={500}
+                        className="rounded-lg hover:opacity-100"
+                        priority
                         />
                         </div>
                         <div className = "w-full max-w-lg h-fit  p-2">

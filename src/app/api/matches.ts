@@ -4,7 +4,7 @@ import { AllFixturesApiResponse , Fixture } from '../apiSchemas/matcheSchemas';
 
 export const fetchAllFixtures = async (limit: number=100, page: number=1): Promise<AllFixturesApiResponse | null> => {
     try {
-        const accessToken = localStorage.getItem('token');
+        const accessToken = localStorage.getItem('access_token');
         if (!accessToken) {
             throw new Error("No authentication token found");
         }
@@ -35,7 +35,7 @@ export const fetchAllFixtures = async (limit: number=100, page: number=1): Promi
 // data based on the league id
 export const fetchFixturesByLeagueId = async (leagueId : number): Promise<Fixture[] | null> => {
     try{
-        const accessToken = localStorage.get('token')
+        const accessToken = localStorage.get('access_token')
 
         if (!accessToken) {
             throw new Error(`no access token was found`) 

@@ -316,7 +316,7 @@ function Dashboard() {
                             key={tab.id}
                             onClick={() => handleTabClick(tab.id)}
                             className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
-                                filterState.type === tab.id
+                                filterState.type === tab.id 
                                     ? 'text-[#FED800]'
                                     : 'text-gray-400 hover:text-gray-200'
                             }`}

@@ -35,11 +35,20 @@ export interface StakeCancellationResponse {
 
 export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): Promise<StakeInitializationResponse | null> => {
     try {
-        const accessToken= localStorage.getItem('token');
+        const accessToken= localStorage.getItem('access_token');
         if (!accessToken) {
             throw new Error(`an error occured while fetching the access token from local storage`)
         }
-
+        
+        // for debugging purposes
+        console.log("this is in the initializeStakeApiCall")
+        console.log(`stake initiation payload to be sent is`, {
+            away: payload.away,
+            home:  payload.home,
+            matchId: payload.matchId,
+            placement: payload.placement,
+            amount: payload.stakeAmount})
+        
         const response = await axios.post(`${API_BASE_URL}/stakes/initiate_stake`, payload, {
             headers: {
                 'Content-Type': 'application/json',
@@ -86,7 +95,7 @@ export interface GuestFetchStakeDataApiResponse {
 // the payload for this will be the invite code which is a string
 export const guestFetchStakeDataApiCall= async (inviteCode: string): Promise<GuestFetchStakeDataApiResponse | null> => {
     try{
-        const accessToken= localStorage.getItem('token')
+        const accessToken= localStorage.getItem('access_token')
         if (!accessToken) {
             throw new Error(`failed to fetch token from local storage: __guestFetchStakeDataApicall `)
         }
@@ -118,10 +127,17 @@ export interface GuestStakePlacementResponse {
 }
 export const guestStakePlacementApiCall= async (payload: StakeJoiningPayload): Promise<GuestStakePlacementResponse | null> => {
     try{
-        const accessToken= localStorage.getItem('token')
+        const accessToken= localStorage.getItem('access_token')
         if (!accessToken) {
             throw new Error(`an error occured while fetching access token from local storage`)
         }
+
+        console.log("this is in the guestStakePlacementApiCall")
+        console.log(`payload for joing the stake is `, {
+            placement: payload.placement,
+            stakeAmount: payload.stakeAmount,
+            stakeId: payload.stakeId
+        })
 
         const response= await axios.post(`${API_BASE_URL}/stakes/join_initiated_stake`, payload, {
             headers: {
@@ -145,7 +161,7 @@ export const guestStakePlacementApiCall= async (payload: StakeJoiningPayload): P
 
 export const cancelStakePlacementApiCall= async (payload: string): Promise<StakeCancellationResponse | null> => {
     try {
-        const accessToken= localStorage.getItem('token')
+        const accessToken= localStorage.getItem('access_token')
         if (!accessToken) {
             throw new Error(`no access Token find in the local storage in the browser`)
         }
@@ -171,7 +187,7 @@ export const cancelStakePlacementApiCall= async (payload: string): Promise<Stake
 
 export const getUserStakesData= async (): Promise<StakeInterface[] | null> => {
     try {
-        const accessToken= localStorage.getItem('token')
+        const accessToken= localStorage.getItem('access_token')
         if (!accessToken) {
             throw new Error(`no access token found in local storage`)
         }

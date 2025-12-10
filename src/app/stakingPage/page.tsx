@@ -20,7 +20,6 @@ import { CurrentStakeData, StakeInitiatorPayload } from "../apiSchemas/stakingSc
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
 import { updateInviteCode } from "../app_state/slices/stakeConnectionData"
 import { resetCurrentStakeData } from "../app_state/slices/stakingData"
-import { Router } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 function Staking() {
@@ -61,11 +60,24 @@ function Staking() {
          */
         console.log('the place bet button has been clicked')
         if (stakeAmount) { // null check
-            dispatch(updateOwnerStakeAmountOnCurrentStakeData(stakeAmount))
+            console.log("this is in the the handleplacebutton")
+            console.log('the vlaue of stake amount has been updated on the redux store now ')
+            await dispatch(updateOwnerStakeAmountOnCurrentStakeData(stakeAmount))
         }
+
+        // for debugging purposes
+        console.log("this is in the handlePlaceButtonclick")
+        console.log(`value of stake amount is ${stakeAmount} this is the local stake variable`)
+        console.log(`the vlaue of stake amount from redux is ${currentStakeData.ownerStakeAmount}`)
+
+        let numStakeAmount: number= 0
+        if (stakeAmount) {
+            numStakeAmount= stakeAmount
+        }
+
         const payload: StakeInitiatorPayload= {
             placement: currentStakeData.ownerStakeplacement,
-            stakeAmount: currentStakeData.ownerStakeAmount,
+            stakeAmount: numStakeAmount,
             matchId: currentStakeData.matchId,
             home: currentStakeData.homeTeam,
             away: currentStakeData.awayTeam,

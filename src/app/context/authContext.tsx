@@ -4,6 +4,9 @@ import React, { createContext, useEffect , useState, ReactNode, useContext } fro
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 
+import { refreshAccessToken } from '../api/auth';
+
+// redux setups 
 import { AppDispatch } from '../app_state/store';
 import { RootState } from '../app_state/store';
 import { UseDispatch } from 'react-redux';
@@ -44,14 +47,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // based on best practices im told that we first have to check for the existing token on app load 
 
    // redux functionalities
-   const useData = useSelector((state: RootState) => state.userData)
-
-   const dispatch = useDispatch<AppDispatch>()
+  const useData = useSelector((state: RootState) => state.userData)
+  const dispatch = useDispatch<AppDispatch>()
 
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const token = localStorage.getItem('token'); // so we first look for the token in the local storage 
+        const token = localStorage.getItem('access_token'); // so we first look for the token in the local storage 
         if (token) { // if the token is availabe then we do the thing below 
           // Set the token in axios headers
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`; // we first set the token on axios header for outgoing requests 
@@ -67,14 +69,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             });
           } else { // if it is expired we remove it from local storage and also remove from the headers from the frontend 
             // Token expired, remove it
-            localStorage.removeItem('token');
+            localStorage.removeItem('access_token');
             delete axios.defaults.headers.common['Authorization'];
           }
         }
       } catch (error) {
         console.error('Error checking auth status:', error);
         // Clear invalid token
-        localStorage.removeItem('token');
+        localStorage.removeItem('access_token');
         delete axios.defaults.headers.common['Authorization'];
       } finally {
         setLoading(false);
@@ -83,6 +85,43 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     checkAuthStatus();
   }, []);
+
+  useEffect(()=> {
+    {/*
+      * this one runs everytime we are unable to login due to our access token being expire , 
+      * it catches the error 401 errors and sends the refresh token for a new access token
+       */}
+    // Response interceptor - catches 401 errors
+  const interceptor = axios.interceptors.response.use(
+    (response) => response, // Pass through successful responses
+    async (error) => {
+      const originalRequest = error.config;
+
+      // If error is 401 and we haven't tried refreshing yet
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true; // Mark that we've tried
+
+        try {
+          // Try to refresh the token
+          const newAccessToken = await refreshAccessToken();
+          
+          // Retry the original request with new token
+          originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+          return axios(originalRequest);
+        } catch (refreshError) {
+          // Refresh failed - user needs to login again
+          return Promise.reject(refreshError);
+        }
+      }
+
+      return Promise.reject(error);
+    }
+  );
+
+  return () => {
+    axios.interceptors.response.eject(interceptor);
+  };
+  },[])
 
   const signup = async ( username : string , email : string ,phone : string ,  password : string ) => {
 
@@ -116,10 +155,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.log(`the payload has been sent successfuly , now awaiting access token from the backend`)
 
       const accessToken = response.data.access_token;
+      const refreshToken = response.data.refresh_token;
       console.log(`the access token has been received`)
 
       axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-      localStorage.setItem('token' , accessToken);
+      localStorage.setItem('access_token' , accessToken); // token will just be default refer to the access token and then the refresh token will have its distinctive identifiable name as shown 
+      localStorage.setItem('refresh_oken', refreshToken)
       // now after the saving the access token in local storage we also need to store the current user in local storage 
 
       const payloadDecoded = JSON.parse(atob(accessToken.split('.')[1]));
@@ -131,7 +172,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setUser(userIdAndUsername)
 
       // before redirecting to the dashboard we upadte the usedata in the react store with the userid and the username 
-      router.push("/dashboard");
+      router.push("/home");
 
     }
     catch (error){
@@ -149,14 +190,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.log("sending login request with username and password ");
       const response = await axios.post('http://localhost:8000/auth/token', formData, {
         headers: {
-           'Content-Type': 'application/x-www-form-urlencoded' ,
-           'Accept' : 'applicaton/json'
+          'Content-Type': 'application/x-www-form-urlencoded' ,
+          'Accept' : 'applicaton/json'
           },
       });
 
-      const accessToken = response.data.access_token; // this part now extracts the accessToken from the response from fastapi 
+      const accessToken = response.data.access_token;
+      const refreshToken= response.data.refresh_token;
+
       axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`; // the token is then added to the header files for requests so that it can be addedd to all the outgoing requests 
-      localStorage.setItem('token', accessToken); // we the store the token locally in the local storage , so that apart from being accessible on the headers it is alse accessible localy 
+      localStorage.setItem('access_token', accessToken); 
+      localStorage.setItem('refresh_token', refreshToken)
       // setUser(response.data); // we the update the user variable in the useState hook with the user data from the response
 
       // we will do thi setUser a little different for now we will get the actual specific data that we want 
@@ -178,7 +222,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // before redirecting to the dashboard we upadte the usedata in the react store with the userid and the username 
       dispatch(updateUserIdAndUsername(userIdAndUsername))
 
-      router.push('/dashboard'); // we then redirect the user to the landing page or a relevant page after loggin in now 
+      router.push('/home'); // we then redirect the user to the landing page or a relevant page after loggin in now 
       // return true;
     } catch (error) {
       console.error('Login failed:', error);
@@ -186,11 +230,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const logout = () => { // this is now the logout functoin , which is also share across all of the app 
-    setUser(null); // we begin by setting the usr to null so that there is no user currently logged in 
-    delete axios.defaults.headers.common['Authorization']; // we the remove the token from the headers
-    localStorage.removeItem('token'); // we also remove it from the local storage 
-    router.push('/login'); // we then push the user to the login page 
+  const logout = async () => {
+    try {
+      // Call backend logout endpoint
+      const accessToken = localStorage.getItem('access_token');
+      if (accessToken) {
+        /* for now there still no need of doing the api call to the backend
+        await axios.post('http://localhost:8000/auth/logout', null, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        */
+      }
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+      
+    } finally {
+      // Clear everything
+      setUser(null);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      delete axios.defaults.headers.common['Authorization'];
+      router.push('/login');
+    }
   };
 
   return ( // and now this is the component that we now return which houses all of the login and logout logic and goes foward to share it across all of the components 
