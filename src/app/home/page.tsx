@@ -386,6 +386,8 @@ function Dashboard() {
                                         homeButtonClicked={selectedMatchId === match.match_id && selectedOption === "home"}
                                         awayButtonClicked={selectedMatchId === match.match_id && selectedOption === "away"}
                                         drawButtonClicked={selectedMatchId === match.match_id && selectedOption === "draw"}
+                                        isMatchLive={match.is_match_live}
+                                        scoreString={match.score_string}
                                     />
                                 </div>
                             ))}

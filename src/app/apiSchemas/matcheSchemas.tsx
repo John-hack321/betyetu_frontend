@@ -11,6 +11,8 @@ export interface Fixture {
     home_team : string;
     away_team_id : number;
     away_team : string;
+    is_match_live?: boolean;
+    score_string?: string;
 }
 
 export interface AllFixturesApiResponse {
