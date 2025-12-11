@@ -1,5 +1,4 @@
-"use client";
-
+'use client'
 import React, { useState, useEffect } from 'react';
 import { Trophy, Zap, Shield, Users, ArrowRight, CheckCircle } from 'lucide-react';
 
@@ -21,8 +20,8 @@ export default function LandingPage() {
   }, []);
 
   const stats = [
-    { value: '10K+', label: 'Active Players' },
-    { value: '₹2M+', label: 'Won Today' },
+    { value: '300', label: 'Active Players' },
+    { value: 'KSh 5,000+', label: 'Won Today' },
     { value: '99.9%', label: 'Uptime' }
   ];
 
@@ -49,11 +48,7 @@ export default function LandingPage() {
     }
   ];
 
-  const testimonials = [
-    { name: 'Alex K.', text: 'Best betting platform I\'ve used. The UI is smooth and payouts are instant!', wins: '₹45,000' },
-    { name: 'Priya M.', text: 'Love the friend challenges feature. Makes betting so much more fun!', wins: '₹28,500' },
-    { name: 'Raj S.', text: 'Fast, secure, and transparent. Everything a betting app should be.', wins: '₹67,200' }
-  ];
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0e27] via-[#16202C] to-[#0a0e27] text-white overflow-hidden">
@@ -74,7 +69,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-gray-300 hover:text-[#FED800] transition-colors">Features</a>
             <a href="#how-it-works" className="text-gray-300 hover:text-[#FED800] transition-colors">How It Works</a>
-            <a href="#testimonials" className="text-gray-300 hover:text-[#FED800] transition-colors">Testimonials</a>
+            <a href="#app" className="text-gray-300 hover:text-[#FED800] transition-colors">App</a>
           </div>
           <div className="flex items-center gap-3">
             <a href="/login" className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors">
@@ -245,33 +240,100 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section id="testimonials" className="relative z-10 py-24 px-6">
+      {/* App Showcase Section */}
+      <section className="relative z-10 py-24 px-6 bg-gradient-to-b from-transparent to-white/5">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              What Our <span className="text-[#FED800]">Winners Say</span>
+              Bet Anywhere, <span className="text-[#FED800]">Anytime</span>
             </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+              Powerful features in a beautiful, easy-to-use mobile app
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map((testimonial, index) => (
-              <div 
-                key={index}
-                className="p-6 bg-gradient-to-br from-white/10 to-white/0 backdrop-blur-sm border border-white/10 rounded-2xl hover:border-[#FED800]/50 transition-all"
-              >
-                <div className="flex items-center gap-1 mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-[#FED800]">★</span>
-                  ))}
-                </div>
-                <p className="text-gray-300 mb-4 italic">"{testimonial.text}"</p>
-                <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                  <div className="font-semibold">{testimonial.name}</div>
-                  <div className="text-[#60991A] font-bold">{testimonial.wins} Won</div>
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Phone Mockup 1 - Profile/Dashboard */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#FED800]/20 to-[#60991A]/20 rounded-3xl blur-3xl group-hover:blur-2xl transition-all"></div>
+              <div className="relative">
+                {/* Phone Frame */}
+                <div className="relative mx-auto w-[300px] bg-gradient-to-b from-gray-800 to-gray-900 rounded-[3rem] p-3 shadow-2xl border-8 border-gray-800">
+                  {/* Notch */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-7 bg-gray-800 rounded-b-3xl z-10"></div>
+                  
+                  {/* Screen Content */}
+                  <div className="relative bg-[#16202C] rounded-[2.5rem] overflow-hidden h-[600px]">
+                    <img 
+                      src="/screen_pic2.png" 
+                      alt="BetYetu Profile Dashboard" 
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
                 </div>
               </div>
-            ))}
+              
+              {/* Feature Cards */}
+              <div className="absolute -left-8 top-1/4 bg-black/80 backdrop-blur-xl border border-[#FED800]/30 rounded-xl p-4 shadow-xl max-w-[180px]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#FED800]/20 rounded-lg flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-[#FED800]" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Your Stats</div>
+                    <div className="text-sm font-bold text-white">Track Everything</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Phone Mockup 2 - Betting Interface */}
+            <div className="relative group lg:mt-20">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#60991A]/20 to-[#FED800]/20 rounded-3xl blur-3xl group-hover:blur-2xl transition-all"></div>
+              <div className="relative">
+                {/* Phone Frame */}
+                <div className="relative mx-auto w-[300px] bg-gradient-to-b from-gray-800 to-gray-900 rounded-[3rem] p-3 shadow-2xl border-8 border-gray-800">
+                  {/* Notch */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-7 bg-gray-800 rounded-b-3xl z-10"></div>
+                  
+                  {/* Screen Content */}
+                  <div className="relative bg-[#16202C] rounded-[2.5rem] overflow-hidden h-[600px]">
+                    <img 
+                      src="/screen_pic1.png" 
+                      alt="BetYetu Betting Interface" 
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature Cards */}
+              <div className="absolute -right-8 top-1/3 bg-black/80 backdrop-blur-xl border border-[#60991A]/30 rounded-xl p-4 shadow-xl max-w-[180px]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#60991A]/20 rounded-lg flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-[#60991A]" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Live Betting</div>
+                    <div className="text-sm font-bold text-white">Real-Time Odds</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* App Download CTA */}
+          <div className="mt-16 text-center">
+            <div className="inline-flex items-center gap-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
+              <div className="text-left">
+                <div className="text-sm text-gray-400 mb-1">Available on</div>
+                <div className="text-xl font-bold">Web & Mobile</div>
+              </div>
+              <div className="h-12 w-px bg-white/10"></div>
+              <a href="/signup" className="px-6 py-3 bg-[#FED800] text-black font-bold rounded-full hover:scale-105 transition-transform">
+                Get Started
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -319,7 +381,6 @@ export default function LandingPage() {
               <h4 className="font-bold mb-4">Company</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li><a href="#" className="hover:text-[#FED800]">About</a></li>
-                <li><a href="#" className="hover:text-[#FED800]">Careers</a></li>
                 <li><a href="#" className="hover:text-[#FED800]">Contact</a></li>
               </ul>
             </div>
