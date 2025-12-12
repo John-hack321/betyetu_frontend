@@ -161,12 +161,16 @@ export const guestStakePlacementApiCall= async (payload: StakeJoiningPayload): P
 
 export const cancelStakePlacementApiCall= async (payload: string): Promise<StakeCancellationResponse | null> => {
     try {
+        console.log(`the stake cancelation api call has been called with invite code payload of : ${payload}`)
         const accessToken= localStorage.getItem('access_token')
         if (!accessToken) {
             throw new Error(`no access Token find in the local storage in the browser`)
         }
 
-        const response= await axios.post(`${API_BASE_URL}/stakes/cancel_stake`, payload, {
+        // we have to convert invite to a name that is expected by te backend 
+        const invite_code= payload
+
+        const response= await axios.post(`${API_BASE_URL}/stakes/cancel_stake`, invite_code, {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',

@@ -162,6 +162,18 @@ function Staking() {
         router.push("/stakes")  
     }
 
+    const handleQuickAmountButtonclick= (amount: number)=> {
+        console.log('the quick amount button has been clicked')
+        
+        setStakeAmount(amount)
+    }
+
+    const handleStakeCodeCopyButtonClick= ()=> {
+        console.log('the stake code copy button has been clicked')
+        const code= `${inviteCode}`
+        navigator.clipboard.writeText(code);
+    }
+
     if (isLoading) {
         return (
             <div className="bg-background-blue min-h-screen flex items-center justify-center">
@@ -171,15 +183,15 @@ function Staking() {
     }
 
     return (
-        <div className = "bg-background-blue min-h-screen">
-           <HeaderComponent/>
+        <div className = "bg-background-blue min-h-screen w-screen">
+            <HeaderComponent/>
            {/* the staking main content goes here now */}
-           <div className="mt-8">
+            <div className="mt-8 pb-30">
                 <h2 className = "text-4xl font-bold ml-4">Staking</h2>
                 
                 <div>
                     {stakeInitialized && stakeInitialized === true ? (
-                      <div className="bg-lightblue-components mx-4 mt-4 rounded-lg shadow-xl overflow-hidden">
+                    <div className="bg-lightblue-components mx-4 mt-4 rounded-lg shadow-xl overflow-hidden">
                             {/* Success Header with accent */}
                             <div className="bg-green-components/10 border-l-4 border-green-components px-4 py-3">
                                 <div className="flex items-center gap-2">
@@ -283,10 +295,10 @@ function Staking() {
                             {/* staking amount entrance point */}
                             <div className="flex mt-3 ml-4 gap-3">
                                 <h2 className = "text-xl">amount</h2>
-                                <div className = "items-center justify-center flex px-2 py-1 border-1 border-gray-100 placeholder:text-black rounded-lg w-38 hover:bg-amber-200">
+                                <div className = "items-center justify-center flex px-2 py-1 border-1 border-gray-100 placeholder:text-black rounded-lg w-34 hover:bg-amber-200">
                                     <input type="text"
                                     onChange={(e)=> {setStakeAmount(parseFloat(e.target.value))}}
-                                    placeholder="100"
+                                    value={stakeAmount || ''}
                                     className = "text-white focus:outline-none focus:ring-yellow-50 focus:border-transparent hover:font-extrabold font-bold w-38 pl-4" />
                                 </div>
                                 <button className = "bg-yellow-components  text-center text-black px-6 py-1 rounded-full"
@@ -295,9 +307,10 @@ function Staking() {
                             {/* deposit and place bet button */}
                             <div className="mt-2 flex ml-4 flex-col">
                                 <h2 className= "text-sm">quick amounts</h2>
-                                <div className="flex rounded-full gap-4 mt-2 border-r py-2 border-r-gray-500 border-l border-l-gray-500 flex-1 overflow-x-auto w-88">
+                                <div className="flex rounded-full gap-4 mt-2 border-r py-2 border-r-gray-500 border-l border-l-gray-500 flex-1 overflow-x-auto w-78">
                                     {quickAmountValues.map((amount) => (
                                             <button key={amount}
+                                            onClick={()=> {handleQuickAmountButtonclick(amount)}}
                                             className= "px-3 py-1 rounded-full text-white  bg-lightblue-components">{amount}</button>
                                     ))}
                                 </div>
@@ -340,7 +353,9 @@ function Staking() {
                                         ) : (
                                             <h2>loading ...</h2>
                                         )}
-                                        <button className="bg-background-blue rounded-lg px-3 py text-white">copy</button>
+                                        <button
+                                        onClick={()=> {handleStakeCodeCopyButtonClick()}}
+                                        className="bg-background-blue rounded-lg px-3 py text-white">copy</button>
                                     </div>
 
                                  </div>
@@ -356,7 +371,7 @@ function Staking() {
                     </div>
                 )}
                 {/* the footer at the bottom */}
-                <div className="mb-0 bottom-0 fixed w-full">
+                <div className="mb-0 bottom-0 fixed w-screen">
                     <FooterComponent currentPage={currentPage} />
                 </div>
            </div>

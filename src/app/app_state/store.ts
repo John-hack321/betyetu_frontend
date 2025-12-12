@@ -14,6 +14,7 @@ import stakeConnectionDataReducer from "./slices/stakeConnectionData"
 import currentPageDataReducer from "./slices/pageTracking"
 import leagueDataReducer from "./slices/leagueData"
 import stakesDataReducer from "./slices/stakesData"
+import socketConnectionReducer from "./slices/socketConnection";
 
 // Define persist config type
 type PersistConfig = {
@@ -32,6 +33,7 @@ export const rootReducer = combineReducers({
   currentPageData: currentPageDataReducer,
   leagueData: leagueDataReducer,
   stakesData: stakesDataReducer,
+  socketConnectionData: socketConnectionReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -43,7 +45,7 @@ const persistConfig: PersistConfig = {
   key: 'root',
   version: 1,
   storage,
-  whitelist: ['userData', 'currentStakeData', 'allFixtureData', 'stakeConnectionData', 'currentPageData', 'leagueData', 'stakesData'],
+  whitelist: ['userData', 'currentStakeData', 'allFixtureData', 'stakeConnectionData', 'currentPageData', 'leagueData', 'stakesData', 'socketConnectionData' ],
 };
 
 // Create persisted reducer

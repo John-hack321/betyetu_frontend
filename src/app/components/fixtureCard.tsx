@@ -37,8 +37,8 @@ export default function FixtureCard({
     homeButtonClicked,
     awayButtonClicked,
     drawButtonClicked,
-    isMatchLive = true,
-    scoreString = "1 - 1",
+    isMatchLive,
+    scoreString,
 }: FixtureCardProps) {
     
     // Truncate team names if too long
@@ -54,18 +54,27 @@ export default function FixtureCard({
 
             {/* main match content area */}
             <div>
-                {isMatchLive ? (
-                    <div className="">
-                        <div className="bg-red-500 rounded-lg flex flex-row w-12 justify-between px-2 py items-center">
-                            <div className="rounded-lg">.</div>
-                            <p className="">LIVE</p>
-                        </div>
-                        <div>
-                            <p>{scoreString}</p>
+                {isMatchLive && (
+                    <div className="mb-3">
+                        <div className="flex items-center justify-between bg-gradient-to-r from-red-500/10 to-transparent rounded-lg p-2 border border-red-500/20">
+                            {/* Animated LIVE badge */}
+                            <div className="flex items-center gap-2 bg-red-500 rounded-md px-2.5 py-1 shadow-lg">
+                                <div className="relative flex items-center">
+                                    {/* Pulsing dot animation */}
+                                    <div className="absolute w-2 h-2 bg-white rounded-full animate-ping opacity-75"></div>
+                                    <div className="relative w-2 h-2 bg-white rounded-full"></div>
+                                </div>
+                                <span className="text-white text-xs font-bold tracking-wider">LIVE</span>
+                            </div>
+                            
+                            {/* Score Display */}
+                            <div className="bg-red-500/20 px-3 py-1 rounded-md">
+                                <span className="text-red-400 text-lg font-bold animate-pulse">
+                                    {scoreString}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                ) : (
-                    <div></div>
                 )}
 
                 {/* Main Betting Area */}
@@ -140,7 +149,7 @@ export default function FixtureCard({
                 <div className="mt-3 pt-3 border-t border-gray-600">
                     <button
                     onClick={onClickStakeButton}
-                     className="w-full bg-[#60991A] hover:bg-[#4d7a15] text-black font-bold py-2 rounded-lg transition-colors duration-200">
+                    className="w-full bg-[#60991A] hover:bg-[#4d7a15] text-black font-bold py-2 rounded-lg transition-colors duration-200">
                         Stake Now
                     </button>
                 </div>
