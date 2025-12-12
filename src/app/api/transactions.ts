@@ -14,7 +14,11 @@ export interface WithdrawalInitiationPayload {
 
 export const depositMoneyApiCall= async (amount: number, transactionType: number) => {
     try{
-        const accessToken= localStorage.getItem('access_token')
+
+        const accessToken = typeof window !== 'undefined' 
+        ? localStorage.getItem('access_token') 
+        : null;
+
         if (!accessToken) {
             throw new Error(`error accessing accessToken for localStorage`)
             // return; // we then return early on this refusal of access toknea acdess 
@@ -46,7 +50,11 @@ export const depositMoneyApiCall= async (amount: number, transactionType: number
 
 export const withdrawMoneyApiCall= async (amount: number, transactionType: number )=> {
     try {
-        const accessToken= localStorage.getItem('access_token')
+        
+        const accessToken = typeof window !== 'undefined' 
+        ? localStorage.getItem('access_token') 
+        : null;
+
         if (!accessToken) {
             throw new Error("an unexpected error occured: could not find the access token ")
         }

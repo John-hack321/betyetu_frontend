@@ -162,7 +162,11 @@ export const guestStakePlacementApiCall= async (payload: StakeJoiningPayload): P
 export const cancelStakePlacementApiCall= async (payload: string): Promise<StakeCancellationResponse | null> => {
     try {
         console.log(`the stake cancelation api call has been called with invite code payload of : ${payload}`)
-        const accessToken= localStorage.getItem('access_token')
+
+        const accessToken = typeof window !== 'undefined' 
+        ? localStorage.getItem('access_token') 
+        : null;
+
         if (!accessToken) {
             throw new Error(`no access Token find in the local storage in the browser`)
         }

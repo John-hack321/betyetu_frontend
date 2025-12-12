@@ -11,7 +11,9 @@ export interface LeagueInterface {
 
 export const getAvailableLeagues = async (): Promise<LeagueInterface[] | null> => {
     try {
-        const accessToken = localStorage.getItem('access_token')
+        const accessToken = typeof window !== 'undefined' 
+        ? localStorage.getItem('access_token') 
+        : null;
 
         if (!accessToken) {
             throw new Error(`failed to fetch accesstoken from the local storage`)

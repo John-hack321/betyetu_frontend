@@ -1,8 +1,6 @@
-// this file will hold our redux store 
-
+// src/app/app_state/store.ts
 import { configureStore } from "@reduxjs/toolkit";
 import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist';
-import storage from 'redux-persist/lib/storage';
 import { combineReducers } from 'redux';
 import type { WebStorage } from 'redux-persist';
 
@@ -15,14 +13,6 @@ import currentPageDataReducer from "./slices/pageTracking"
 import leagueDataReducer from "./slices/leagueData"
 import stakesDataReducer from "./slices/stakesData"
 import socketConnectionReducer from "./slices/socketConnection";
-
-// Define persist config type
-type PersistConfig = {
-  key: string;
-  version: number;
-  storage: WebStorage;
-  whitelist?: string[];
-};
 
 // Root reducer
 export const rootReducer = combineReducers({
@@ -37,19 +27,37 @@ export const rootReducer = combineReducers({
 });
 
 export type RootState = ReturnType<typeof rootReducer>;
-
 export let persistor: ReturnType<typeof persistStore>;
 
+// Create storage wrapper that only works on client-side
+const createNoopStorage = (): WebStorage => {
+  return {
+    getItem(_key: string) {
+      return Promise.resolve(null);
+    },
+    setItem(_key: string, value: any) {
+      return Promise.resolve(value);
+    },
+    removeItem(_key: string) {
+      return Promise.resolve();
+    },
+  };
+};
+
+const storage = typeof window !== 'undefined' 
+  ? require('redux-persist/lib/storage').default 
+  : createNoopStorage();
+
 // Persist config
-const persistConfig: PersistConfig = {
+const persistConfig = {
   key: 'root',
   version: 1,
   storage,
-  whitelist: ['userData', 'currentStakeData', 'allFixtureData', 'stakeConnectionData', 'currentPageData', 'leagueData', 'stakesData', 'socketConnectionData' ],
+  whitelist: ['userData', 'currentStakeData', 'allFixturesData', 'stakeConnectionData', 'currentPageData', 'leagueData', 'stakesData', 'socketConnectionData'],
 };
 
 // Create persisted reducer
-const persistedReducer = persistReducer(persistConfig, rootReducer as any);
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 // Configure store with middleware
 export const store = configureStore({
@@ -63,8 +71,8 @@ export const store = configureStore({
 });
 
 // Create persistor
-persistor = persistStore(store);
+if (typeof window !== 'undefined') {
+  persistor = persistStore(store);
+}
 
 export type AppDispatch = typeof store.dispatch;
-
-// and just like that we will have created our redux store

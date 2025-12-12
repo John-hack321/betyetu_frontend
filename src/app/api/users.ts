@@ -25,7 +25,10 @@ export const userLoginApiCall = async () => {
 
 export const fetchUserData = async (): Promise<FetchUserDataResponse> => {
     try {
-        const accessToken = localStorage.getItem('token');
+
+        const accessToken = typeof window !== 'undefined' 
+        ? localStorage.getItem('access_token') 
+        : null;
         
         if (!accessToken) {
             throw new Error('No authentication token found');
@@ -70,7 +73,11 @@ export const fetchUserData = async (): Promise<FetchUserDataResponse> => {
 export const doTransaction = async (amount : number , transaction_type : number) => {
     console.log('do transaction has started here')
     try{
-        const accessToken = localStorage.getItem('access_token')
+
+    const accessToken = typeof window !== 'undefined' 
+    ? localStorage.getItem('access_token') 
+    : null;
+
     if (!accessToken){
         throw new Error('No authentication token found')
     }
