@@ -30,6 +30,7 @@
     "react-hook-form": "^7.60.0",
     "react-redux": "^9.2.0",
     "redux-persist": "^6.0.0",
+    "shart": "^0.0.4",
     "zod": "^3.25.75"
   },
   "devDependencies": {
