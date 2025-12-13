@@ -1,7 +1,7 @@
 {
-  "name": "BetYetu - Peer-to-Peer Betting",
-  "short_name": "BetYetu",
-  "description": "Kenya's most trusted peer-to-peer betting platform",
+  "name": "PeerStake - Peer-to-Peer Staking",
+  "short_name": "PeerStake",
+  "description": "The most trusted peer-to-peer staking platform",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0F1419",

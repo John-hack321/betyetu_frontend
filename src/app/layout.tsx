@@ -16,14 +16,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BetYetu - Peer-to-Peer Betting",
-  description: "Kenya's most trusted peer-to-peer betting platform",
+  title: "PeerStake - Peer-to-Peer Staking",
+  description: "The most trusted peer-to-peer staking platform",
   manifest: "/manifest.json",
   themeColor: "#23313D",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "BetYetu",
+    title: "PeerStake",
   },
   formatDetection: {
     telephone: false,
@@ -55,7 +55,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#23313D" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="BetYetu" />
+        <meta name="apple-mobile-web-app-title" content="PeerStake" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
