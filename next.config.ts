@@ -8,12 +8,25 @@ const nextConfig = {
   // Optional: Disable TypeScript type checking during builds
   typescript: {
     ignoreBuildErrors: true,
-  }
+  },
+  // Ensure proper routing
+  async redirects() {
+    return [
+      {
+        source: '/home',
+        destination: '/',
+        permanent: true,
+      },
+    ];
+  },
 };
 
-export default withPWA({
+const withPWAConfig = withPWA({
   dest: 'public',
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
-})(nextConfig);
+  buildExcludes: [/middleware-manifest.json$/],
+});
+
+export default withPWAConfig(nextConfig);

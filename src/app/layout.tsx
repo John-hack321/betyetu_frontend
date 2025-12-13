@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: "BetYetu - Peer-to-Peer Betting",
   description: "Kenya's most trusted peer-to-peer betting platform",
   manifest: "/manifest.json",
-  themeColor: "#FED800",
+  themeColor: "#23313D",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -52,7 +52,7 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
         <link rel="icon" type="image/x-icon" href="/icons/favicon.ico" />
-        <meta name="theme-color" content="#FED800" />
+        <meta name="theme-color" content="#23313D" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="BetYetu" />
