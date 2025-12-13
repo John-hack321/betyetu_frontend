@@ -181,48 +181,52 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }
 
-  const login = async (username : string , password: string) => {
-    try { // what we are doing here inside this function is we are creating form data expected by the fastapi auth2 endpoint 
+  const login = async (username: string, password: string) => {
+    try {
       const formData = new FormData();
       formData.append('password', password);
-      formData.append('username' , username);
-      // after creating the form data we send it to the actual endpoint using axios note : axios is used for sending and receiving http requests and more 
-      console.log("sending login request with username and password ");
+      formData.append('username', username);
+      
+      console.log("Sending login request with username and password");
       const response = await axios.post('http://localhost:8000/auth/token', formData, {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded' ,
-          'Accept' : 'applicaton/json'
-          },
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
+        },
       });
 
       const accessToken = response.data.access_token;
-      const refreshToken= response.data.refresh_token;
+      const refreshToken = response.data.refresh_token;
 
-      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`; // the token is then added to the header files for requests so that it can be addedd to all the outgoing requests 
-      localStorage.setItem('access_token', accessToken); 
-      localStorage.setItem('refresh_token', refreshToken)
-      // setUser(response.data); // we the update the user variable in the useState hook with the user data from the response
-
-      // we will do thi setUser a little different for now we will get the actual specific data that we want 
-      // we will first decode the jwt token 
+      // Set the token in axios headers
+      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      
+      // Store tokens in localStorage
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken);
+      
+      // Decode the token to get user info
       const payload = JSON.parse(atob(accessToken.split('.')[1]));
 
       interface UserIdAndUsernameInterface {
-        id : number;
-        username : string;
+        id: number;
+        username: string;
       }
 
-      // since the data from payload is of type any we need to convert it ot the desired string and number types
-      const userIdAndUsername : UserIdAndUsernameInterface = {
-        id : parseFloat(payload.id,),
-        username : String(payload.sub),
-      }
-      setUser(userIdAndUsername)
+      // Create user data with proper typing
+      const userData: UserIdAndUsernameInterface = {
+        id: parseFloat(payload.id),
+        username: String(payload.sub),
+      };
+      
+      // Update user state
+      setUser(userData);
+      
+      // Update Redux store with user data
+      dispatch(updateUserIdAndUsername(userData));
 
-      // before redirecting to the dashboard we upadte the usedata in the react store with the userid and the username 
-      dispatch(updateUserIdAndUsername(userIdAndUsername))
-
-      router.push('/home'); // we then redirect the user to the landing page or a relevant page after loggin in now 
+      // Redirect to home page after successful login
+      router.push('/home');
       // return true;
     } catch (error) {
       console.error('Login failed:', error);
