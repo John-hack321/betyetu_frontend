@@ -71,8 +71,8 @@ export default function SignUpPage(){
         <div className='flex min-h-screen w-full overflow-hidden bg-background-blue'>
             <div className='relative flex-1 lg:flex-none lg:w-1/2 overflow-y-auto'>
             <div className = 'absolute left-8 top-6  p-2 '>
-                <span className = 'text-xl font-bold tracking-tight text-yellow-components lowercase'>.bet</span>
-                <span className="text-xl font-bold tracking-tight text-custom-white-text-color">yetu</span>
+                <span className = 'text-xl font-bold tracking-tight text-yellow-components lowercase'>.peer</span>
+                <span className="text-xl font-bold tracking-tight text-custom-white-text-color">stake</span>
             </div>  
             {/*sing up form */}
             <div className = "flex min-h-screen items-center justify-center">

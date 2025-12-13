@@ -63,8 +63,8 @@ export default function LandingPage() {
       <nav className="relative z-50 px-6 py-4 backdrop-blur-lg bg-white/5 border-b border-white/10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="text-2xl font-bold tracking-tight">
-            <span className="text-[#FED800]">.bet</span>
-            <span className="text-white">yetu</span>
+            <span className="text-[#FED800]">.peer</span>
+            <span className="text-white">stake</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-gray-300 hover:text-[#FED800] transition-colors">Features</a>
@@ -144,7 +144,7 @@ export default function LandingPage() {
                 <div className="aspect-[4/5] bg-gradient-to-br from-purple-900/20 to-blue-900/20 backdrop-blur-sm flex items-center justify-center">
                   <img 
                     src="/landing_page.png" 
-                    alt="BetYetu Platform" 
+                    alt="PeerStake Platform" 
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -182,7 +182,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Why Choose <span className="text-[#FED800]">BetYetu?</span>
+              Why Choose <span className="text-[#FED800]">PeerStake?</span>
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
               Experience the future of peer-to-peer betting with features designed for winners
@@ -266,7 +266,7 @@ export default function LandingPage() {
                   <div className="relative bg-[#16202C] rounded-[2.5rem] overflow-hidden h-[600px]">
                     <img 
                       src="/screen_pic2.png" 
-                      alt="BetYetu Profile Dashboard" 
+                      alt="PeerStake Profile Dashboard" 
                       className="w-full h-full object-cover object-top"
                     />
                   </div>
@@ -300,7 +300,7 @@ export default function LandingPage() {
                   <div className="relative bg-[#16202C] rounded-[2.5rem] overflow-hidden h-[600px]">
                     <img 
                       src="/screen_pic1.png" 
-                      alt="BetYetu Betting Interface" 
+                      alt="PeerStake Staking Interface" 
                       className="w-full h-full object-cover object-top"
                     />
                   </div>
@@ -346,7 +346,7 @@ export default function LandingPage() {
               Ready to Start Winning?
             </h2>
             <p className="text-xl text-black/80 mb-8">
-              Join 10,000+ players already winning on BetYetu
+              Join 10,000+ users already staking on PeerStake
             </p>
             <a href="/signup" className="inline-flex items-center gap-2 px-10 py-4 bg-black text-white font-bold rounded-full hover:scale-105 transition-transform shadow-xl">
               Create Free Account
@@ -362,11 +362,11 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="text-2xl font-bold mb-4">
-                <span className="text-[#FED800]">.bet</span>
-                <span className="text-white">yetu</span>
+                <span className="text-[#FED800]">Peer</span>
+                <span className="text-white">Stake</span>
               </div>
               <p className="text-gray-400 text-sm">
-                Kenya's most trusted peer-to-peer betting platform
+                The most trusted peer-to-peer staking platform
               </p>
             </div>
             <div>
@@ -394,7 +394,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-12 pt-8 border-t border-white/10 text-center text-gray-400 text-sm">
-            <p>© 2025 BetYetu. All rights reserved. Bet responsibly.</p>
+            <p>© 2025 PeerStake. All rights reserved. Stake responsibly.</p>
           </div>
         </div>
       </footer>

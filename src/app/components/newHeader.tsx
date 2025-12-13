@@ -12,8 +12,8 @@ export default function HeaderComponent () {
                     <Menu/>
                 </div>
                 <h2 className = "text-2xl font-bold">
-                    <span className = "text-yellow-components">bet</span>
-                    <span className = "text-gray-100">yetu</span>
+                    <span className = "text-yellow-components">Peer</span>
+                    <span className = "text-gray-100">Stake</span>
                 </h2>
             </div>
             <div className="flex px-2 items-center gap-2">

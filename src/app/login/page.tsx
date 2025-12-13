@@ -58,8 +58,8 @@ export default function SignInPage(){
         <div className = 'flex min-h-screen w-full bg-background-blue'>
             <div className = 'relative w-full lg:w-1/2 '>
             <div className = 'absolute left-8 top-6  p-2 '>
-                <span className = 'text-xl font-bold tracking-tight text-yellow-components lowercase'>.bet</span>
-                <span className="text-xl font-bold tracking-tight text-custom-white-text-color lowercase">yetu</span>
+                <span className = 'text-xl font-bold tracking-tight text-yellow-components lowercase'>.peer</span>
+                <span className="text-xl font-bold tracking-tight text-custom-white-text-color lowercase">stake</span>
             </div>  
             {/*sing up form */}
             <div className = "flex min-h-screen items-center justify-center">
