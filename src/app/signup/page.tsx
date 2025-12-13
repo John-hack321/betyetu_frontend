@@ -185,7 +185,7 @@ export default function SignUpPage(){
                 <div className = 'flex h-full flex-col p-12 '>
                     <div className = "flex h-full items-center justify-center">
                         <Image 
-                        src="/cod_actual.png" 
+                        src="/laliga.png" 
                         alt="Chess game illustration" 
                         width={500} 
                         height={500}
@@ -197,7 +197,7 @@ export default function SignUpPage(){
                             <div className = "mb-3 flex bg-indigo-100 w-fit rounded-2xl bg-opacity-40 px-3 py-1 ">
                                 <span className = "uppercase tracking-wider text-purple-950 text-xs font-medium" >latest updates</span>
                             </div>
-                            <h3 className = "xl:text-xl text-white text-lg 2xl:text-2xl 2xl:leading-10"> go to the tournaments sections and play completely anonymous tournaments with strangers from all over the world </h3>
+                            <h3 className = "xl:text-xl text-white text-lg 2xl:text-2xl 2xl:leading-10">get into completely anonymos stakes with thousands of other staker around the country </h3>
                         </div>
                 </div>
             </div>
