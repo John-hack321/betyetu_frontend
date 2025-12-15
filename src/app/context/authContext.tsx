@@ -183,6 +183,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (username: string, password: string) => {
     try {
+      console.log(`the login function has been fired with username as : ${username} and password as ${password}`)
       const formData = new FormData();
       formData.append('password', password);
       formData.append('username', username);
@@ -195,11 +196,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         },
       });
 
+      console.log(`the backeng login functin has been reaches and it has returned the following login data`, response.data)
+
       const accessToken = response.data.access_token;
       const refreshToken = response.data.refresh_token;
 
       // Set the token in axios headers
       axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      console.log(`the access token has been set to axio headers successfuly`)
       
       // Store tokens in localStorage
       localStorage.setItem('access_token', accessToken);
@@ -221,12 +225,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       // Update user state
       setUser(userData);
+      console.log(`the user in local storage has been set to user gottne from the api `)
       
       // Update Redux store with user data
       dispatch(updateUserIdAndUsername(userData));
+      console.log(`the redux store has now been updated with the data too`)
 
       // Redirect to home page after successful login
-      router.push('/home');
+      router.push('/main');
+      console.log('now pushing the user to the home page hopefuly')
       // return true;
     } catch (error) {
       console.error('Login failed:', error);

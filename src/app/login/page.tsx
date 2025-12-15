@@ -45,6 +45,7 @@ export default function SignInPage(){
         try{
             setIsLoading(true);
             await login( data.username , data.password)
+            
         }catch (error){
             console.error('there was an error signing you in ');
             setError('Failed to log in. Please check your credentials');

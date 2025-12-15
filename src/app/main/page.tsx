@@ -28,7 +28,7 @@ interface FilterState {
     leagueId: number | null;
 }
 
-function Dashboard() {
+function Home() {
     const loaderRef = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState<number>(1);
     const [isFetching, setIsFetching] = useState(false);
@@ -433,10 +433,10 @@ function Dashboard() {
     )
 }
 
-export default function DashboardPage() {
+export default function HomePage() {
     return (
         <ProtectedRoute>
-            <Dashboard />
+            <Home />
         </ProtectedRoute>
     )
 }
