@@ -46,7 +46,7 @@ function Home() {
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null)
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null)
-    const thisPage: string = "home"
+    const thisPage: string = "main"
 
     // Enhanced filter state
     const [filterState, setFilterState] = useState<FilterState>({
@@ -241,7 +241,7 @@ function Home() {
         loadLeaguesData();
         loadFixturesData();
         loadUserData();
-        updatePageData(thisPage);
+        updatePageData('main');
     }, [dispatch])
 
     if (loading) {

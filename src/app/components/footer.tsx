@@ -33,7 +33,7 @@ export default function FooterComponent ({currentPage}: FooterProps) {
     }
 
     const handleHomeButtonClick= ()=> {
-        router.push('/home')
+        router.push('/main')
     }
 
     return (
@@ -43,14 +43,14 @@ export default function FooterComponent ({currentPage}: FooterProps) {
             {/* the buttons will be rendered differently based on whether the use is on the current page */}
             {currentPage === "home" ? (
                 <button
-                 onClick={()=> router.push('/home')}
+                 onClick={()=> router.push('/main')}
                  className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
                     <Home size={24} className="text-[#FED800]" />
                     <span className="text-xs text-[#FED800] font-medium">Home</span>
                 </button>
             ) : (
                 <button
-                 onClick={()=> router.push('/home')}
+                 onClick={()=> router.push('/main')}
                  className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">
                     <Home size={24} className="text-gray-400" />
                     <span className="text-xs text-gray-400 font-medium">Home</span>
