@@ -13,7 +13,7 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = setInterval(() => {4
       setCurrentStat((prev) => (prev + 1) % 3);
     }, 3000);
     return () => clearInterval(interval);
@@ -385,6 +385,7 @@ export default function LandingPage() {
               </ul>
             </div>
             <div>
+
               <h4 className="font-bold mb-4">Legal</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li><a href="#" className="hover:text-[#FED800]">Terms</a></li>
