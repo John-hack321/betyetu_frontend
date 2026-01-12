@@ -278,7 +278,7 @@ function Home() {
         return (
             <div className="flex flex-col h-screen bg-[#0F1419]">
                 {/* Full-width Header */}
-                <div className="flex-none bg-gradient-to-b from-[#1a2633] to-[#16202C] px-4 py-4 shadow-lg md:px-6">
+                <div className="flex-none bg-gradient-to-b from-[#1a2633] to-[#16202C] md:bg-gradient-to-none md:bg-[#1a2633] px-4 py-4 shadow-lg md:px-6 z-20">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <button className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden">
@@ -301,10 +301,10 @@ function Home() {
                 </div>
     
                 {/* Main Content Area - Responsive Grid Layout */}
-                <div className="flex-1 overflow-y-auto md:grid md:grid-cols-[250px_1fr_250px] md:gap-4 lg:grid-cols-[300px_1fr_300px] md:p-4">
+                <div className="flex-1 overflow-y-auto md:grid md:grid-cols-[250px_1fr_250px] lg:grid-cols-[300px_1fr_300px] md:gap-4 md:overflow-hidden md:bg-[#1a2633] md:rounded-lg">
     
-                    {/* Left Sidebar (hidden on mobile, visible on desktop) */}
-                    <div className="hidden md:block bg-[#1a2633] rounded-lg p-4 self-start">
+                    {/* Left Sidebar (hidden on mobile, visible on desktop, sticky) */}
+                    <div className="hidden md:block bg-[#1a2633] rounded-lg p-4 self-start sticky top-4">
                         <h3 className="text-gray-200 text-lg font-semibold mb-4">Navigation</h3>
                         <div className="flex flex-col gap-2">
                             {/* Navigation Links from Footer */}
@@ -341,10 +341,10 @@ function Home() {
                         </div>
                     </div>
     
-                    {/* Central Content Column (Fixture Cards) */}
-                    <div className="px-2 pt-2 pb-24 md:px-0 md:pt-0">
-                        {/* Filter Section */}
-                        <div className="bg-[#1a2633] rounded-lg p-4 mb-4">
+                    {/* Central Content Column (Scrollable) */}
+                    <div className="overflow-y-auto pb-24 md:pb-4 custom-scrollbar">
+                        {/* Sticky Filter Section (Desktop) */}
+                        <div className="hidden md:block sticky top-0 bg-[#1a2633] z-10 p-4 rounded-lg border border-gray-700 mb-4">
                             {/* Filter Tabs */}
                             <div className="flex gap-6 border-b border-gray-700">
                                 {filterTabs.map((tab) => (
@@ -364,7 +364,7 @@ function Home() {
                                     </button>
                                 ))}
                             </div>
-    
+
                             {/* League Selection */}
                             {filterState.type === 'leagues' && (
                                 <div className="mt-4 overflow-x-auto">
@@ -386,9 +386,53 @@ function Home() {
                                 </div>
                             )}
                         </div>
+                        
+                        {/* Sticky Filter Section (Mobile) */}
+                        <div className="sticky top-0 bg-[#0F1419] z-10 p-2 md:hidden">
+                            {/* Filter Tabs (Mobile Only) */}
+                            <div className="flex gap-6 border-b border-gray-700 bg-[#1a2633] p-2 rounded-t-lg">
+                                {filterTabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => handleTabClick(tab.id)}
+                                        className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
+                                            filterState.type === tab.id
+                                                ? 'text-[#FED800]'
+                                                : 'text-gray-400 hover:text-gray-200'
+                                        }`}
+                                    >
+                                        {tab.name}
+                                        {filterState.type === tab.id && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]"></div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
     
-                        {/* Fixture Cards Grid */}
-                        <div className="md:grid md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 md:gap-4">
+                            {/* League Selection (Mobile Only when Leagues tab is active) */}
+                            {filterState.type === 'leagues' && (
+                                <div className="overflow-x-auto bg-[#1a2633] p-2 rounded-b-lg">
+                                    <div className="flex gap-2 pb-2">
+                                        {leagueListData.map((league) => (
+                                            <button
+                                                key={league.id}
+                                                onClick={() => handleLeagueSelect(league.id)}
+                                                className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                                                    filterState.leagueId === league.id
+                                                        ? 'bg-[#FED800] text-black'
+                                                        : 'bg-[#23313D] text-gray-300 hover:bg-[#2a3643]'
+                                                }`}
+                                            >
+                                                {league.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+    
+                        {/* Fixture Cards List (Two-Column Grid on Desktop) */}
+                        <div className="px-2 pt-2 md:px-0 md:grid md:grid-cols-2 md:gap-4 md:pr-4 staggered-grid">
                             {filteredFixtures.length > 0 ? (
                                 <>
                                     {filteredFixtures.map((match) => (
@@ -416,7 +460,7 @@ function Home() {
                                     {/* Loader for infinite scroll */}
                                     <div
                                         ref={loaderRef}
-                                        className="py-8 flex justify-center items-center min-h-[100px] md:col-span-1 lg:col-span-2 xl:col-span-3"
+                                        className="py-8 flex justify-center items-center min-h-[100px]"
                                         style={{ marginBottom: '80px' }}
                                     >
                                         {isFetching ? (
@@ -432,7 +476,7 @@ function Home() {
                                     </div>
                                 </>
                             ) : (
-                                <div className="flex items-center justify-center h-64 md:col-span-1 lg:col-span-2 xl:col-span-3">
+                                <div className="flex items-center justify-center h-64">
                                     <div className="text-center">
                                         <p className="text-gray-400 text-lg mb-2">No matches found</p>
                                         <p className="text-gray-500 text-sm">
@@ -446,8 +490,8 @@ function Home() {
                         </div>
                     </div>
     
-                    {/* Right Sidebar (hidden on mobile, visible on desktop) */}
-                    <div className="hidden md:block bg-[#1a2633] rounded-lg p-4 self-start">
+                    {/* Right Sidebar (hidden on mobile, visible on desktop, sticky) */}
+                    <div className="hidden md:block bg-[#1a2633] rounded-lg p-4 self-start sticky top-4">
                         <h3 className="text-gray-200 text-lg font-semibold mb-4">Bet Slip</h3>
                         <div className="text-gray-400 text-sm">
                             {/* Placeholder for bet slip content */}
