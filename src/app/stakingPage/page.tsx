@@ -135,16 +135,28 @@ function Staking() {
 
     return (
         <div className="flex flex-col h-screen bg-[#1a2633]">
-            {/* Header */}
-            <div className="flex-none">
-                <HeaderComponent />
+            {/* Header - Constrained width */}
+            <div className="flex-none bg-[#1a2633] px-4 py-4 lg:px-6 z-20">
+                <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold lg:text-3xl">
+                            <span className="text-[#FED800]">bet</span>
+                            <span className="text-gray-100">yetu</span>
+                        </h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all lg:text-base">
+                            Deposit
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col overflow-hidden lg:grid lg:grid-cols-[280px_1fr_280px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[350px_1fr_350px] lg:gap-6 lg:px-6 lg:pt-6">
+            {/* Main Content Area - Constrained width */}
+            <div className="flex-1 flex flex-col overflow-hidden lg:flex-row lg:gap-4 lg:px-6 lg:pt-6 lg:max-w-[1400px] lg:mx-auto lg:w-full">
                 
                 {/* Left Sidebar - Desktop Only */}
-                <div className="hidden lg:block bg-[#16202C] rounded-lg p-4 self-start sticky top-6 h-fit">
+                <div className="hidden lg:block lg:w-[260px] xl:w-[280px] bg-[#16202C] rounded-lg p-4 self-start sticky top-6 h-fit flex-shrink-0">
                     <h3 className="text-gray-200 text-lg font-semibold mb-4 flex items-center gap-2">
                         <Trophy className="text-[#FED800]" size={20} />
                         Match Info
@@ -198,12 +210,12 @@ function Staking() {
                 </div>
 
                 {/* Center Content - Scrollable */}
-                <div className="flex-1 overflow-y-auto pb-24 lg:pb-4 px-4 lg:px-0">
+                <div className="flex-1 overflow-y-auto pb-24 lg:pb-4 px-4 lg:px-0 lg:min-w-0">
                     {stakeInitialized ? (
                         /* Success State */
                         <div className="max-w-2xl mx-auto pt-4 lg:pt-8">
                             {/* Success Card */}
-                            <div className="bg-[#16202C] rounded-xl overflow-hidden border border-gray-700 mb-6">
+                            <div className="bg-[#1a2633] rounded-xl overflow-hidden border border-gray-700 mb-6">
                                 {/* Success Header */}
                                 <div className="bg-gradient-to-r from-[#60991A]/20 to-[#60991A]/10 border-l-4 border-[#60991A] px-6 py-4">
                                     <div className="flex items-center gap-3">
@@ -220,13 +232,13 @@ function Staking() {
                                 {/* Bet Summary */}
                                 <div className="p-6 space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-[#1a2633] rounded-lg p-4 border border-gray-700">
+                                        <div className="bg-[#16202C] rounded-lg p-4 border border-gray-700">
                                             <div className="text-gray-400 text-xs mb-1">Stake Amount</div>
                                             <div className="text-[#FED800] text-2xl font-bold">
                                                 {currentStakeData.ownerStakeAmount} KES
                                             </div>
                                         </div>
-                                        <div className="bg-[#1a2633] rounded-lg p-4 border border-gray-700">
+                                        <div className="bg-[#16202C] rounded-lg p-4 border border-gray-700">
                                             <div className="text-gray-400 text-xs mb-1">Your Pick</div>
                                             <div className="text-white text-xl font-bold capitalize">
                                                 {currentStakeData.ownerStakeplacement}
@@ -234,7 +246,7 @@ function Staking() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-[#1a2633] rounded-lg p-4 border border-gray-700">
+                                    <div className="bg-[#16202C] rounded-lg p-4 border border-gray-700">
                                         <div className="text-gray-400 text-xs mb-1">Potential Win</div>
                                         <div className="text-[#60991A] text-2xl font-bold">
                                             {potentialWin.toLocaleString()} KES
@@ -244,7 +256,7 @@ function Staking() {
                             </div>
 
                             {/* Share Options */}
-                            <div className="bg-[#16202C] rounded-xl p-6 border border-gray-700 mb-6">
+                            <div className="bg-[#1a2633] rounded-xl p-6 border border-gray-700 mb-6">
                                 <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
                                     <Share2 size={20} className="text-[#FED800]" />
                                     Share Your Bet
@@ -257,7 +269,7 @@ function Staking() {
                                         className={`flex-1 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                                             useQrCode 
                                                 ? 'bg-[#FED800] text-black' 
-                                                : 'bg-[#1a2633] text-gray-300 hover:bg-[#23313D] border border-gray-700'
+                                                : 'bg-[#16202C] text-gray-300 hover:bg-[#23313D] border border-gray-700'
                                         }`}
                                     >
                                         <QrCode size={20} />
@@ -268,7 +280,7 @@ function Staking() {
                                         className={`flex-1 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                                             !useQrCode 
                                                 ? 'bg-[#FED800] text-black' 
-                                                : 'bg-[#1a2633] text-gray-300 hover:bg-[#23313D] border border-gray-700'
+                                                : 'bg-[#16202C] text-gray-300 hover:bg-[#23313D] border border-gray-700'
                                         }`}
                                     >
                                         <Copy size={20} />
@@ -291,7 +303,7 @@ function Staking() {
                                 ) : (
                                     <div>
                                         <p className="text-gray-400 text-sm mb-3">Share this code:</p>
-                                        <div className="flex items-center gap-2 bg-[#1a2633] rounded-lg p-4 border border-gray-700">
+                                        <div className="flex items-center gap-2 bg-[#16202C] rounded-lg p-4 border border-gray-700">
                                             <code className="flex-1 text-[#FED800] font-mono text-lg break-all">
                                                 {reduxStoreInviteCode || 'Loading...'}
                                             </code>
@@ -339,7 +351,7 @@ function Staking() {
                             </div>
 
                             {/* Match Card - Mobile */}
-                            <div className="lg:hidden bg-[#16202C] rounded-lg p-4 mb-6 border border-gray-700">
+                            <div className="lg:hidden bg-[#1a2633] rounded-lg p-4 mb-6 border border-gray-700">
                                 <div className="flex items-center justify-between">
                                     <div className="flex-1 text-center">
                                         <div className="text-white font-bold text-base mb-1">
@@ -360,7 +372,7 @@ function Staking() {
                             </div>
 
                             {/* Selection Section */}
-                            <div className="bg-[#16202C] rounded-xl p-6 border border-gray-700 mb-6">
+                            <div className="bg-[#1a2633] rounded-xl p-6 border border-gray-700 mb-6">
                                 <h3 className="text-white font-bold text-lg mb-4">Your Prediction</h3>
                                 
                                 <div className="grid grid-cols-3 gap-3">
@@ -369,7 +381,7 @@ function Staking() {
                                         className={`py-4 rounded-lg font-bold text-sm transition-all ${
                                             currentStakeData.ownerStakeplacement === currentStakeData.homeTeam
                                                 ? 'bg-[#FED800] text-black scale-105'
-                                                : 'bg-[#1a2633] text-white hover:bg-[#23313D] border border-gray-700'
+                                                : 'bg-[#16202C] text-white hover:bg-[#23313D] border border-gray-700'
                                         }`}
                                     >
                                         <div className="text-xs text-gray-400 mb-1">Home</div>
@@ -381,7 +393,7 @@ function Staking() {
                                         className={`py-4 rounded-lg font-bold text-lg transition-all ${
                                             currentStakeData.ownerStakeplacement === "draw"
                                                 ? 'bg-[#FED800] text-black scale-105'
-                                                : 'bg-[#1a2633] text-white hover:bg-[#23313D] border border-gray-700'
+                                                : 'bg-[#16202C] text-white hover:bg-[#23313D] border border-gray-700'
                                         }`}
                                     >
                                         <div className="text-xs text-gray-400 mb-1">Draw</div>
@@ -393,7 +405,7 @@ function Staking() {
                                         className={`py-4 rounded-lg font-bold text-sm transition-all ${
                                             currentStakeData.ownerStakeplacement === currentStakeData.awayTeam
                                                 ? 'bg-[#FED800] text-black scale-105'
-                                                : 'bg-[#1a2633] text-white hover:bg-[#23313D] border border-gray-700'
+                                                : 'bg-[#16202C] text-white hover:bg-[#23313D] border border-gray-700'
                                         }`}
                                     >
                                         <div className="text-xs text-gray-400 mb-1">Away</div>
@@ -403,7 +415,7 @@ function Staking() {
                             </div>
 
                             {/* Amount Section */}
-                            <div className="bg-[#16202C] rounded-xl p-6 border border-gray-700 mb-6">
+                            <div className="bg-[#1a2633] rounded-xl p-6 border border-gray-700 mb-6">
                                 <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
                                     <DollarSign size={20} className="text-[#FED800]" />
                                     Stake Amount
@@ -418,7 +430,7 @@ function Staking() {
                                             className={`py-3 rounded-lg font-semibold text-sm transition-all ${
                                                 stakeAmount === amount
                                                     ? 'bg-[#FED800] text-black'
-                                                    : 'bg-[#1a2633] text-white hover:bg-[#23313D] border border-gray-700'
+                                                    : 'bg-[#16202C] text-white hover:bg-[#23313D] border border-gray-700'
                                             }`}
                                         >
                                             {amount}
@@ -432,7 +444,7 @@ function Staking() {
                                     value={stakeAmount || ''}
                                     onChange={(e) => setStakeAmount(Number(e.target.value))}
                                     placeholder="Enter custom amount"
-                                    className="w-full bg-[#1a2633] text-white rounded-lg px-4 py-4 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FED800] border border-gray-700"
+                                    className="w-full bg-[#16202C] text-white rounded-lg px-4 py-4 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FED800] border border-gray-700"
                                 />
 
                                 {/* Potential Win */}
@@ -471,7 +483,7 @@ function Staking() {
                 </div>
 
                 {/* Right Sidebar - Desktop Only */}
-                <div className="hidden lg:block bg-[#16202C] rounded-lg p-4 self-start sticky top-6 h-fit">
+                <div className="hidden lg:block lg:w-[260px] xl:w-[280px] bg-[#16202C] rounded-lg p-4 self-start sticky top-6 h-fit flex-shrink-0">
                     <h3 className="text-gray-200 text-lg font-semibold mb-4">Betting Tips</h3>
                     
                     <div className="space-y-3">
