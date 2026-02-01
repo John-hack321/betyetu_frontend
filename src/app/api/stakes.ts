@@ -33,6 +33,8 @@ export interface StakeCancellationResponse {
     message: string;
 }
 
+
+// this is for initializing a new stake , this is done by someone who will be the stake owner at the end
 export const initializeStakeApiCall = async (payload : StakeInitiatorPayload): Promise<StakeInitializationResponse | null> => {
     try {
         const accessToken= localStorage.getItem('access_token');
@@ -91,8 +93,13 @@ export interface GuestFetchStakeDataApiResponse {
     stakeGuest: StakeGuest;
 }
 
-// figure out how the paylaod is placed in a get request
-// the payload for this will be the invite code which is a string
+/**
+ * 
+ * @param inviteCode
+ * @returns stakedata 
+ * fetches the stake data for the user ( invited ) so that they can join the stake
+ * the fetching is done using the invite code of the particular stake.
+ */
 export const guestFetchStakeDataApiCall= async (inviteCode: string): Promise<GuestFetchStakeDataApiResponse | null> => {
     try{
         const accessToken= localStorage.getItem('access_token')

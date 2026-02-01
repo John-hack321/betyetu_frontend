@@ -11,6 +11,7 @@ export interface StakeInterface {
     possibleWin: string | number;
     inviteCode: string | null;
     placement: string;
+    public: boolean;
 }
 
 export interface StakesListDataInterface {
