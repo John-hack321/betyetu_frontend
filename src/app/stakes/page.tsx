@@ -254,8 +254,7 @@ function StakesPage() {
       router.push('/stakeLinking')
   }
 
-  // I sincierely have no idea what this function does !
-  // I guess:
+  // so the filtered stakes can be different things , a list of all stakes, won, lost or pending .
   // isArray checks if the data is an actuall array 
   // so I geess it returns an empty array if one of the conditions listed thereafter is found to be true.
   const filteredStakes = useMemo(() => {
@@ -270,7 +269,9 @@ function StakesPage() {
         return filtered;
 
       case 'pending':
-        return filtered.filter((stake) => stake.stakeStatus.toLowerCase() === 'pending');
+        // the logic for public and private stakes should be here:
+        // for the pening stakes we will only list the ones that are private , the public ones will be listed in the public anonymous page
+        return filtered.filter((stake) => stake.stakeStatus.toLowerCase() === 'pending' && stake.public == false );
       
       case 'won':
         return filtered.filter((stake) => stake.stakeResult.toLowerCase() === 'won');
@@ -452,7 +453,7 @@ function StakesPage() {
             {/*TODO: so I need a way to make this only to list the stakes whos pulbic == false*/}
           {/* Stakes List - Scrollable */}
           <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24 lg:pb-4 lg:px-4 pr-6">
-            {filteredStakes.length > 0 && filteredStakes.public ? (
+            {filteredStakes.length > 0 ? (
               filteredStakes.map((stake) => (
                 <StakeCard key={stake.stakeId} stake={stake} />
               ))

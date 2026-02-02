@@ -42,7 +42,7 @@ function Home() {
     const leagueListData: LeagueInterface[] = useSelector((state: RootState) => state.leagueData.leagues_list)
     const dispatch = useDispatch<AppDispatch>()
 
-    // Local state
+    // Local state 
     const [selectedOption, setSelectedOption] = useState<'home' | 'away' | 'draw' | null>(null)
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null)
     const [loading, setLoading] = useState(true);
