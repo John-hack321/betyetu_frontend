@@ -3,6 +3,7 @@ import { User, Plus, Trophy, Target, TrendingUp, Wallet, ArrowUpRight, ArrowDown
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import FooterComponent from '../components/footer';
+import PublicStakeCard from '../components/publicStakeCard';
 
 // Redux setup imports
 import { AppDispatch, RootState } from '../app_state/store';
@@ -125,32 +126,18 @@ export default function AnonymousStakingPage () {
                         </div>
 
                         {/* the actual list of stakes will go here now */}
-                        <div className='mx-2 mt-2 bg-lightblue-components rounded-lg '>
-                            <div className="flex flex-row px-2 justify-between pt-2 pb-3">
-                                <div>
-                                    <p>12th Februaru 2026</p>
-                                    <p>Englis premier league</p>
-                                </div>
-                                <div>
-                                    <p>username</p>
-                                    <p>amount: 300</p> {/*most of the data here will come from the backedn these are just placeholders for the desing first */}
-                                </div>
-                            </div>
-                            <div className='flex flex-row items-center justify-between px-2'>
-                                <div>
-                                    <p>home team</p>
-                                    <p>away team</p>
-                                </div>
-                                <div className='flex flex-row gap-2'>
-                                    <div>1</div>
-                                    <div>x</div>
-                                    <div>2</div>
-                                </div>
-                            </div>
-                            <div>
-                                <p>possible win :  amount </p>
-                            </div>
-                        </div>
+                        <PublicStakeCard 
+                        stakeId={1}
+                        date='2026-02-15T18:00:00'
+                        league='English Premier League'
+                        homeTeam='Manchester United'
+                        awayTeam='Liverpool'
+                        creatorUsername='john_doe' /** this will later be changed to display name rather  */
+                        creatorPlacement='home'
+                        stakeAmount={500}
+                        potentialWin={1000}
+                        selectedPlacement={'home'}
+                        />
 
                     </div>
 

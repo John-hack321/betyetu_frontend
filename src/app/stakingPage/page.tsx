@@ -343,11 +343,18 @@ function Staking() {
                         </div>
                     ) : (
                         /* Betting State */
-                        <div className="max-w-2xl mx-auto pt-4 lg:pt-8">
+                        <div className=" mx-auto pt-4 lg:pt-8 bg-green-600">
                             {/* Page Title - Mobile */}
-                            <div className="lg:hidden mb-6">
-                                <h1 className="text-3xl font-bold text-white mb-2">Place Your Bet</h1>
-                                <p className="text-gray-400 text-sm">Choose your prediction and amount</p>
+                            <div className="flex flex-row gap-6  bg-yellow-600">
+                                <div className="lg:hidden mb-6 bg-red-600">
+                                    <h1 className="text-3xl font-bold text-white mb-2">Place Your Bet</h1>
+                                    <p className="text-gray-400 text-sm">Choose your prediction and amount</p>
+                                </div>
+                                <div className= "bg-lightblue-components border-background-blue mb-6 rounded-lg w-1/3">
+                                    <button className="w-1/2 ">
+                                        public
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Match Card - Mobile */}
