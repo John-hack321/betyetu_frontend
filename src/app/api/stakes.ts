@@ -5,6 +5,8 @@ import { access } from 'fs';
 import { error } from 'console';
 import { promise } from 'zod';
 import { StakeInterface } from '../app_state/slices/stakesData';
+import { FetchPublicStakesApiResponseInterface } from '../apiSchemas/stakingSchemas';
+import { resolve } from 'path';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:8000';
 
@@ -221,6 +223,39 @@ export const getUserStakesData= async (): Promise<StakeInterface[] | null> => {
 
     } catch (err) {
         console.log(`an error occured while trying to fetch user stakes data`)
+        return null
+    }
+}
+
+export const fetchPublicStakes= async (page: number= 1, limit : number= 100 ): Promise<FetchPublicStakesApiResponseInterface | null> => {
+    try {
+        const accessToken= localStorage.getItem('access_token')
+
+        if (!accessToken) {
+            throw new Error("No authentication token found");
+        }
+
+        const response= await axios.get(`${API_BASE_URL}/stakes/get_all_available_public_stakes`, {
+            params: {
+                limit,
+                page
+            },
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        })
+
+        const responseData: FetchPublicStakesApiResponseInterface=  response.data
+        console.log('actual response:', responseData)
+
+        return responseData
+
+
+
+    } catch (err) {
+        console.error(`Error while fetching stakes`, err)
         return null
     }
 }

@@ -68,6 +68,9 @@ importers:
       react-redux:
         specifier: ^9.2.0
         version: 9.2.0(@types/react@19.1.16)(react@19.0.1)(redux@5.0.1)
+      redux:
+        specifier: ^5.0.1
+        version: 5.0.1
       redux-persist:
         specifier: ^6.0.0
         version: 6.0.0(react@19.0.1)(redux@5.0.1)

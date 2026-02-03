@@ -33,6 +33,7 @@ function Staking() {
     const userData = useSelector((state: RootState) => state.userData)
     const dispatch = useDispatch<AppDispatch>()
 
+    const [isPublicStake, setIsPublicStake] = useState(true);
     const [stakeInitialized, setStakeInitialized] = useState<boolean>(false)
     const [useQrCode, setUseQrCode] = useState(true)
     const [stakeAmount, setStakeAmount] = useState<number | null>(null)
@@ -55,10 +56,11 @@ function Staking() {
 
         const payload: StakeInitiatorPayload = {
             placement: currentStakeData.ownerStakeplacement,
-            stakeAmount: stakeAmount,
+            stakeAmount: stakeAmount, // edge case for if the user places the stake amount by typing instead of clicking a button
             matchId: currentStakeData.matchId,
             home: currentStakeData.homeTeam,
             away: currentStakeData.awayTeam,
+            public: isPublicStake,
         }
 
         const response: StakeInitializationResponse | null = await initializeStakeApiCall(payload)
@@ -343,17 +345,99 @@ function Staking() {
                         </div>
                     ) : (
                         /* Betting State */
-                        <div className=" mx-auto pt-4 lg:pt-8 bg-green-600">
+                        <div className=" mx-auto pt-4 lg:pt-8">
                             {/* Page Title - Mobile */}
-                            <div className="flex flex-row gap-6  bg-yellow-600">
-                                <div className="lg:hidden mb-6 bg-red-600">
+                            <div className="mb-6">
+                                {/* Mobile Layout */}
+                                <div className="lg:hidden flex flex-col gap-4">
+                                    <div>
                                     <h1 className="text-3xl font-bold text-white mb-2">Place Your Bet</h1>
                                     <p className="text-gray-400 text-sm">Choose your prediction and amount</p>
+                                    </div>
+                                    
+                                    {/* Toggle Button - Mobile */}
+                                    <div className="relative bg-[#16202C] rounded-full p-1 border border-gray-700 w-fit">
+                                    <div className="relative flex">
+                                        {/* Sliding Background */}
+                                        <div 
+                                        className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-gradient-to-r transition-all duration-300 ease-in-out rounded-full ${
+                                            isPublicStake 
+                                            ? 'left-1 from-[#60991A] to-[#4d7a15]' 
+                                            : 'left-[calc(50%+2px)] from-[#FED800] to-[#ffd700]'
+                                        }`}
+                                        />
+                                        
+                                        {/* Public Button */}
+                                        <button
+                                        onClick={() => setIsPublicStake(true)}
+                                        className={`relative z-10 px-6 py-2 rounded-full font-semibold text-sm transition-colors duration-300 ${
+                                            isPublicStake 
+                                            ? 'text-black' 
+                                            : 'text-gray-400'
+                                        }`}
+                                        >
+                                        Public
+                                        </button>
+                                        
+                                        {/* Private Button */}
+                                        <button
+                                        onClick={() => setIsPublicStake(false)}
+                                        className={`relative z-10 px-6 py-2 rounded-full font-semibold text-sm transition-colors duration-300 ${
+                                            !isPublicStake 
+                                            ? 'text-black' 
+                                            : 'text-gray-400'
+                                        }`}
+                                        >
+                                        Private
+                                        </button>
+                                    </div>
+                                    </div>
                                 </div>
-                                <div className= "bg-lightblue-components border-background-blue mb-6 rounded-lg w-1/3">
-                                    <button className="w-1/2 ">
-                                        public
-                                    </button>
+
+                                {/* Desktop Layout */}
+                                <div className="hidden lg:flex items-center justify-between">
+                                    <div>
+                                    <h1 className="text-3xl font-bold text-white mb-2">Place Your Bet</h1>
+                                    <p className="text-gray-400 text-sm">Choose your prediction and amount</p>
+                                    </div>
+                                    
+                                    {/* Toggle Button - Desktop */}
+                                    <div className="relative bg-[#16202C] rounded-full p-1 border border-gray-700">
+                                    <div className="relative flex">
+                                        {/* Sliding Background */}
+                                        <div 
+                                        className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-gradient-to-r transition-all duration-300 ease-in-out rounded-full ${
+                                            isPublicStake 
+                                            ? 'left-1 from-[#60991A] to-[#4d7a15]' 
+                                            : 'left-[calc(50%+2px)] from-[#FED800] to-[#ffd700]'
+                                        }`}
+                                        />
+                                        
+                                        {/* Public Button */}
+                                        <button
+                                        onClick={() => setIsPublicStake(true)}
+                                        className={`relative z-10 px-8 py-2.5 rounded-full font-semibold text-sm transition-colors duration-300 ${
+                                            isPublicStake 
+                                            ? 'text-black' 
+                                            : 'text-gray-400'
+                                        }`}
+                                        >
+                                        Public
+                                        </button>
+                                        
+                                        {/* Private Button */}
+                                        <button
+                                        onClick={() => setIsPublicStake(false)}
+                                        className={`relative z-10 px-8 py-2.5 rounded-full font-semibold text-sm transition-colors duration-300 ${
+                                            !isPublicStake 
+                                            ? 'text-black' 
+                                            : 'text-gray-400'
+                                        }`}
+                                        >
+                                        Private
+                                        </button>
+                                    </div>
+                                    </div>
                                 </div>
                             </div>
 

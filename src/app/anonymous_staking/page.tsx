@@ -10,6 +10,10 @@ import { AppDispatch, RootState } from '../app_state/store';
 import { useSelector } from 'react-redux';
 import { useDispatch } from 'react-redux';
 import { updateCurrentPage } from '../app_state/slices/pageTracking';
+import { updatePublicStakesData } from '../app_state/slices/publicStakesData';
+
+import { FetchPublicStakesApiResponseInterface } from '../apiSchemas/stakingSchemas';
+import { fetchPublicStakes } from '../api/stakes';
 
 
 
@@ -17,6 +21,7 @@ export default function AnonymousStakingPage () {
 
     // redux data setup here
     const currentPage= useSelector((state: RootState)=> state.currentPageData.page)
+    const publicStakes: FetchPublicStakesApiResponseInterface = useSelector((state: RootState)=> state.publicStakesData)
     const dispatch= useDispatch<AppDispatch>()
 
     const router= useRouter()
@@ -32,6 +37,31 @@ export default function AnonymousStakingPage () {
 
         updatePageData('anonymous-staking')
     },[])
+
+    // initial data loading mechanism
+    useEffect(()=> {
+        const loadPublicStakesData= async ()=> {
+            try {
+                const publicStakesData: FetchPublicStakesApiResponseInterface | null = await fetchPublicStakes()
+
+                if (!publicStakesData) {
+                    throw new Error(`data sent back from the api is not defined `)
+                }
+
+                // update the data on redux finaly
+                dispatch(updatePublicStakesData(publicStakesData))
+
+                // and just like that we will have fetched and updated the data to the redux store ready for rendering
+
+            } catch (error) {
+                console.error(`an error occured while laoiding public stakes data`)
+            }
+
+        }
+
+        loadPublicStakesData()
+
+    }, [dispatch])
 
     return (
         <div className="flex flex-col h-screen bg-other-blue-main-background-color">
@@ -104,7 +134,7 @@ export default function AnonymousStakingPage () {
                 <div className='overflow-y-auto pb-24 lg:pb-4 custom-scrollbar lg:pr-4'>
 
                     <div>
-                        {/* small heading cont , only availabe to mobile users */}
+                        {/* small heading cont , only availabe to mobile users : image part for mobile users also goes here too*/}
                         <div className='w-full lg:hidden relative'>
                             {/* Text content above the image */}
                             <div className='relative z-20 px-6 pt-8 pb-12'>
@@ -125,19 +155,25 @@ export default function AnonymousStakingPage () {
                             </div>
                         </div>
 
-                        {/* the actual list of stakes will go here now */}
-                        <PublicStakeCard 
-                        stakeId={1}
-                        date='2026-02-15T18:00:00'
-                        league='English Premier League'
-                        homeTeam='Manchester United'
-                        awayTeam='Liverpool'
-                        creatorUsername='john_doe' /** this will later be changed to display name rather  */
-                        creatorPlacement='home'
-                        stakeAmount={500}
-                        potentialWin={1000}
-                        selectedPlacement={'home'}
-                        />
+                        { publicStakes.data.map((stake)=> (
+                            <div 
+                            key={stake.stakeId}
+                            className='mb-3 lg:mb-0'>
+                                <PublicStakeCard 
+                                stakeId={stake.stakeId}
+                                date= {stake.date}
+                                league='generic'
+                                homeTeam={stake.homeTeam}
+                                awayTeam={stake.awayTeam}
+                                creatorUsername={stake.ownerDisplayName} // this needs to be changed to ownerDisplayName
+                                creatorPlacement= {stake.ownerPlacement}
+                                stakeAmount={stake.ownerStakeAmount}
+                                potentialWin={500} // I had to fill that in since the data in the backend is not yet well setup for now
+                                selectedPlacement={stake.guestPlacement}
+                                    />
+                            </div>
+                        ))
+                        }
 
                     </div>
 

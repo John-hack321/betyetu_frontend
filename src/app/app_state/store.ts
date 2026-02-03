@@ -1,4 +1,4 @@
-// src/app/app_state/store.ts
+// redux store setup imports
 import { configureStore } from "@reduxjs/toolkit";
 import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist';
 import { combineReducers } from 'redux';
@@ -12,6 +12,7 @@ import stakeConnectionDataReducer from "./slices/stakeConnectionData"
 import currentPageDataReducer from "./slices/pageTracking"
 import leagueDataReducer from "./slices/leagueData"
 import stakesDataReducer from "./slices/stakesData"
+import publicStakeDataReducer from "./slices/publicStakesData"
 import socketConnectionReducer from "./slices/socketConnection";
 
 // Root reducer
@@ -24,6 +25,7 @@ export const rootReducer = combineReducers({
   leagueData: leagueDataReducer,
   stakesData: stakesDataReducer,
   socketConnectionData: socketConnectionReducer,
+  publicStakesData: publicStakeDataReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -53,7 +55,7 @@ const persistConfig = {
   key: 'root',
   version: 1,
   storage,
-  whitelist: ['userData', 'currentStakeData', 'allFixturesData', 'stakeConnectionData', 'currentPageData', 'leagueData', 'stakesData', 'socketConnectionData'],
+  whitelist: ['userData', 'currentStakeData', 'allFixturesData', 'stakeConnectionData', 'currentPageData', 'leagueData', 'stakesData', 'socketConnectionData', 'publicStakesData'],
 };
 
 // Create persisted reducer
