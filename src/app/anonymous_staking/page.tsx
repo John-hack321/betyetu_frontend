@@ -43,10 +43,6 @@ export default function AnonymousStakingPage () {
         router.push('/main')
     }
 
-    const handleOnClickStakeButton= ()=> {
-
-    }
-
     /**
      * 
      * @param stakeId 
@@ -93,8 +89,12 @@ export default function AnonymousStakingPage () {
 
             dispatch(guestSetCurrentStakeDataWhenJoiningPublicStake(data))
             // after setting the data the next stop is to now push the user to the stake linking page specifcaly the confirmation part 
-            router.push('/stakeLinking')
         }
+    }
+
+    const handleOnClickStakeButton= ()=> {
+        console.log('the palce bet button has been clicked')
+        router.push('/stakeLinking')
     }
 
     // ─── Page tracking ──────────────────────────────────────────────

@@ -76,5 +76,6 @@ export const {addOwnerMatchIdAndPlacemntToCurrentStakeData,
     updateGuestStakeAmountOnCurrentStakeData,
     updateGuestStakePlacementOnCurrentStakeData,
     resetCurrentStakeData,
-    guestSetCurrentStakeData
+    guestSetCurrentStakeData,
+    guestSetCurrentStakeDataWhenJoiningPublicStake,
 }= currentStakeSlice.actions;
