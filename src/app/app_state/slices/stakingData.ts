@@ -29,6 +29,21 @@ const currentStakeSlice= createSlice({
             state.ownerStakeplacement= action.payload.ownerStakeplacement
         },
 
+        /**
+         * NOTE  : any redundancies and inconcistencies of the function will be solved later on , for now we just build 
+         * the function below is for users joining public stakes only
+         */
+        guestSetCurrentStakeDataWhenJoiningPublicStake: (state, action: PayloadAction<CurrentStakeData>)=> {
+            state.stakeId= action.payload.stakeId
+            state.matchId= action.payload.matchId
+            state.homeTeam= action.payload.homeTeam
+            state.awayTeam= action.payload.awayTeam
+            state.ownerStakeAmount= action.payload.ownerStakeAmount
+            state.ownerStakeplacement= action.payload.ownerStakeplacement
+            state.guestStakeAmount= action.payload.ownerStakeAmount // we are doing this to ensure the guest and owner stake amounts are always the same
+            state.guestStakePlacement= action.payload.guestStakePlacement
+        },
+
         addOwnerMatchIdAndPlacemntToCurrentStakeData: (state, action: PayloadAction<{matchId: number, placement: string, home: string, away: string}>)=> {
     
             state.matchId= action.payload.matchId

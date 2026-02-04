@@ -120,6 +120,16 @@ function Home() {
         dispatch(addOwnerMatchIdAndPlacemntToCurrentStakeData(data))
     }
 
+    /**
+     * 
+     * @param fixtureId 
+     * @param option 
+     * @param teamName 
+     * @param homeTeam 
+     * @param awayTeam 
+     * 
+     * this is the mechanism for knowing which button has been clicked by the user
+     */
     const handleOptionclick = (fixtureId: number, option: "home" | "away" | "draw", teamName: string, homeTeam: string, awayTeam: string) => {
         if (selectedMatchId === fixtureId && selectedOption === option) {
             setSelectedOption(null);

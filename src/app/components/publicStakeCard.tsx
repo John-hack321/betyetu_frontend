@@ -16,7 +16,11 @@ interface PublicStakeCardProps {
     onDrawClick?: () => void;
     onAwayClick?: () => void;
     onJoinClick?: () => void;
-    selectedPlacement: string | null; // "home", "away", "draw", or null
+    onClickStakeButton?: ()=> void;
+    homeButtonClicked?: boolean;
+    awayButtonclicked?: boolean;
+    drawButtonClicked?: boolean;
+    selectedPlacement?: string | null; // "home", "away", "draw", or null
 }
 
 export default function PublicStakeCard({
@@ -33,7 +37,11 @@ export default function PublicStakeCard({
     onDrawClick,
     onAwayClick,
     onJoinClick,
-    selectedPlacement
+    onClickStakeButton,
+    homeButtonClicked,
+    awayButtonclicked,
+    drawButtonClicked,
+    selectedPlacement,
 }: PublicStakeCardProps) {
 
     const [expanded, setExpanded] = useState(false);
@@ -44,9 +52,10 @@ export default function PublicStakeCard({
     };
 
     // Check if a button should be disabled (opponent already selected it)
+    // functin has a parameter placement that shows the what was chosen by the owner of the stake
     const isButtonDisabled = (placement: string) => {
-        if (creatorPlacement === 'home' && placement === 'home') return true;
-        if (creatorPlacement === 'away' && placement === 'away') return true;
+        if (creatorPlacement === homeTeam && placement === homeTeam) return true;
+        if (creatorPlacement === awayTeam && placement === awayTeam) return true;
         if (creatorPlacement === 'draw' && placement === 'draw') return true;
         return false;
     };
@@ -88,11 +97,11 @@ export default function PublicStakeCard({
                 <div className="flex gap-2 shrink-0">
                     <button
                         onClick={onHomeClick}
-                        disabled={isButtonDisabled('home')}
+                        disabled={isButtonDisabled(homeTeam)}
                         className={`w-14 h-14 rounded-lg font-bold text-base transition-all duration-200 ${
-                            isButtonDisabled('home')
+                            isButtonDisabled(homeTeam)
                                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50'
-                                : selectedPlacement === 'home'
+                                : homeButtonClicked === true
                                     ? 'bg-[#FED800] text-black shadow-lg scale-105'
                                     : 'bg-[#1a2633] text-gray-300 hover:bg-[#2a3643] border border-gray-600'
                         }`}
@@ -106,7 +115,7 @@ export default function PublicStakeCard({
                         className={`w-14 h-14 rounded-lg font-bold text-base transition-all duration-200 ${
                             isButtonDisabled('draw')
                                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50'
-                                : selectedPlacement === 'draw'
+                                : drawButtonClicked === true
                                     ? 'bg-[#FED800] text-black shadow-lg scale-105'
                                     : 'bg-[#1a2633] text-gray-300 hover:bg-[#2a3643] border border-gray-600'
                         }`}
@@ -116,11 +125,11 @@ export default function PublicStakeCard({
 
                     <button
                         onClick={onAwayClick}
-                        disabled={isButtonDisabled('away')}
+                        disabled={isButtonDisabled(awayTeam)}
                         className={`w-14 h-14 rounded-lg font-bold text-base transition-all duration-200 ${
-                            isButtonDisabled('away')
+                            isButtonDisabled(awayTeam)
                                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50'
-                                : selectedPlacement === 'away'
+                                : awayButtonclicked === true
                                     ? 'bg-[#FED800] text-black shadow-lg scale-105'
                                     : 'bg-[#1a2633] text-gray-300 hover:bg-[#2a3643] border border-gray-600'
                         }`}
@@ -128,6 +137,15 @@ export default function PublicStakeCard({
                         2
                     </button>
                 </div>
+            </div>
+            <div className='my-2'> 
+                {(homeButtonClicked || awayButtonclicked || drawButtonClicked) && (
+                    <button
+                    onClick={onClickStakeButton}
+                    className="w-full bg-[#60991A] hover:bg-[#4d7a15] text-black font-bold py-2 rounded-lg transition-colors duration-200">
+                        Place bet
+                    </button>
+                )}
             </div>
 
             {/* Quick Info Row - Always Visible */}

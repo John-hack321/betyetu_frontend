@@ -150,7 +150,7 @@ export default function FixtureCard({
                     <button
                     onClick={onClickStakeButton}
                     className="w-full bg-[#60991A] hover:bg-[#4d7a15] text-black font-bold py-2 rounded-lg transition-colors duration-200">
-                        Stake Now
+                        Place bet
                     </button>
                 </div>
             )}

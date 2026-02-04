@@ -50,6 +50,7 @@ export interface CurrentStakeData {
 
 export interface PublicStakesInterface{
     stakeId: number;
+    matchId: number;
     date: string;
     homeTeam: string;
     awayTeam: string;

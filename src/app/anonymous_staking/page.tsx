@@ -11,8 +11,10 @@ import { useSelector } from 'react-redux';
 import { useDispatch } from 'react-redux';
 import { updateCurrentPage } from '../app_state/slices/pageTracking';
 import { updatePublicStakesData, appendPublicStakesData, setLoadingState } from '../app_state/slices/publicStakesData';
+import { guestSetCurrentStakeDataWhenJoiningPublicStake } from '../app_state/slices/stakingData';
+import { resetCurrentStakeData } from '../app_state/slices/stakingData';
 
-import { FetchPublicStakesApiResponseInterface } from '../apiSchemas/stakingSchemas';
+import { CurrentStakeData, FetchPublicStakesApiResponseInterface } from '../apiSchemas/stakingSchemas';
 import { fetchPublicStakes } from '../api/stakes';
 
 
@@ -23,6 +25,7 @@ export default function AnonymousStakingPage () {
     const currentPage = useSelector((state: RootState) => state.currentPageData.page)
     const publicStakes: FetchPublicStakesApiResponseInterface = useSelector((state: RootState) => state.publicStakesData)
     const dispatch = useDispatch<AppDispatch>()
+    const currentStakeData = useSelector((state: RootState)=> state.currentStakeData)
 
     const router = useRouter()
 
@@ -36,12 +39,70 @@ export default function AnonymousStakingPage () {
         router.push('/stakeLinking')
     }
 
+    const handleStakeButtonClick= ()=> {
+        router.push('/main')
+    }
+
+    const handleOnClickStakeButton= ()=> {
+
+    }
+
+    /**
+     * 
+     * @param stakeId 
+     * @param option 
+     * @param homeTeam 
+     * @param awayTeam 
+     * @param teamName 
+     * 
+     * the mechanism and its data types below is just for determining what button as been clicked and actring accordingly just like in the main page
+     */
+
+    const [selectedStakeId, setSelectedStakeId] = useState<number | null>(null)
+    const [selectedOption, setSelectedOption]= useState<string | null>(null)
+
+    const handleOptionClick= (
+        stakeId: number,
+        matchId: number,
+        option: string,
+        homeTeam: string , 
+        awayTeam: string , 
+        ownerStakeAmount: number,
+        ownerStakeplacement: string,
+    )=> {
+        if (stakeId == selectedStakeId && option == selectedOption) {
+            setSelectedOption(null)
+            setSelectedStakeId(null)
+            dispatch(resetCurrentStakeData())
+
+        }
+        else {
+            setSelectedOption(option)
+            setSelectedStakeId(stakeId)
+            // we will do the data update here so that when we click on place bet all it does is to push us to push the user to the stake linking page 
+            const data: CurrentStakeData = {
+                stakeId: stakeId,
+                matchId: matchId,
+                homeTeam: homeTeam,
+                awayTeam: awayTeam,
+                ownerStakeAmount: ownerStakeAmount,
+                ownerStakeplacement: ownerStakeplacement,
+                guestStakeAmount: ownerStakeAmount,
+                guestStakePlacement: option,
+            }
+
+            dispatch(guestSetCurrentStakeDataWhenJoiningPublicStake(data))
+            // after setting the data the next stop is to now push the user to the stake linking page specifcaly the confirmation part 
+            router.push('/stakeLinking')
+        }
+    }
+
     // ─── Page tracking ──────────────────────────────────────────────
     useEffect(() => {
         dispatch(updateCurrentPage('anonymous-staking'))
     }, [dispatch])
 
-    // ─── Initial data load (page 1) ─────────────────────────────────
+    // Initial data load (page 1) 
     useEffect(() => {
         const loadPublicStakesData = async () => {
             try {
@@ -62,7 +123,7 @@ export default function AnonymousStakingPage () {
         loadPublicStakesData()
     }, [dispatch])
 
-    // ─── IntersectionObserver – triggers page increment ────────────
+    // IntersectionObserver – triggers page increment 
     useEffect(() => {
         const currentLoader = loaderRef.current;
         if (!currentLoader) return;
@@ -88,7 +149,7 @@ export default function AnonymousStakingPage () {
         };
     }, [publicStakes.has_next_page, isFetching, publicStakes.data?.length])
 
-    // ─── Fetch next page when `page` changes ───────────────────────
+    // Fetch next page when `page` changes 
     useEffect(() => {
         const fetchMoreData = async () => {
             if (page > 1 && !isFetching) {
@@ -208,7 +269,7 @@ export default function AnonymousStakingPage () {
                             <img
                                 src="/laliga.png"
                                 alt="Football stadium with crowd"
-                                className="absolute inset-0 w-full h-full object-cover brightness-75"
+                                className="absolute inset-0 w-full  object-cover brightness-75" 
                             />
                             {/* Dark overlay */}
                             <div className="absolute inset-0 bg-black/50"></div>
@@ -218,10 +279,17 @@ export default function AnonymousStakingPage () {
                                 <div>
                                     <h2 className="text-3xl font-extrabold text-white drop-shadow-lg leading-tight">
                                         <span className="text-[#FED800]">Stake</span> against<br />
-                                        millions <span className="text-[#FED800]">anonymously</span>
+                                        millions  of people <span className="text-[#FED800]">anonymously</span>
                                     </h2>
                                 </div>
-                                <p className="text-gray-200 text-sm mt-auto">
+                                <div className='flex flex-row justify-end pl-8 '>
+                                    {/* <p className='text-lg'>wanna create a public stake ? </p> */}
+                                    <button
+                                    onClick={handleStakeButtonClick}
+                                    className='px-6 py-2 text-black bg-green-components font-bold rounded-full justify-end'
+                                    >Stake</button>
+                                </div>
+                                <p className="text-gray-100 font-bold text-sm mt-auto">
                                     Test your predictions against the world
                                 </p>
                             </div>
@@ -229,6 +297,7 @@ export default function AnonymousStakingPage () {
                     </div>
 
                     {/* ── Desktop hero (inside the central column) ────── */}
+                    {/** For now I dont think we need this hero part on the desktop , this is only available to mobile users : changes may be made in the future
                     <div className="hidden lg:block mb-5">
                         <div className="relative w-full rounded-lg overflow-hidden" style={{ height: '200px' }}>
                             <img
@@ -248,17 +317,18 @@ export default function AnonymousStakingPage () {
                             </div>
                         </div>
                     </div>
+                     */}
 
                     {/* ── Stake cards list ────────────────────────────── */}
                     {/* On mobile: negative top margin pulls cards up so they
                         overlap and scroll over the sticky hero.            */}
-                    <div className="relative z-10 -mt-4 lg:mt-0 px-3 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
+                    <div className="relative z-10  lg:mt-0 px-1 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
                         {publicStakes.data.length > 0 ? (
                             <>
                                 {publicStakes.data.map((stake) => (
                                     <div
                                         key={stake.stakeId}
-                                        className="mb-3 lg:mb-0 bg-[#1a2633] rounded-lg"
+                                        className="mb-1 lg:mb-0 bg-[#1a2633] rounded-lg"
                                     >
                                         <PublicStakeCard
                                             stakeId={stake.stakeId}
@@ -270,6 +340,13 @@ export default function AnonymousStakingPage () {
                                             creatorPlacement={stake.ownerPlacement}
                                             stakeAmount={stake.ownerStakeAmount}
                                             potentialWin= {2} // {stake.potentialWin}
+                                            onHomeClick={()=> {handleOptionClick(stake.stakeId, stake.matchId, stake.homeTeam, stake.homeTeam, stake.awayTeam, stake.ownerStakeAmount, stake.ownerPlacement)}}
+                                            onAwayClick={() => {handleOptionClick(stake.stakeId, stake.matchId, stake.awayTeam, stake.homeTeam, stake.awayTeam, stake.ownerStakeAmount,stake.ownerPlacement)}}
+                                            onDrawClick={()=> {handleOptionClick(stake.stakeId, stake.matchId, "draw", stake.homeTeam, stake.awayTeam, stake.ownerStakeAmount,stake.ownerPlacement)}}
+                                            onClickStakeButton={()=> {handleOnClickStakeButton()}}
+                                            homeButtonClicked= {selectedStakeId == stake.stakeId && selectedOption == stake.homeTeam}
+                                            awayButtonclicked= {selectedStakeId == stake.stakeId && selectedOption == stake.awayTeam}
+                                            drawButtonClicked= {selectedStakeId == stake.stakeId && selectedOption == "draw" }
                                             selectedPlacement={stake.guestPlacement}
                                         />
                                     </div>
@@ -322,3 +399,23 @@ export default function AnonymousStakingPage () {
         </div>
     )
 }
+
+
+
+// ideas for this page : 
+/* 
+okay I like it but we have to make a few changes okay , so number 1 : 
+
+dont mess with the dimensions of the image just leave it as it was and the image should not be visible on the desktop view; there it should be hidden or something , 
+
+
+
+for the text on the image I liked the way it was before maybe we should revert of if you have another better idea you can suggest right now it just doesnt look good okay  , maybe youcan add more features or text on top to make it look better or something so long it makes it better , 
+
+and I want you to also push the starting point of the stakes  a bit lower too okay , 
+
+
+
+I was also thingking maybe we whould have like a background that covers all the stakes so that wehn we scroll it goes up with the stakes and thus covering the whole image completely such that we can nolonger see it behind the stakes , can you do that now
+
+*/

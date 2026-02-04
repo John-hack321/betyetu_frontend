@@ -89,7 +89,7 @@ function StakeCard({ stake }: StakeCardProps) {
   const potentialWin = stake.possibleWin
 
   return (
-    <div className="bg-[#16202C] rounded-lg border border-gray-700 overflow-hidden mb-3">
+    <div className="bg-[#16202C] rounded-lg border border-gray-700 overflow-hidden mb-1">
       {/* Compact View */}
       <div className="p-3">
         {/* Header */}
@@ -452,7 +452,7 @@ function StakesPage() {
 
             {/*TODO: so I need a way to make this only to list the stakes whos pulbic == false*/}
           {/* Stakes List - Scrollable */}
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24 lg:pb-4 lg:px-4 pr-6">
+          <div className=" overflow-y-auto px-1 pt-1 pb-24 lg:pb-4 lg:px-4 ">
             {filteredStakes.length > 0 ? (
               filteredStakes.map((stake) => (
                 <StakeCard key={stake.stakeId} stake={stake} />
