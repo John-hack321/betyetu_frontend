@@ -1,7 +1,7 @@
 'use client'
 import HeaderComponent from "../components/newHeader"
 import FooterComponent from "../components/footer"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import QRCodeScanner from "../components/qrComponent"
 import { truncateTeamName } from "../components/fixtureCard"
@@ -14,7 +14,8 @@ import { useSelector, useDispatch } from "react-redux"
 import { 
     updateGuestStakeAmountOnCurrentStakeData, 
     updateGuestStakePlacementOnCurrentStakeData,
-    guestSetCurrentStakeData 
+    guestSetCurrentStakeData,
+    setIsJoiningPublicStake // NEW: Import the new action
 } from "../app_state/slices/stakingData"
 import { 
     guestFetchStakeDataApiCall, 
@@ -28,6 +29,7 @@ function StakingPage() {
     // Redux setup
     const currentStakeData = useSelector((state: RootState) => state.currentStakeData)
     const userData = useSelector((state: RootState) => state.userData)
+    const isJoiningPublicStake = useSelector((state: RootState) => state.currentStakeData.isJoiningPublicStake) // NEW: Get the flag
     const dispatch = useDispatch<AppDispatch>()
 
     // State
@@ -40,6 +42,14 @@ function StakingPage() {
     const [scanWithLink, setScanWithLink] = useState<boolean>(true)
     const [showQRScanner, setShowQRScanner] = useState<boolean>(false)
     const router = useRouter()
+
+    // NEW: Auto-set stake amount for public stakes
+    useEffect(() => {
+        if (isJoiningPublicStake && currentStakeData.ownerStakeAmount > 0) {
+            setStakeAmount(currentStakeData.ownerStakeAmount)
+            dispatch(updateGuestStakeAmountOnCurrentStakeData(currentStakeData.ownerStakeAmount))
+        }
+    }, [isJoiningPublicStake, currentStakeData.ownerStakeAmount, dispatch])
 
     // Button handlers
     const handleHomeButtonClick = () => {
@@ -73,6 +83,8 @@ function StakingPage() {
         
         if (response && response.status == 200) {
             setBetSuccessfullyPlaced(true)
+            // Reset the flag when leaving the page
+            dispatch(setIsJoiningPublicStake(false))
             router.push("/stakes")
         }
         setLoading(false)
@@ -122,11 +134,21 @@ function StakingPage() {
             }
             dispatch(guestSetCurrentStakeData(stakeData))
             setStakeDataReceived(true)
+            
+            // NEW: For private stakes (via code), also set the amount automatically
+            setStakeAmount(invitedStakeData.stakeOwner.stakeAmount)
+            dispatch(updateGuestStakeAmountOnCurrentStakeData(invitedStakeData.stakeOwner.stakeAmount))
         }
         setLoading(false)
     }
 
     const potentialWin = stakeAmount ? stakeAmount * 2 : 0
+
+    // UPDATED: Determine which UI to show
+    // Show confirmation if either:
+    // 1. Coming from public stakes (isJoiningPublicStake is true), OR
+    // 2. Successfully fetched stake data via code (stakeDataReceived is true)
+    const showConfirmationUI = isJoiningPublicStake || stakeDataReceived
 
     if (loading) {
         return (
@@ -150,16 +172,16 @@ function StakingPage() {
             )}
 
             {/* Header */}
-            <div className="flex-none bg-[#1a2633] px-4 py-4 lg:px-6 z-20">
-                <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none shadow-lg md:px-6 z-20 border-b md:border-none border-gray-800">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold lg:text-3xl">
+                        <h1 className="text-2xl font-bold md:text-3xl">
                             <span className="text-[#FED800]">bet</span>
                             <span className="text-gray-100">yetu</span>
                         </h1>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all lg:text-base">
+                        <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all md:text-base">
                             Deposit
                         </button>
                     </div>
@@ -176,7 +198,7 @@ function StakingPage() {
                         Join Bet Info
                     </h3>
                     
-                    {stakeDataReceived && (
+                    {showConfirmationUI && (
                         <>
                             {/* Match Details Card */}
                             <div className="bg-[#1a2633] rounded-lg p-4 mb-4 border border-gray-700">
@@ -225,13 +247,13 @@ function StakingPage() {
 
                 {/* Center Content - Scrollable */}
                 <div className="flex-1 overflow-y-auto pb-24 lg:pb-4 px-4 lg:px-0 lg:min-w-0">
-                    {stakeDataReceived ? (
+                    {showConfirmationUI ? (
                         /* Stake Placement UI */
                         <div className="max-w-2xl mx-auto pt-4 lg:pt-8">
                             {/* Page Title - Mobile */}
                             <div className="lg:hidden mb-6">
                                 <h1 className="text-3xl font-bold text-white mb-2">Join the Bet</h1>
-                                <p className="text-gray-400 text-sm">Make your prediction and stake</p>
+                                <p className="text-gray-400 text-sm">Make your prediction</p>
                             </div>
 
                             {/* Match Info - Mobile */}
@@ -316,53 +338,38 @@ function StakingPage() {
                                 </div>
                             </div>
 
-                            {/* Your Stake Amount */}
+                            {/* UPDATED: Stake Amount Display (Read-only for public/private stakes) */}
                             <div className="bg-[#1a2633] rounded-xl p-6 border border-gray-700 mb-6">
                                 <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
                                     <DollarSign size={20} className="text-[#FED800]" />
-                                    Your Stake Amount
+                                    Stake Amount (Matched)
                                 </h3>
 
-                                {/* Quick Amounts */}
-                                <div className="grid grid-cols-5 gap-2 mb-4">
-                                    {quickAmountValues.map((amount) => (
-                                        <button
-                                            key={amount}
-                                            onClick={() => setStakeAmount(amount)}
-                                            className={`py-3 rounded-lg font-semibold text-sm transition-all ${
-                                                stakeAmount === amount
-                                                    ? 'bg-[#FED800] text-black'
-                                                    : 'bg-[#16202C] text-white hover:bg-[#23313D] border border-gray-700'
-                                            }`}
-                                        >
-                                            {amount}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Custom Amount */}
-                                <input
-                                    type="number"
-                                    value={stakeAmount || ''}
-                                    onChange={(e) => setStakeAmount(Number(e.target.value))}
-                                    placeholder="Enter custom amount"
-                                    className="w-full bg-[#16202C] text-white rounded-lg px-4 py-4 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FED800] border border-gray-700"
-                                />
-
-                                {/* Potential Win */}
-                                {stakeAmount && stakeAmount > 0 && (
-                                    <div className="mt-4 bg-gradient-to-r from-[#60991A]/20 to-transparent rounded-lg p-4 border border-[#60991A]/30">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-gray-300 text-sm flex items-center gap-2">
-                                                <TrendingUp size={16} className="text-[#60991A]" />
-                                                Potential Win
-                                            </span>
-                                            <span className="text-[#60991A] text-2xl font-bold">
-                                                {potentialWin.toLocaleString()} KES
-                                            </span>
+                                {/* Display the fixed amount */}
+                                <div className="bg-[#16202C] rounded-lg p-6 border-2 border-[#FED800]">
+                                    <div className="text-center">
+                                        <div className="text-gray-400 text-sm mb-2">You're betting</div>
+                                        <div className="text-[#FED800] text-4xl font-bold">
+                                            {stakeAmount || currentStakeData.ownerStakeAmount} KES
+                                        </div>
+                                        <div className="text-gray-400 text-xs mt-2">
+                                            (Matches opponent's stake)
                                         </div>
                                     </div>
-                                )}
+                                </div>
+
+                                {/* Potential Win */}
+                                <div className="mt-4 bg-gradient-to-r from-[#60991A]/20 to-transparent rounded-lg p-4 border border-[#60991A]/30">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-gray-300 text-sm flex items-center gap-2">
+                                            <TrendingUp size={16} className="text-[#60991A]" />
+                                            Potential Win
+                                        </span>
+                                        <span className="text-[#60991A] text-2xl font-bold">
+                                            {potentialWin.toLocaleString()} KES
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Place Bet Button */}
@@ -377,12 +384,12 @@ function StakingPage() {
                             >
                                 {currentStakeData.guestStakePlacement && stakeAmount 
                                     ? `Place Bet - ${stakeAmount} KES`
-                                    : 'Select Prediction & Amount'
+                                    : 'Select Prediction'
                                 }
                             </button>
                         </div>
                     ) : (
-                        /* Link/QR Input UI */
+                        /* Link/QR Input UI - Only shown for private stakes */
                         <div className="max-w-2xl mx-auto pt-4 lg:pt-8">
                             {/* Page Title */}
                             <div className="mb-6">
@@ -465,8 +472,12 @@ function StakingPage() {
                                     <span className="text-black text-xs font-bold">1</span>
                                 </div>
                                 <div>
-                                    <h4 className="text-white font-semibold text-sm mb-1">Get Code</h4>
-                                    <p className="text-gray-400 text-xs">Receive invite code from friend</p>
+                                    <h4 className="text-white font-semibold text-sm mb-1">
+                                        {isJoiningPublicStake ? 'Selected Match' : 'Get Code'}
+                                    </h4>
+                                    <p className="text-gray-400 text-xs">
+                                        {isJoiningPublicStake ? 'From public stakes' : 'Receive invite code from friend'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -475,18 +486,6 @@ function StakingPage() {
                             <div className="flex items-start gap-2">
                                 <div className="w-6 h-6 rounded-full bg-[#FED800] flex items-center justify-center shrink-0 mt-0.5">
                                     <span className="text-black text-xs font-bold">2</span>
-                                </div>
-                                <div>
-                                    <h4 className="text-white font-semibold text-sm mb-1">Enter or Scan</h4>
-                                    <p className="text-gray-400 text-xs">Type code or scan QR</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-[#1a2633] rounded-lg p-3 border border-gray-700">
-                            <div className="flex items-start gap-2">
-                                <div className="w-6 h-6 rounded-full bg-[#FED800] flex items-center justify-center shrink-0 mt-0.5">
-                                    <span className="text-black text-xs font-bold">3</span>
                                 </div>
                                 <div>
                                     <h4 className="text-white font-semibold text-sm mb-1">Make Prediction</h4>
@@ -498,11 +497,13 @@ function StakingPage() {
                         <div className="bg-[#1a2633] rounded-lg p-3 border border-gray-700">
                             <div className="flex items-start gap-2">
                                 <div className="w-6 h-6 rounded-full bg-[#FED800] flex items-center justify-center shrink-0 mt-0.5">
-                                    <span className="text-black text-xs font-bold">4</span>
+                                    <span className="text-black text-xs font-bold">3</span>
                                 </div>
                                 <div>
                                     <h4 className="text-white font-semibold text-sm mb-1">Place Bet</h4>
-                                    <p className="text-gray-400 text-xs">Confirm your stake</p>
+                                    <p className="text-gray-400 text-xs">
+                                        {isJoiningPublicStake ? 'Amount is fixed to match opponent' : 'Confirm your stake'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -511,7 +512,10 @@ function StakingPage() {
                     {/* Quick Action */}
                     <div className="mt-6 pt-6 border-t border-gray-700">
                         <button
-                            onClick={() => router.push('/main')}
+                            onClick={() => {
+                                dispatch(setIsJoiningPublicStake(false))
+                                router.push('/main')
+                            }}
                             className="w-full bg-[#1a2633] hover:bg-[#23313D] text-gray-300 font-medium px-4 py-2 rounded-lg text-sm transition-all text-left border border-gray-700"
                         >
                             ← Back to Matches

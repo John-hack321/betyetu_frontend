@@ -1,8 +1,12 @@
 import { CurrentStakeData } from "@/app/apiSchemas/stakingSchemas";
 import { Action, createSlice, PayloadAction } from "@reduxjs/toolkit";
 
+// Updated interface with new flag
+interface CurrentStakeDataExtended extends CurrentStakeData {
+    isJoiningPublicStake?: boolean;
+}
 
-const initialState : CurrentStakeData = {
+const initialState : CurrentStakeDataExtended = {
     matchId: 0,
     stakeId: 0,
     homeTeam: "",
@@ -11,13 +15,14 @@ const initialState : CurrentStakeData = {
     ownerStakeplacement: "",
     guestStakeAmount: 0,
     guestStakePlacement: "",
+    isJoiningPublicStake: false, // NEW: Track if joining public stake
 }
 
 const currentStakeSlice= createSlice({
     name: "currentStakeData",
     initialState,
     reducers: {
-        /**s
+        /**
          * in the update we also update the hometeam and awayteam 
          */
         guestSetCurrentStakeData: (state, action: PayloadAction<CurrentStakeData>)=> {
@@ -42,6 +47,7 @@ const currentStakeSlice= createSlice({
             state.ownerStakeplacement= action.payload.ownerStakeplacement
             state.guestStakeAmount= action.payload.ownerStakeAmount // we are doing this to ensure the guest and owner stake amounts are always the same
             state.guestStakePlacement= action.payload.guestStakePlacement
+            state.isJoiningPublicStake = true // NEW: Set flag when joining public stake
         },
 
         addOwnerMatchIdAndPlacemntToCurrentStakeData: (state, action: PayloadAction<{matchId: number, placement: string, home: string, away: string}>)=> {
@@ -63,14 +69,21 @@ const currentStakeSlice= createSlice({
         updateGuestStakeAmountOnCurrentStakeData: (state, action: PayloadAction<number>)=> {
             state.guestStakeAmount= action.payload
         },
-        resetCurrentStakeData: (state)=> initialState,
+        // NEW: Set the public stake joining flag
+        setIsJoiningPublicStake: (state, action: PayloadAction<boolean>) => {
+            state.isJoiningPublicStake = action.payload
+        },
+        resetCurrentStakeData: (state)=> {
+            return initialState // This will also reset isJoiningPublicStake to false
+        },
     },
     extraReducers: (builder) => {
     }
 })
 
 export default currentStakeSlice.reducer;
-export const {addOwnerMatchIdAndPlacemntToCurrentStakeData,
+export const {
+    addOwnerMatchIdAndPlacemntToCurrentStakeData,
     updateOwnerPlacementOnCurrentStakeData,
     updateOwnerStakeAmountOnCurrentStakeData,
     updateGuestStakeAmountOnCurrentStakeData,
@@ -78,4 +91,5 @@ export const {addOwnerMatchIdAndPlacemntToCurrentStakeData,
     resetCurrentStakeData,
     guestSetCurrentStakeData,
     guestSetCurrentStakeDataWhenJoiningPublicStake,
+    setIsJoiningPublicStake, // NEW: Export the new action
 }= currentStakeSlice.actions;

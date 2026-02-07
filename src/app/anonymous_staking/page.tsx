@@ -13,6 +13,7 @@ import { updateCurrentPage } from '../app_state/slices/pageTracking';
 import { updatePublicStakesData, appendPublicStakesData, setLoadingState } from '../app_state/slices/publicStakesData';
 import { guestSetCurrentStakeDataWhenJoiningPublicStake } from '../app_state/slices/stakingData';
 import { resetCurrentStakeData } from '../app_state/slices/stakingData';
+import { setIsJoiningPublicStake } from '../app_state/slices/stakingData';
 
 import { CurrentStakeData, FetchPublicStakesApiResponseInterface } from '../apiSchemas/stakingSchemas';
 import { fetchPublicStakes } from '../api/stakes';
@@ -26,6 +27,7 @@ export default function AnonymousStakingPage () {
     const publicStakes: FetchPublicStakesApiResponseInterface = useSelector((state: RootState) => state.publicStakesData)
     const dispatch = useDispatch<AppDispatch>()
     const currentStakeData = useSelector((state: RootState)=> state.currentStakeData)
+    const userData= useSelector((state: RootState)=> state.userData)
 
     const router = useRouter()
 
@@ -92,8 +94,12 @@ export default function AnonymousStakingPage () {
         }
     }
 
-    const handleOnClickStakeButton= ()=> {
-        console.log('the palce bet button has been clicked')
+    const handleOnClickStakeButton = () => {
+        console.log('the place bet button has been clicked')
+        
+        // Set the flag BEFORE navigation so the stakeLinking page knows we're joining a public stake
+        dispatch(setIsJoiningPublicStake(true))
+        
         router.push('/stakeLinking')
     }
 
@@ -272,7 +278,7 @@ export default function AnonymousStakingPage () {
                                 className="absolute inset-0 w-full  object-cover brightness-75" 
                             />
                             {/* Dark overlay */}
-                            <div className="absolute inset-0 bg-black/50"></div>
+                            <div className="absolute h-40px inset-0  bg-black/50"></div>
 
                             {/* Text content – positioned over the image */}
                             <div className="relative z-10 px-5 pt-6 pb-4 flex flex-col justify-between h-full">
@@ -330,7 +336,8 @@ export default function AnonymousStakingPage () {
                                         key={stake.stakeId}
                                         className="mb-1 lg:mb-0 bg-[#1a2633] rounded-lg"
                                     >
-                                        <PublicStakeCard
+                                        {userData.username !== stake.ownerDisplayName && (
+                                            <PublicStakeCard
                                             stakeId={stake.stakeId}
                                             date={stake.date}
                                             league="generic"
@@ -349,6 +356,7 @@ export default function AnonymousStakingPage () {
                                             drawButtonClicked= {selectedStakeId == stake.stakeId && selectedOption == "draw" }
                                             selectedPlacement={stake.guestPlacement}
                                         />
+                                        )}
                                     </div>
                                 ))}
 
@@ -399,23 +407,3 @@ export default function AnonymousStakingPage () {
         </div>
     )
 }
-
-
-
-// ideas for this page : 
-/* 
-okay I like it but we have to make a few changes okay , so number 1 : 
-
-dont mess with the dimensions of the image just leave it as it was and the image should not be visible on the desktop view; there it should be hidden or something , 
-
-
-
-for the text on the image I liked the way it was before maybe we should revert of if you have another better idea you can suggest right now it just doesnt look good okay  , maybe youcan add more features or text on top to make it look better or something so long it makes it better , 
-
-and I want you to also push the starting point of the stakes  a bit lower too okay , 
-
-
-
-I was also thingking maybe we whould have like a background that covers all the stakes so that wehn we scroll it goes up with the stakes and thus covering the whole image completely such that we can nolonger see it behind the stakes , can you do that now
-
-*/
