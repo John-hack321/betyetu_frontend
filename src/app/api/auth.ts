@@ -20,7 +20,7 @@ export const refreshAccessToken= async () /* Promise<RefreshTokenResponse> */ =>
             console.error(`an error occured: refresh token not found in localStorage`)
         }
 
-        const response = await axios.post('http://localhost:8000/auth/token/refresh', null, {
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/auth/token/refresh`, null, {
             headers: {
             'Authorization': `Bearer ${refreshToken}`
             }
