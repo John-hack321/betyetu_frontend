@@ -389,7 +389,7 @@ function Home() {
                     </div>
                         
                     {/* Sticky Filter Section (Mobile) */}
-                    <div className="sticky top-0 bg-[#0F1419] z-10 p-2 md:hidden">
+                    <div className="sticky top-0  bg-[#1a2633] z-10 p-2 md:hidden">
                         {/* Filter Tabs (Mobile Only) */}
                         <div className="flex gap-6 border-b border-gray-700 bg-[#1a2633] p-2 rounded-t-lg">
                             {filterTabs.map((tab) => (

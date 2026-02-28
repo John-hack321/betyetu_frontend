@@ -9,7 +9,7 @@ interface RefreshTokenResponse {
 // import { useAuth } from "../context/authContext";
 // useAuth()
 
-// sconst {logout}= useAuth()
+// const {logout}= useAuth()
 
 export const refreshAccessToken= async () /* Promise<RefreshTokenResponse> */ => {
     try {

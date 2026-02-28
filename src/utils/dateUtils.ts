@@ -1,3 +1,5 @@
+// for anyone using this utility function , please use it with caution ti was fully ai generated
+
 export function formatMatchDate(dateString: string): string {
   const matchDate = new Date(dateString);
   const now = new Date();
