@@ -4,6 +4,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { AllFixturesApiResponse, AllFixturesReduxStoreInterface } from "@/app/apiSchemas/matcheSchemas";
 
 const initialState : AllFixturesReduxStoreInterface = {
+    no_of_public_stakes: 0,
     page: 0,
     limit: 0,
     total: 0,
@@ -19,6 +20,7 @@ const allFixturesDataSlice= createSlice({
     initialState,
     reducers: {
         updateAllFixturesData: (state , action: PayloadAction<AllFixturesApiResponse>) => {
+            state.no_of_public_stakes= action.payload.no_of_public_stakes
             state.page= action.payload.page
             state.limit= action.payload.limit
             state.total= action.payload.total

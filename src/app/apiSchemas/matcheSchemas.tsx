@@ -16,6 +16,7 @@ export interface Fixture {
 }
 
 export interface AllFixturesApiResponse {
+    no_of_public_stakes: number; // we have fixed this here on the fixtures data so as to avoid doing too many request to the backend even for simple data
     page : number;
     limit : number;
     total : number;
@@ -25,6 +26,7 @@ export interface AllFixturesApiResponse {
 }
 
 export interface AllFixturesReduxStoreInterface {
+    no_of_public_stakes: number;
     page: number;
     limit: number;
     total: number;

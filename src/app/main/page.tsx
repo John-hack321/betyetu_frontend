@@ -502,7 +502,9 @@ function Home() {
     
             {/* Footer - FIXED position, mobile and tablet only */}
             <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
-                <FooterComponent currentPage={currentPage} />
+                <FooterComponent currentPage={currentPage}
+                publicStakeNumber={matchData.no_of_public_stakes}
+                />
             </div>
         </div>
     )

@@ -3,6 +3,10 @@ import { User , Home , Plus , MenuSquare , LayoutDashboard, Trophy, SquareMenu} 
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
+// trial to setup redux data on a component 
+import { useSelector, useDispatch } from "react-redux"
+import { RootState, AppDispatch } from "../app_state/store"
+
 const Icons = [
     {'iconName' : 'profile', ' icon' : <User/>},
     {'iconName' : 'home', ' icon' : <Home/>},
@@ -16,9 +20,10 @@ const Icons = [
 
 interface FooterProps{
     currentPage: string;
+    publicStakeNumber?: number;
 }
 
-export default function FooterComponent ({currentPage}: FooterProps) {
+export default function FooterComponent ({currentPage, publicStakeNumber}: FooterProps) {
     const router= useRouter()
 
     const handleTrophyButtonClick= ()=> {
@@ -40,6 +45,8 @@ export default function FooterComponent ({currentPage}: FooterProps) {
     const handleFloatingButtonClick= ()=> {
         router.push('/anonymous_staking')
     }
+
+    const noOfPublicStakes= useSelector((state: RootState)=> state.allFixturesData.no_of_public_stakes)
 
     return (
         <div className="flex-none bg-[#1a2633] border-t border-gray-800 px-2 py-3 shadow-2xl">
@@ -87,7 +94,7 @@ export default function FooterComponent ({currentPage}: FooterProps) {
                 className="bg-[#FED800] p-4 rounded-full shadow-2xl -mt-8 hover:bg-[#ffd700] transition-all transform hover:scale-110 relative">
                     {/* Notification Badge for Plus button */}
                     <div className="absolute -top-1 -right-1 bg-red-600 min-w-[20px] h-[20px] rounded-full flex items-center justify-center border-2 border-[#1a2633] shadow-lg">
-                        <p className="text-white text-[10px] font-bold px-1">100</p>
+                        <p className="text-white text-[10px] font-bold px-1">{noOfPublicStakes}</p>
                     </div>
                     {/* <Plus size={28} className="text-black" strokeWidth={3} /> */}
                     {/* for now we will just use the square meny for this button */}
@@ -99,7 +106,7 @@ export default function FooterComponent ({currentPage}: FooterProps) {
                 className="bg-gray-100 p-4 rounded-full shadow-2xl  hover:bg-gray-200 transition-all transform hover:scale-105 relative">
                     {/* Notification Badge */}
                     <div className="absolute -top-1 -right-1 bg-red-600 min-w-[20px] h-[20px] rounded-full flex items-center justify-center border-2 border-[#1a2633] shadow-lg">
-                        <p className="text-white text-[10px] font-bold px-1">100</p>
+                        <p className="text-white text-[10px] font-bold px-1">{noOfPublicStakes}</p>
                     </div>
                     <SquareMenu size={24} className="text-black" />
                 </button>
