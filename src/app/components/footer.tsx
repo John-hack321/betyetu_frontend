@@ -23,6 +23,7 @@ interface FooterProps{
     publicStakeNumber?: number;
 }
 
+// TODO => remove publicStakeNumber from parameters list since we are now access the redux store directly form the footer component itself
 export default function FooterComponent ({currentPage, publicStakeNumber}: FooterProps) {
     const router= useRouter()
 

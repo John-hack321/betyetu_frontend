@@ -20,6 +20,9 @@ import { updateCurrentPage } from "../app_state/slices/pageTracking"
 import { updateLeagueData } from "../app_state/slices/leagueData"
 import { getAvailableLeagues, LeagueInterface } from "../api/leagues"
 import { Home as HomeIcon , LayoutDashboard, Menu, Search, Trophy, User } from 'lucide-react'
+import MenuOverlay from "../components/menuOverlay"
+import { setMenuButtonToclicked } from "../app_state/slices/randomData"
+
 
 // Filter types for type safety
 type FilterType = 'all' | 'leagues' | 'live' | 'top';
@@ -34,7 +37,9 @@ function Home() {
     const [page, setPage] = useState<number>(1);
     const [isFetching, setIsFetching] = useState(false);
     const router = useRouter()
-
+    const menuButtonClicked= useSelector((state: RootState)=> state.randomData.isMenuButtonClicked)
+    const [searchIconClicked, setSearchIconClicked]= useState<boolean>(true)
+    
     // Redux state
     const userData = useSelector((state: RootState) => state.userData)
     const matchData = useSelector((state: RootState) => state.allFixturesData)
@@ -273,8 +278,45 @@ function Home() {
         )
     }
 
+    // util functions for the MenuOverlay component
+
+    const handleXMenuButtonClick= ()=> {
+        // for this file all we need to is just set the menu clicked value to false
+        // I think the value should be put on react redux so that we can also make this function reusable for other pages too
+        dispatch(setMenuButtonToclicked())
+    }
+
+    const handleLogoutButtonClick= ()=> {
+        // difine the functionality later on, probablty find a way to integrate it with the existing authcontext
+    }
+
+
+    // for the menu : we check if menu button clicked is true
+    if (menuButtonClicked) { // we need to do this for all the other pages
+        return <MenuOverlay
+        onXButtonClick={handleXMenuButtonClick}
+        onLogoutButtonClick={handleLogoutButtonClick}/>
+    }
+
+    // now for the search 
+    if (searchIconClicked) { // find a way to meke intput to stop showing the yellow focus stuff: i think by overiding the previous
+        return (
+            <div className="p-2 min-h-screen bg-other-blue-main-background-color">
+                {/* search bar part */}
+                <div className="border rounded-full flex items-center py-2 flex-row justify-start px-2 py gap-4 mx-4 mt-4">
+                    <Search/>
+                    <input 
+                    type="text" 
+                    placeholder="search matches and leagues"
+                    className="text-custom-white-text-color px-2 py w-3/4  rounded-lg"
+                    />
+                </div>
+            </div>
+        )
+    }
+
     return (
-        <div className="flex flex-col h-screen bg-[#1a2633]">
+        <div className="flex flex-col h-screen bg-other-blue-main-background-color">
             {/* Full-width Header - Mobile matches footer color */}
             <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none shadow-lg md:px-6 z-20 border-b md:border-none border-gray-800">
                 <div className="flex items-center justify-between">

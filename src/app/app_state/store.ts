@@ -14,6 +14,7 @@ import leagueDataReducer from "./slices/leagueData"
 import stakesDataReducer from "./slices/stakesData"
 import publicStakeDataReducer from "./slices/publicStakesData"
 import socketConnectionReducer from "./slices/socketConnection";
+import randomDataReducer  from "./slices/randomData";
 
 // Root reducer
 export const rootReducer = combineReducers({
@@ -26,6 +27,7 @@ export const rootReducer = combineReducers({
   stakesData: stakesDataReducer,
   socketConnectionData: socketConnectionReducer,
   publicStakesData: publicStakeDataReducer,
+  randomData: randomDataReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -55,7 +57,15 @@ const persistConfig = {
   key: 'root',
   version: 1,
   storage,
-  whitelist: ['userData', 'currentStakeData', 'allFixturesData', 'stakeConnectionData', 'currentPageData', 'leagueData', 'stakesData', 'socketConnectionData', 'publicStakesData'],
+  whitelist: ['userData', 
+    'currentStakeData', 
+    'allFixturesData', 
+    'stakeConnectionData', 
+    'currentPageData', 
+    'leagueData', 'stakesData',
+    'socketConnectionData', 
+    'publicStakesData',
+    'randomData']
 };
 
 // Create persisted reducer
