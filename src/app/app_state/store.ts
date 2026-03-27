@@ -65,7 +65,7 @@ const persistConfig = {
     'leagueData', 'stakesData',
     'socketConnectionData', 
     'publicStakesData',
-    'randomData']
+    ''] // we didnt add random data here because we dont want the isMenuClicked data to persit across page reloads
 };
 
 // Create persisted reducer
