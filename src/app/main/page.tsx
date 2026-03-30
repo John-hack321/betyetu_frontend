@@ -37,7 +37,7 @@ function Home() {
     const [isFetching, setIsFetching] = useState(false)
     const router = useRouter()
     const { logout } = useAuth()
-    const [searchButtonClicked, setSearchButtonClicked]= useState(true)
+    const [searchButtonClicked, setSearchButtonClicked]= useState(false)
     const [search, setSearch]= useState("")
 
     // Menu state — local, not Redux
@@ -378,16 +378,9 @@ function Home() {
 
                         {/* just a place holder for the reusable serach bar */}
                         { searchButtonClicked && (
-                            <div className="rounded-full border border-custom-white-text-color  mx-2 flex flex-row gap-4 py-2 px-2">
-                                <div>
-                                    <Search/>
-                                </div>
-                                <input type="text"
-                                    onChange={e => setSearch(e.target.value)}
-                                    placeholder="search for markets"
-                                    className="w-3/4 rounded-full placeholder:text-center text-custom-white-text-color px-2 py-1 border-transparent focus:ring-transparent focus:outline-none"
-                                />
-                        </div>
+                            <SearchBar
+                            handleOnChange={e => setSearch(e.target.value)}
+                            />
                         )}
 
                     </div>

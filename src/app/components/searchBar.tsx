@@ -2,7 +2,7 @@
 import { Search } from "lucide-react"
 
 export interface SearchBarProps {
-    handleOnChange: ()=> void
+    handleOnChange: (e: React.ChangeEvent<HTMLInputElement>)=> void
 }
 
 export function SearchBar({handleOnChange}: SearchBarProps) {
@@ -13,8 +13,9 @@ export function SearchBar({handleOnChange}: SearchBarProps) {
             </div>
             <input type="text"
                 onChange={handleOnChange}
-                placeholder="search for markets"
+                placeholder="search for markets"                            
                 className="w-3/4 rounded-full placeholder:text-center text-custom-white-text-color px-2 py-1 border-transparent focus:ring-transparent focus:outline-none"
+
             />
         </div>
     )
