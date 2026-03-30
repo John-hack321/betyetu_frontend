@@ -7,6 +7,7 @@ import ProtectedRoute from "../components/protectedRoute"
 import { useRouter } from "next/navigation"
 import FooterComponent from "../components/footer"
 import { Fixture } from "../apiSchemas/matcheSchemas"
+import { SearchBar } from "../components/searchBar"
 
 // Redux imports
 import { AppDispatch, RootState } from "../app_state/store"
@@ -36,6 +37,8 @@ function Home() {
     const [isFetching, setIsFetching] = useState(false)
     const router = useRouter()
     const { logout } = useAuth()
+    const [searchButtonClicked, setSearchButtonClicked]= useState(true)
+    const [search, setSearch]= useState("")
 
     // Menu state — local, not Redux
     const [menuOpen, setMenuOpen] = useState(false)
@@ -68,7 +71,13 @@ function Home() {
 
     const filteredFixtures = useMemo(() => {
         if (!matchData.data || matchData.data.length === 0) return []
-        let filtered = [...matchData.data]
+        let matchDataCopy = [...matchData.data]
+
+        // we need to prioritize search over the filter tabs so that the filter tabs can alwasy take effect even on the searched result
+        let filtered = matchDataCopy.filter(match => {
+            const userSearch = search.toLowerCase()
+            return match.away_team.toLowerCase().includes(userSearch) || match.home_team.toLowerCase().includes(userSearch) || match.league_name.toLowerCase().includes(userSearch)
+        } )
 
         switch (filterState.type) {
             case 'all':
@@ -244,7 +253,9 @@ function Home() {
                         <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all md:text-base">
                             Deposit
                         </button>
-                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+
+                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        onClick={() => {setSearchButtonClicked(!searchButtonClicked)}}>
                             <Search className="text-gray-300" size={20} />
                         </button>
                     </div>
@@ -356,6 +367,29 @@ function Home() {
                                 </div>
                             </div>
                         )}
+
+                        {/* the search bar will be rendered here now */}
+
+                        {/* we will fix this once we chat witha i and find  a way to make the search bar reusable
+                        // searchButtonClicked && (
+                         //    <SearchBar
+                         //    handleOnChange={()=> {e => setSearch(e.target.value)}}/>
+                        ) */} 
+
+                        {/* just a place holder for the reusable serach bar */}
+                        { searchButtonClicked && (
+                            <div className="rounded-full border border-custom-white-text-color  mx-2 flex flex-row gap-4 py-2 px-2">
+                                <div>
+                                    <Search/>
+                                </div>
+                                <input type="text"
+                                    onChange={e => setSearch(e.target.value)}
+                                    placeholder="search for markets"
+                                    className="w-3/4 rounded-full placeholder:text-center text-custom-white-text-color px-2 py-1 border-transparent focus:ring-transparent focus:outline-none"
+                                />
+                        </div>
+                        )}
+
                     </div>
 
                     {/* Fixtures */}
@@ -420,7 +454,7 @@ function Home() {
             </div>
 
             {/* Footer — mobile only */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
+            <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden">
                 <FooterComponent currentPage={currentPage} publicStakeNumber={matchData.no_of_public_stakes} />
             </div>
         </div>

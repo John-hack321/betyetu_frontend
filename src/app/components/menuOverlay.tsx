@@ -148,7 +148,7 @@ export default function MenuOverlay({
                 <div className="flex-1" />
 
                 {/* Logout */}
-                <div className="mx-4 mb-8">
+                <div className="mx-4 mb-6">
                     <button
                         onClick={() => {
                             onClose()

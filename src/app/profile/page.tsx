@@ -102,13 +102,12 @@ export default function ProfilePageRedesign() {
 
   return (
     <div className="flex flex-col h-screen bg-[#1a2633]">
+
       {/* Header */}
       <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none shadow-lg md:px-6 z-20 border-b md:border-none border-gray-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden">
-              <Menu className="text-gray-300" size={24} />
-            </button>
+            {/* on the profile page we dont need no meny for now since everything is already present there */}
             <h1 className="text-2xl font-bold md:text-3xl">
               <span className="text-[#FED800]">bet</span>
               <span className="text-gray-100">yetu</span>
@@ -118,9 +117,7 @@ export default function ProfilePageRedesign() {
             <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all md:text-base">
               Deposit
             </button>
-            <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-              <Search className="text-gray-300" size={20} />
-            </button>
+            {/*we also dont need a search button since there is litering nothing to search for in the page */}
           </div>
         </div>
       </div>

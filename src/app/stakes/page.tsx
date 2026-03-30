@@ -1,11 +1,13 @@
 'use client'
 import { useEffect, useMemo, useState } from "react"
-import { Trophy, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Share2, Copy, Check, TrendingUp, Target, Award, Calendar, Home as HomeIcon, LayoutDashboard, User } from 'lucide-react'
+import { Trophy, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Share2, Copy, Check, TrendingUp, Target, Award, Menu,Calendar, Home as HomeIcon, LayoutDashboard, User } from 'lucide-react'
 import HeaderComponent from "../components/newHeader"
 import FooterComponent from "../components/footer"
 import ProtectedRoute from "../components/protectedRoute"
 import GeneratedQrCode from "../components/qrCode"
 import { useRouter } from "next/navigation"
+import MenuOverlay from "../components/menuOverlay"
+import { useAuth } from "../context/authContext"
 
 // redux store setup
 import { useSelector } from "react-redux"
@@ -223,14 +225,19 @@ function StakeCard({ stake }: StakeCardProps) {
 
 
 function StakesPage() {
+
+  // local state
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter()
+  const [menuOpen , setMenuOpen] = useState(false)
+  const {logout} = useAuth()
 
   // redux data and utilities setup
   const dispatch = useDispatch<AppDispatch>();
   const currentPage = useSelector((state: RootState) => state.currentPageData.page);
   const stakeListData = useSelector((state: RootState) => state.stakesData.stakesList);
   const thisPage = "bets";
+  const userData= useSelector((state: RootState)=> state.userData)
 
   // stake filtering logic
   const [filterState, setFilterState] = useState<FilterState>({
@@ -329,11 +336,27 @@ function StakesPage() {
   }
 
   return (
+
     <div className="flex flex-col h-screen bg-[#1a2633]">
+
+      <MenuOverlay
+        isOpen={menuOpen}
+        onClose={()=> {setMenuOpen(false)}}
+        onLogoutClick={logout}
+        username={userData.username}
+        accountBalance={userData.account_balance}
+      />
+
       {/* Header */}
       <div className="flex-none bg-[#1a2633] px-4 py-4 lg:px-6 z-20">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
+          <button
+                onClick={() => setMenuOpen(true)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
+            >
+                <Menu className="text-gray-300" size={24} />
+            </button>
             <h1 className="text-2xl font-bold lg:text-3xl">
               <span className="text-[#FED800]">bet</span>
               <span className="text-gray-100">yetu</span>
@@ -539,7 +562,7 @@ function StakesPage() {
       </div>
 
       {/* Footer - Mobile Only */}
-      <div className="flex-none lg:hidden fixed bottom-0 left-0 right-0 z-50">
+      <div className="flex-none lg:hidden fixed bottom-0 left-0 right-0 z-30">
         <FooterComponent currentPage={currentPage} />
       </div>
     </div>
