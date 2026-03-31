@@ -4,6 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import FooterComponent from '../components/footer';
 import PublicStakeCard from '../components/publicStakeCard';
+import { useMemo } from 'react';
+import { SearchBar } from '../components/searchBar';
+import MenuOverlay from '../components/menuOverlay';
+import { useAuth } from '../context/authContext';
 
 // Redux setup imports
 import { AppDispatch, RootState } from '../app_state/store';
@@ -28,6 +32,12 @@ export default function AnonymousStakingPage () {
     const dispatch = useDispatch<AppDispatch>()
     const currentStakeData = useSelector((state: RootState)=> state.currentStakeData)
     const userData= useSelector((state: RootState)=> state.userData)
+
+    const {logout} = useAuth()
+    const [menuOpen, setMenuOpen]= useState(false)
+
+    const [searchButtonClicked, setSearchButtonClicked]= useState(false)
+    const [search, setSearch]= useState("")
 
     const router = useRouter()
 
@@ -58,6 +68,39 @@ export default function AnonymousStakingPage () {
 
     const [selectedStakeId, setSelectedStakeId] = useState<number | null>(null)
     const [selectedOption, setSelectedOption]= useState<string | null>(null)
+
+    const filteredPublicStakes = useMemo(() => {
+            if (!publicStakes.data || publicStakes.data.length === 0) return []
+            let publicStakesDataCopy = [...publicStakes.data]
+    
+            // we need to prioritize search over the filter tabs so that the filter tabs can alwasy take effect even on the searched result
+            let filtered = publicStakesDataCopy.filter(stake => {
+                const userSearch = search.toLowerCase()
+                return stake.homeTeam.toLowerCase().includes(userSearch) || 
+                stake.awayTeam.toLowerCase().includes(userSearch)
+            } )
+
+            return filtered
+    
+            /* If we ever do cased search we will unlish this but modified for the stakes now
+            switch (filterState.type) {
+                case 'all':
+                    return filtered
+                case 'leagues':
+                    if (filterState.leagueId !== null) {
+                        return filtered.filter((m) => m.league_id === filterState.leagueId)
+                    }
+                    return filtered
+                case 'live':
+                    return filtered.filter((m) => m.is_match_live)
+                case 'top':
+                    const topIds = leagueListData.slice(0, 5).map((l) => l.id)
+                    return filtered.filter((m) => topIds.includes(m.league_id))
+                default:
+                    return filtered
+            }
+            */
+        }, [publicStakes.data,search])
 
     const handleOptionClick= (
         stakeId: number,
@@ -196,11 +239,22 @@ export default function AnonymousStakingPage () {
     return (
         <div className="flex flex-col h-screen bg-[#1a2633]">
 
-            {/* ── Header ──────────────────────────────────────────── */}
+            {/* Mobile Menu Overlay */}
+            <MenuOverlay
+                isOpen={menuOpen}
+                onClose={() => setMenuOpen(false)}
+                onLogoutClick={logout}
+                username={userData.username}
+                accountBalance={userData.account_balance}
+            />
+
+            {/* header this is for both the mobile and desktop interface */}
             <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none shadow-lg md:px-6 z-20 border-b md:border-none border-gray-800">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden">
+                        <button 
+                        onClick={()=> {setMenuOpen(true)}}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden">
                             <Menu className="text-gray-300" size={24} />
                         </button>
                         <h1 className="text-2xl font-bold md:text-3xl">
@@ -212,14 +266,29 @@ export default function AnonymousStakingPage () {
                         <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all md:text-base">
                             Deposit
                         </button>
-                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                            <Search className="text-gray-300" size={20} />
+                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                            onClick={() => {
+                                if (searchButtonClicked ) {
+                                    setSearch("")
+                                }
+                                setSearchButtonClicked(!searchButtonClicked)
+                            }}>
+                                <Search className="text-gray-300" size={20} />
                         </button>
                     </div>
                 </div>
+                { searchButtonClicked && (
+                    <SearchBar
+                    onClose={()=> {
+                        setSearch("")
+                        setSearchButtonClicked(false)
+                    }}
+                    handleOnChange={e => setSearch(e.target.value)}
+                    />
+                )}
             </div>
 
-            {/* ── Main content area ───────────────────────────────── */}
+            {/* Main content area  */}
             {/* Desktop: 3-col grid that grows/shrinks with viewport  */}
             {/* Mobile:  single scrollable column with sticky hero    */}
             <div className="flex-1 flex flex-col overflow-hidden lg:grid lg:grid-cols-[280px_1fr_280px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[350px_1fr_350px] lg:gap-6 lg:overflow-hidden lg:px-6 lg:pt-6">
@@ -329,9 +398,9 @@ export default function AnonymousStakingPage () {
                     {/* On mobile: negative top margin pulls cards up so they
                         overlap and scroll over the sticky hero.            */}
                     <div className="relative z-10  lg:mt-0 px-1 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
-                        {publicStakes.data.length > 0 ? (
+                        {filteredPublicStakes.length > 0 ? (
                             <>
-                                {publicStakes.data.map((stake) => (
+                                {filteredPublicStakes.map((stake) => (
                                     <div
                                         key={stake.stakeId}
                                         className="mb-1 lg:mb-0 bg-[#1a2633] rounded-lg"
@@ -400,7 +469,7 @@ export default function AnonymousStakingPage () {
             </div>
 
             {/* ── Bottom navbar (mobile only) ─────────────────────── */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
+            <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden">
                 <FooterComponent currentPage={currentPage} />
             </div>
 

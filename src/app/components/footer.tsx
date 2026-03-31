@@ -54,7 +54,7 @@ export default function FooterComponent ({currentPage, publicStakeNumber}: Foote
         <div className="flex items-center justify-around relative">
 
             {/* the buttons will be rendered differently based on whether the use is on the current page */}
-            {currentPage === "home" ? (
+            {currentPage === "main" ? (
                 <button
                 onClick={()=> router.push('/main')}
                 className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors">

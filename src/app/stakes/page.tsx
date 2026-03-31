@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from "react"
-import { Trophy, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Share2, Copy, Check, TrendingUp, Target, Award, Menu,Calendar, Home as HomeIcon, LayoutDashboard, User } from 'lucide-react'
+import { Trophy, Clock, CheckCircle, XCircle, ChevronDown, ChevronUp, Share2, Search,Copy, Check, TrendingUp, Target, Award, Menu,Calendar, Home as HomeIcon, LayoutDashboard, User } from 'lucide-react'
 import HeaderComponent from "../components/newHeader"
 import FooterComponent from "../components/footer"
 import ProtectedRoute from "../components/protectedRoute"
@@ -17,6 +17,7 @@ import { updateCurrentPage } from "../app_state/slices/pageTracking"
 import { AppDispatch } from "../app_state/store"
 import { setStakesData, StakeInterface } from "../app_state/slices/stakesData"
 import { getUserStakesData } from "../api/stakes"
+import { SearchBar } from "../components/searchBar"
 
 type FilterType = 'all' | 'live' | 'won' | 'lost' | 'pending';
 
@@ -231,6 +232,8 @@ function StakesPage() {
   const router = useRouter()
   const [menuOpen , setMenuOpen] = useState(false)
   const {logout} = useAuth()
+  const [searchButtonClicked, setSearchButtonClicked]= useState(false)
+  const [search, setSearch]= useState("")
 
   // redux data and utilities setup
   const dispatch = useDispatch<AppDispatch>();
@@ -269,7 +272,13 @@ function StakesPage() {
       return [];
     }
 
-    let filtered = [...stakeListData];
+    let stakeDataCopy = [...stakeListData];
+
+    let filtered = stakeDataCopy.filter(stake => {
+      const userSearch= search.toLowerCase()
+      return stake.away.toLowerCase().includes(userSearch) || stake.home.toLowerCase().includes(userSearch) ||
+      stake.stakeAmount.toString().toLowerCase().includes(userSearch)
+    })
     
     switch (filterState.type) {
       case 'all':
@@ -289,7 +298,7 @@ function StakesPage() {
       default:
         return filtered;
     }
-  }, [stakeListData, filterState]);
+  }, [stakeListData, filterState, search]);
 
   // Calculate stats
   const stats = {
@@ -366,11 +375,20 @@ function StakesPage() {
             <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all lg:text-base">
               Deposit
             </button>
+            <button className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              onClick={() => {
+                  if (searchButtonClicked ) {
+                      setSearch("")
+                  }
+                  setSearchButtonClicked(!searchButtonClicked)
+              }}>
+                  <Search className="text-gray-300" size={20} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Content Area => represents both desktop and mobile */}
       <div className="flex-1 flex flex-col overflow-hidden lg:flex-row lg:gap-4 lg:px-6 lg:pt-6 lg:max-w-[1400px] lg:mx-auto lg:w-full">
         
         {/* Left Sidebar - Desktop Only */}
@@ -470,6 +488,15 @@ function StakesPage() {
                 ))}
               </div>
             </div>
+            {searchButtonClicked && (
+              <SearchBar
+                onClose={()=> {
+                    setSearch("")
+                    setSearchButtonClicked(false)
+                }}
+                handleOnChange={e => setSearch(e.target.value)}
+              />
+            )}
           </div>
 
 

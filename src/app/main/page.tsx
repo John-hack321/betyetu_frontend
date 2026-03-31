@@ -95,7 +95,7 @@ function Home() {
             default:
                 return filtered
         }
-    }, [matchData.data, filterState, leagueListData])
+    }, [matchData.data, filterState, leagueListData, search])
 
     const handleTabClick = (tabId: FilterType) => {
         setFilterState({ type: tabId, leagueId: tabId === 'leagues' ? filterState.leagueId : null })
@@ -255,7 +255,12 @@ function Home() {
                         </button>
 
                         <button className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                        onClick={() => {setSearchButtonClicked(!searchButtonClicked)}}>
+                        onClick={() => {
+                            if (searchButtonClicked ) {
+                                setSearch("")
+                            }
+                            setSearchButtonClicked(!searchButtonClicked)
+                        }}>
                             <Search className="text-gray-300" size={20} />
                         </button>
                     </div>
@@ -379,6 +384,10 @@ function Home() {
                         {/* just a place holder for the reusable serach bar */}
                         { searchButtonClicked && (
                             <SearchBar
+                            onClose={()=> {
+                                setSearch("")
+                                setSearchButtonClicked(false)
+                            }}
                             handleOnChange={e => setSearch(e.target.value)}
                             />
                         )}
