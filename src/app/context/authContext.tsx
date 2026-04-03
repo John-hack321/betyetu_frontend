@@ -50,8 +50,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const useData = useSelector((state: RootState) => state.userData)
   const dispatch = useDispatch<AppDispatch>()
 
+  // we need to check the auth status over here first on the loading of the component in general.
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const checkAuthStatus = async () => { 
       try {
         const token = localStorage.getItem('access_token'); // so we first look for the token in the local storage 
         if (token) { // if the token is availabe then we do the thing below 

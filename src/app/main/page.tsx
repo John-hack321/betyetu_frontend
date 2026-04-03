@@ -1,6 +1,6 @@
 // src/app/main/page.tsx
 'use client'
-import { useEffect, useState, useRef, useMemo } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { fetchAllFixtures } from "../api/matches"
 import FixtureCard from "../components/fixtureCard"
 import ProtectedRoute from "../components/protectedRoute"
@@ -8,6 +8,9 @@ import { useRouter } from "next/navigation"
 import FooterComponent from "../components/footer"
 import { Fixture } from "../apiSchemas/matcheSchemas"
 import { SearchBar } from "../components/searchBar"
+import { fetchPoolStakes } from "../api/poolStakes"
+import { useInfiniteScroll } from "@/hooks/useIntersectionObserver"
+import PoolStakeCard from "../components/poolStakeCard"
 
 // Redux imports
 import { AppDispatch, RootState } from "../app_state/store"
@@ -18,10 +21,14 @@ import { updateAllFixturesData, appendFixturesData, setLoadingState } from "../a
 import { addOwnerMatchIdAndPlacemntToCurrentStakeData } from "../app_state/slices/stakingData"
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
 import { updateLeagueData } from "../app_state/slices/leagueData"
+import { updatePoolMarketData } from "../app_state/slices/poolMarketData"
+
+
 import { getAvailableLeagues, LeagueInterface } from "../api/leagues"
 import { Home as HomeIcon, LayoutDashboard, Menu, Search, Trophy, User } from 'lucide-react'
 import MenuOverlay from "../components/menuOverlay"
 import { useAuth } from "../context/authContext"
+import { formatMatchDate } from "@/utils/dateUtils"
 
 // Filter types
 type FilterType = 'all' | 'leagues' | 'live' | 'top'
@@ -32,13 +39,16 @@ interface FilterState {
 }
 
 function Home() {
-    const loaderRef = useRef<HTMLDivElement>(null)
     const [page, setPage] = useState<number>(1)
     const [isFetching, setIsFetching] = useState(false)
     const router = useRouter()
     const { logout } = useAuth()
     const [searchButtonClicked, setSearchButtonClicked]= useState(false)
     const [search, setSearch]= useState("")
+
+    // pool stake handlers
+    const [showPoolMarkets, setShowPoolMarkets]= useState(false)
+    const [selectedStakeId, setSelectedStakeId] = useState<number | null>(null)
 
     // Menu state — local, not Redux
     const [menuOpen, setMenuOpen] = useState(false)
@@ -48,6 +58,7 @@ function Home() {
     const matchData = useSelector((state: RootState) => state.allFixturesData)
     const currentPage = useSelector((state: RootState) => state.currentPageData.page)
     const leagueListData: LeagueInterface[] = useSelector((state: RootState) => state.leagueData.leagues_list)
+    const poolStakesData = useSelector((state: RootState) => state.poolMarketData)
     const dispatch = useDispatch<AppDispatch>()
 
     // Local state
@@ -68,6 +79,35 @@ function Home() {
         { id: 'live', name: 'Live' },
         { id: 'top', name: 'Top' },
     ]
+
+    const filteredPoolStakes = useMemo(() => {
+        if (!poolStakesData.data || poolStakesData.data.length === 0) return []
+        let poolSakesCopy = [...poolStakesData.data]
+
+        let searchFilteredPoolStakes = poolSakesCopy.filter(poolStake => {
+            const userSearch = search.toLowerCase()
+            return leagueListData.find((league) => league.id === poolStake.league_id)?.name.toLowerCase().includes(userSearch) // since we alrady haev league data here
+            || poolStake.home_team.toLowerCase().includes(userSearch) 
+            || poolStake.away_team.toLowerCase().includes(userSearch)
+        })
+
+        switch (filterState.type) {
+            case 'all':
+                return searchFilteredPoolStakes
+            case 'leagues':
+                if (filterState.leagueId !== null) {
+                    return searchFilteredPoolStakes.filter((m) => m.league_id === filterState.leagueId)
+                }
+                return searchFilteredPoolStakes
+            // case 'live':
+            //     return searchFilteredPoolStakes.filter((m) => m.status === 'live')
+            case 'top':
+                return searchFilteredPoolStakes.filter((m) => (m.away_pool_count + m.home_pool_count + m.draw_pool_count) > 100)
+            default:
+                return searchFilteredPoolStakes
+        }
+
+    }, [poolStakesData.data, selectedMatchId])
 
     const filteredFixtures = useMemo(() => {
         if (!matchData.data || matchData.data.length === 0) return []
@@ -133,23 +173,14 @@ function Home() {
     const handleStakeButtonClick = () => router.push('/stakingPage')
     const handleUseInviteLinkButtonClick = () => router.push('/stakeLinking')
 
-    // Intersection observer
-    useEffect(() => {
-        const currentLoader = loaderRef.current
-        if (!currentLoader) return
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting && matchData.has_next_page && !isFetching) {
-                    setPage((prev) => prev + 1)
-                }
-            },
-            { threshold: 0.1, rootMargin: '200px', root: null }
-        )
-
-        observer.observe(currentLoader)
-        return () => observer.unobserve(currentLoader)
-    }, [matchData.has_next_page, isFetching, page, matchData.data?.length])
+    // Infinite scroll using reusable hook
+    const { ref: loaderRef } = useInfiniteScroll({
+        hasNextPage: matchData.has_next_page,
+        isFetching,
+        onLoadMore: () => setPage((prev) => prev + 1),
+        threshold: 0.1,
+        rootMargin: '200px'
+    })
 
     // Fetch more pages
     useEffect(() => {
@@ -171,16 +202,18 @@ function Home() {
         fetchMore()
     }, [page, dispatch])
 
-    // Initial load
+    // Initial load => channels all the initial data loads into one useEffect call
     useEffect(() => {
         const init = async () => {
             try {
-                const [leagues, fixtures] = await Promise.all([
+                const [leagues, fixtures, poolMarkets] = await Promise.all([
                     getAvailableLeagues(),
                     fetchAllFixtures(100, 1),
+                    fetchPoolStakes(1, 100),
                 ])
                 if (leagues) dispatch(updateLeagueData(leagues))
                 if (fixtures) dispatch(updateAllFixturesData(fixtures))
+                if (poolMarkets) dispatch(updatePoolMarketData(poolMarkets))
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load data')
             } finally {
@@ -305,7 +338,7 @@ function Home() {
 
                 {/* Central content */}
                 <div className="overflow-y-auto pb-24 lg:pb-4 custom-scrollbar lg:pr-4">
-
+                    
                     {/* Filter — desktop */}
                     <div className="hidden lg:block sticky top-0 bg-[#1a2633] z-10 pb-4 mb-4">
                         <div className="bg-[#1a2633] rounded-lg p-4 border border-gray-700">
@@ -343,19 +376,34 @@ function Home() {
 
                     {/* Filter — mobile */}
                     <div className="sticky top-0 bg-[#1a2633] z-10 p-2 md:hidden">
-                        <div className="flex gap-6 border-b border-gray-700 bg-[#1a2633] p-2 rounded-t-lg">
-                            {filterTabs.map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => handleTabClick(tab.id)}
-                                    className={`pb-2 px-1 text-sm font-medium transition-colors relative ${filterState.type === tab.id ? 'text-[#FED800]' : 'text-gray-400 hover:text-gray-200'}`}
-                                >
-                                    {tab.name}
-                                    {filterState.type === tab.id && (
-                                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />
-                                    )}
-                                </button>
-                            ))}
+
+                        {/** since we have added a button for pool mkts down there, these filter button will 
+                         * have to be scrollable now since they will only take 3/4 of the space and thus
+                         *  if we ever add more they will have to be scrollable */}
+                        
+                        <div className="border-b border-gray-700 bg-[#1a2633] flex flex-row">
+                            <div className="flex gap-6  p-2 rounded-t-lg w-3/4">
+                                {filterTabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => handleTabClick(tab.id)}
+                                        className={`pb-2 px-1 text-sm font-medium transition-colors relative ${filterState.type === tab.id ? 'text-[#FED800]' : 'text-gray-400 hover:text-gray-200'}`}
+                                    >
+                                        {tab.name}
+                                        {filterState.type === tab.id && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* for toggling pool markets on and off for viewing */}
+                            <button
+                            onClick={()=> {setShowPoolMarkets(!showPoolMarkets)}}
+                            className={`${showPoolMarkets 
+                                ? "text-green-500"
+                                : "text-gray-500"}`}
+                            >pool mkts</button>
                         </div>
                         {filterState.type === 'leagues' && (
                             <div className="overflow-x-auto bg-[#1a2633] p-2 rounded-b-lg">
@@ -394,7 +442,42 @@ function Home() {
 
                     </div>
 
-                    {/* Fixtures */}
+                    { showPoolMarkets ? (
+                        <div className="px-2 pt-2 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
+                            { filteredPoolStakes.length > 0 ? (
+                                <>
+                                    {filteredPoolStakes.map((stake) => (
+                                        <div key={stake.id} className="mb-3 lg:mb-0">
+                                            <PoolStakeCard
+                                                keyId={stake.id}
+                                                clickedStakeId={selectedStakeId!}
+                                                league={leagueListData.find((league) => league.id === stake.league_id)?.name || ''}
+                                                matchTime={formatMatchDate(stake.locks_at)} //  locks at refers to the time the match starts => after the match has started people cannot join or leave the stake
+                                                homeTeam={stake.home_team}
+                                                awayTeam={stake.away_team}
+                                                onClickHomeButton={() => handleOptionclick(stake.id, 'home', stake.home_team, stake.home_team, stake.away_team)}
+                                                onClickAwayButton={() => handleOptionclick(stake.id, 'away', stake.away_team, stake.home_team, stake.away_team)}
+                                                onClickDrawButton={() => handleOptionclick(stake.id, 'draw', 'draw', stake.home_team, stake.away_team)}
+                                                isMatchLive={(matchData.data.find((match)=> match.match_id === stake.match_id))?.is_match_live === true }
+                                                scoreString= {(matchData.data.find((match)=> match.match_id === stake.match_id))?.score_string || ''}
+                                                onClickStakeButton={handleStakeButtonClick}
+                                                homeButtonClicked={selectedStakeId === stake.id && selectedOption === 'home'}
+                                                awayButtonClicked={selectedStakeId === stake.id && selectedOption === 'away'}
+                                                drawButtonClicked={selectedStakeId === stake.id && selectedOption === 'draw'}
+                                                home_pool={stake.home_pool}
+                                                away_pool={stake.away_pool}
+                                                draw_pool={stake.draw_pool}
+                                            />
+                                        </div>
+                                    ))}
+                                </>
+                            ) : (
+                                <div className="col-span-2 text-center py-8">
+                                    <p className="text-gray-400">No pool markets available</p>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
                     <div className="px-2 pt-2 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
                         {filteredFixtures.length > 0 ? (
                             <>
@@ -423,7 +506,7 @@ function Home() {
                                 <div
                                     ref={loaderRef}
                                     className="py-8 flex justify-center items-center min-h-[100px]"
-                                    style={{ marginBottom: '80px' }}
+                                    style={{ marginBottom: '20px' }}
                                 >
                                     {isFetching ? (
                                         <div className="flex flex-col items-center gap-2">
@@ -446,6 +529,8 @@ function Home() {
                             </div>
                         )}
                     </div>
+                    ) }
+
                 </div>
 
                 {/* Right Sidebar — desktop only */}

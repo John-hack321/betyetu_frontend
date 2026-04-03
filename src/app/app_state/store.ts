@@ -15,6 +15,7 @@ import stakesDataReducer from "./slices/stakesData"
 import publicStakeDataReducer from "./slices/publicStakesData"
 import socketConnectionReducer from "./slices/socketConnection";
 import randomDataReducer  from "./slices/randomData";
+import poolMarketDataReducer from "./slices/poolMarketData";
 
 // Root reducer
 export const rootReducer = combineReducers({
@@ -28,6 +29,7 @@ export const rootReducer = combineReducers({
   socketConnectionData: socketConnectionReducer,
   publicStakesData: publicStakeDataReducer,
   randomData: randomDataReducer,
+  poolMarketData: poolMarketDataReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -65,6 +67,7 @@ const persistConfig = {
     'leagueData', 'stakesData',
     'socketConnectionData', 
     'publicStakesData',
+    'poolMarketData',
     ''] // we didnt add random data here because we dont want the isMenuClicked data to persit across page reloads
 };
 
@@ -87,4 +90,5 @@ if (typeof window !== 'undefined') {
   persistor = persistStore(store);
 }
 
+export type AppDispatch = typeof store.dispatch;
 export type AppDispatch = typeof store.dispatch;

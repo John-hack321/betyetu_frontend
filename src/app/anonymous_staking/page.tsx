@@ -1,7 +1,7 @@
 'use client'
 import { User, Plus, Trophy, Target, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, LogOut, Edit, Home as HomeIcon, LayoutDashboard, Menu, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import FooterComponent from '../components/footer';
 import PublicStakeCard from '../components/publicStakeCard';
 import { useMemo } from 'react';
@@ -19,10 +19,9 @@ import { guestSetCurrentStakeDataWhenJoiningPublicStake } from '../app_state/sli
 import { resetCurrentStakeData } from '../app_state/slices/stakingData';
 import { setIsJoiningPublicStake } from '../app_state/slices/stakingData';
 
-import { CurrentStakeData, FetchPublicStakesApiResponseInterface } from '../apiSchemas/stakingSchemas';
 import { fetchPublicStakes } from '../api/stakes';
-
-
+import { CurrentStakeData, FetchPublicStakesApiResponseInterface } from '../apiSchemas/stakingSchemas';
+import { useInfiniteScroll } from '../hooks/useIntersectionObserver';
 
 export default function AnonymousStakingPage () {
 
@@ -32,6 +31,7 @@ export default function AnonymousStakingPage () {
     const dispatch = useDispatch<AppDispatch>()
     const currentStakeData = useSelector((state: RootState)=> state.currentStakeData)
     const userData= useSelector((state: RootState)=> state.userData)
+    const leagueData= useSelector((state: RootState)=> state.leagueData.leagues_list)
 
     const {logout} = useAuth()
     const [menuOpen, setMenuOpen]= useState(false)
@@ -42,7 +42,6 @@ export default function AnonymousStakingPage () {
     const router = useRouter()
 
     // Infinite scroll state
-    const loaderRef = useRef<HTMLDivElement>(null);
     const [page, setPage] = useState<number>(1);
     const [isFetching, setIsFetching] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
@@ -172,31 +171,14 @@ export default function AnonymousStakingPage () {
         loadPublicStakesData()
     }, [dispatch])
 
-    // IntersectionObserver – triggers page increment 
-    useEffect(() => {
-        const currentLoader = loaderRef.current;
-        if (!currentLoader) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const first = entries[0];
-                if (first.isIntersecting && publicStakes.has_next_page && !isFetching) {
-                    setPage(prev => prev + 1);
-                }
-            },
-            {
-                threshold: 0.1,
-                rootMargin: '200px',
-                root: null
-            }
-        );
-
-        observer.observe(currentLoader);
-
-        return () => {
-            observer.unobserve(currentLoader);
-        };
-    }, [publicStakes.has_next_page, isFetching, publicStakes.data?.length])
+    // Infinite scroll using reusable hook
+    const { ref: loaderRef } = useInfiniteScroll({
+        hasNextPage: publicStakes.has_next_page,
+        isFetching,
+        onLoadMore: () => setPage(prev => prev + 1),
+        threshold: 0.1,
+        rootMargin: '200px'
+    });
 
     // Fetch next page when `page` changes 
     useEffect(() => {
@@ -408,8 +390,8 @@ export default function AnonymousStakingPage () {
                                         {userData.username !== stake.ownerDisplayName && (
                                             <PublicStakeCard
                                             stakeId={stake.stakeId}
-                                            date={stake.date}
-                                            league="generic"
+                                            date={stake.matchDate}
+                                            league={leagueData.find((t)=> t.id == stake.league)!.name} // we live on the assumption that the league will always be available since it is fetched on login onto the app
                                             homeTeam={stake.homeTeam}
                                             awayTeam={stake.awayTeam}
                                             creatorUsername={stake.ownerDisplayName}

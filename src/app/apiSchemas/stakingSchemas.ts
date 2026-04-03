@@ -60,6 +60,7 @@ export interface PublicStakesInterface{
     guestPlacement: string;
     league: number;
     ownerDisplayName: string;
+    matchDate: string;
 }
 
 // for the sake of the backend some data here will just have to be snake_cased : im a fullstack dev so just bare with it
