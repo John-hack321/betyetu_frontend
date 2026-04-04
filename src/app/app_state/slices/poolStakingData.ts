@@ -6,7 +6,7 @@ interface PoolStakingData {
     homeTeam: string;
     awayTeam: string;
     userStakeAmount: number;
-    userStakeChoice: string;
+    userStakeChoice: "home" | "away" | "draw" | ""
 }
 
 const initialState: PoolStakingData = {
