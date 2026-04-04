@@ -1,5 +1,6 @@
 'use client'
 import { truncateTeamName } from "./fixtureCard";
+import { Flame, Users, TrendingUp } from 'lucide-react';
 
 export interface PoolStakeCardProps {
     keyId: number;
@@ -22,7 +23,80 @@ export interface PoolStakeCardProps {
     draw_pool: number;
 }
 
-export default function PoolStakeCard ({keyId,
+// Returns a colour and label based on the percentage of the pool
+function getOddsStyle(pct: number): { bar: string; text: string; label: string } {
+    if (pct >= 60) return { bar: 'bg-emerald-500', text: 'text-emerald-400', label: 'Favourite' };
+    if (pct >= 40) return { bar: 'bg-[#FED800]', text: 'text-[#FED800]', label: 'Even' };
+    if (pct >= 25) return { bar: 'bg-orange-400', text: 'text-orange-400', label: 'Underdog' };
+    return { bar: 'bg-red-500', text: 'text-red-400', label: 'Long shot' };
+}
+
+interface OddsButtonProps {
+    label: string;        // "1" | "X" | "2"
+    teamName: string;     // full team name
+    pool: number;
+    totalPool: number;
+    clicked: boolean;
+    disabled?: boolean;
+    onClick: () => void;
+}
+
+function OddsButton({ label, teamName, pool, totalPool, clicked, disabled = false, onClick }: OddsButtonProps) {
+    const pct = totalPool > 0 ? Math.round((pool / totalPool) * 100) : 0;
+    const style = getOddsStyle(pct);
+    const impliedOdds = totalPool > 0 && pool > 0 ? (totalPool / pool).toFixed(2) : '—';
+
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            className={`
+                relative flex flex-col items-center justify-between
+                w-[30%] h-20 rounded-xl overflow-hidden
+                border transition-all duration-200 select-none
+                ${clicked
+                    ? 'border-[#FED800] shadow-[0_0_12px_rgba(254,216,0,0.35)] scale-[1.03]'
+                    : 'border-gray-700 hover:border-gray-500 active:scale-95'
+                }
+                ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                bg-[#0f1923]
+            `}
+        >
+            {/* Filled odds bar at bottom */}
+            <div
+                className={`absolute bottom-0 left-0 right-0 ${style.bar} transition-all duration-500`}
+                style={{ height: `${Math.max(pct, 4)}%`, opacity: clicked ? 0.35 : 0.22 }}
+            />
+
+            {/* Selected glow overlay */}
+            {clicked && (
+                <div className="absolute inset-0 bg-[#FED800]/10 rounded-xl" />
+            )}
+
+            {/* Content */}
+            <div className="relative z-8 flex flex-col items-center justify-center h-full gap-0.5 px-1">
+                <span className={`text-[11px] font-bold tracking-widest uppercase ${clicked ? 'text-[#FED800]' : 'text-gray-400'}`}>
+                    {label} {/* the 1 * 2 * 3 part the the top  */}
+                </span>
+                <span className={`text-base font-black  ${clicked ? 'text-[#FED800]' : `${style.text}`}`}>
+                    {pct}%
+                </span>
+                {/* for now I dont thik there is need to show implied odds all we should show id percentages I think 
+                <span className={`text-base font-black ${clicked ? 'text-[#FED800]' : 'text-white'}`}>
+                    {impliedOdds}x
+                </span>
+                */}
+                <span className={`text-[10px] font-semibold ${clicked ? 'text-[#FED800]' : `text-white`}`}>
+                    {impliedOdds}
+                </span>
+            </div>
+        </button>
+    );
+}
+
+
+export default function PoolStakeCard({
+    keyId, // represents stake id
     clickedStakeId,
     league,
     matchTime,
@@ -42,137 +116,156 @@ export default function PoolStakeCard ({keyId,
     draw_pool,
 }: PoolStakeCardProps) {
 
-    const total_pool = home_pool + away_pool + draw_pool;
-    
-    const findPoolPercentage = (pool: number, pool_type: string) => {
-        switch (pool_type) {
-            case 'hoem':
-                return (pool / total_pool) * 100;
-            case 'away':
-                return (pool / total_pool) * 100;
-            case 'draw':
-                return (pool / total_pool) * 100;
-            default:
-                return 0;
-        }
-    }
+    const totalPool = home_pool + away_pool + draw_pool;
+    const homePct = totalPool > 0 ? Math.round((home_pool / totalPool) * 100) : 33;
+    const awayPct = totalPool > 0 ? Math.round((away_pool / totalPool) * 100) : 33;
+    const drawPct = totalPool > 0 ? Math.round((draw_pool / totalPool) * 100) : 34;
+
+    const anyClicked = homeButtonClicked || awayButtonClicked || drawButtonClicked;
+    const hasPool = totalPool > 0;
+
+    const formatPool = (n: number) =>
+        n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
 
     return (
-        <div className='bg-background-blue rounded-lg p-3 shadow-md border border-gray-700'>
-            {/* League and Time Header */}
-            <div className='flex items-center justify-between mb-2 pb-2 border-b border-gray-600'>
-                <span className="text-xs text-gray-400 font-medium">{league}</span>
-                <span className='text-xs text-gray-300'>{matchTime}</span>
+        <div className="
+            bg-[#131e28] rounded-xl border border-gray-800
+            hover:border-gray-600 transition-all duration-200
+            shadow-md overflow-hidden
+        ">
+            {/* ── Header ───────────────────────────────────── */}
+            <div className="flex items-center justify-between px-3 pt-3 pb-2">
+                <div className="flex items-center gap-2">
+                    {/* Pool badge */}
+                    <span className="flex items-center gap-1 bg-[#FED800]/10 border border-[#FED800]/20 rounded-full px-2 py-0.5">
+                        <TrendingUp size={10} className="text-[#FED800]" />
+                        <span className="text-[#FED800] text-[10px] font-bold tracking-wide uppercase">Pool</span>
+                    </span>
+                    <span className="text-gray-500 text-[11px]">{league}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {isMatchLive && (
+                        <div className="flex items-center gap-1.5 bg-red-500/15 border border-red-500/30 rounded-full px-2 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping absolute" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 relative" />
+                            <span className="text-red-400 text-[10px] font-bold tracking-widest">LIVE</span>
+                            {scoreString && (
+                                <span className="text-red-300 text-[10px] font-black ml-1">{scoreString}</span>
+                            )}
+                        </div>
+                    )}
+                    <span className="text-gray-500 text-[11px]">{matchTime}</span>
+                </div>
             </div>
 
-            {/* main match content area */}
-            <div>
-                
-                {/* we need to redesing this live indicator for poolstakes to match that of like pred mkts and I dont thik if we need to show the score string maybe but I will use claude to reason on the best step here */}
-                {isMatchLive && (
-                    <div className="mb-3">
-                        <div className="flex items-center justify-between bg-gradient-to-r from-red-500/10 to-transparent rounded-lg p-2 border border-red-500/20">
-                            {/* Animated LIVE badge */}
-                            <div className="flex items-center gap-2 bg-red-500 rounded-md px-2.5 py-1 shadow-lg">
-                                <div className="relative flex items-center">
-                                    {/* Pulsing dot animation */}
-                                    <div className="absolute w-2 h-2 bg-white rounded-full animate-ping opacity-75"></div>
-                                    <div className="relative w-2 h-2 bg-white rounded-full"></div>
-                                </div>
-                                <span className="text-white text-xs font-bold tracking-wider">LIVE</span>
-                            </div>
-                            
-                            {/* Score Display */}
-                            <div className="bg-red-500/20 px-3 py-1 rounded-md">
-                                <span className="text-red-400 text-lg font-bold animate-pulse">
-                                    {scoreString}
-                                </span>
-                            </div>
-                        </div>
+            {/* ── Teams row ────────────────────────────────── */}
+            <div className="flex items-center justify-between px-3 pb-3">
+                {/* Home */}
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500/30 to-blue-700/20 border border-blue-500/20 flex items-center justify-center text-[9px] font-bold text-blue-300 shrink-0">
+                        H
                     </div>
-                )}
-                
+                    <span className="text-sm font-semibold text-gray-100 truncate">
+                        {truncateTeamName(homeTeam, 14)}
+                    </span>
+                </div>
 
-                {/* Main Betting Area */}
-                <div className="flex items-center justify-between gap-2">
+                <span className="text-gray-600 text-xs font-bold px-2">vs</span>
 
-                    {/* Teams Section : this is team names secions on the left of the fixture card*/}
-                    <div className="flex-1 min-w-0">
-                        {/* Home Team */}
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-5 h-5 bg-gray-600 rounded-full flex items-center justify-center text-[10px] font-bold">
-                                H
-                            </div>
-                            <span className="text-sm text-gray-100 font-medium truncate">
-                                {truncateTeamName(homeTeam)}
-                            </span>
-                        </div>
-                        
-                        {/* Away Team */}
-                        <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 bg-gray-600 rounded-full flex items-center justify-center text-[10px] font-bold">
-                                A
-                            </div>
-                            <span className="text-sm text-gray-100 font-medium truncate">
-                                {truncateTeamName(awayTeam)}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Betting Buttons: buttons part to the right of the team names */}
-                    <div className="flex gap-2">
-                        {/* Home Button (1) */}
-                        <button
-                            onClick={onClickHomeButton}
-                            className={`w-14 h-14 rounded-lg font-bold text-base transition-all duration-200 
-                                ${total_pool > 1 
-                                && 'so this is what I want , I need you to help me think it though okay , so I want it to show these parts in the battery format like , so we have range of colors from red, orange , yellow, red, the colors are based on percentages like higher percnetates like 80 and 90 we have green and lower like 10 we have red , and we should have a level like if its at 70 perenct it should be 70 percent covered lke the way batters alway are you have a colord bar showing the battery level right so I need like that but now basd on colors according to percenatages , the percenage value should also show bytheway , but if you think this color thing is too much for this you can also use a monocolor okay so long as it looks good you can also do away with the colors if you want and teh bar too, so long as you delive something good'} 
-
-                                ${ homeButtonClicked
-                                    ? 'bg-[#FED800] text-black shadow-lg scale-105'
-                                    : 'bg-[#1a2633] text-gray-300 hover:bg-[#2a3643] border border-gray-600'
-                            }`}
-                        >
-                            {(total_pool > 1) ? "1" : findPoolPercentage(home_pool, 'home')}
-                        </button>
-
-                        {/* Draw Button (X) */}
-                        <button
-                            onClick={onClickDrawButton}
-                            className={`w-14 h-14 rounded-lg font-bold text-base transition-all duration-200 ${
-                                drawButtonClicked
-                                    ? 'bg-[#FED800] text-black shadow-lg scale-105'
-                                    : 'bg-[#1a2633] text-gray-300 hover:bg-[#2a3643] border border-gray-600'
-                            }`}
-                        >
-                            {(total_pool > 1) ? "X" : findPoolPercentage(draw_pool, 'draw')}
-                        </button>
-
-                        {/* Away Button (2) */}
-                        <button
-                            onClick={onClickAwayButton}
-                            className={`w-14 h-14 rounded-lg font-bold text-base transition-all duration-200 ${
-                                awayButtonClicked
-                                    ? 'bg-[#FED800] text-black shadow-lg scale-105'
-                                    : 'bg-[#1a2633] text-gray-300 hover:bg-[#2a3643] border border-gray-600'
-                            }`}
-                        >
-                            {(total_pool > 1) ? "2" : findPoolPercentage(away_pool, 'away')}
-                        </button>
+                {/* Away */}
+                <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                    <span className="text-sm font-semibold text-gray-100 truncate text-right">
+                        {truncateTeamName(awayTeam, 14)}
+                    </span>
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500/30 to-purple-700/20 border border-purple-500/20 flex items-center justify-center text-[9px] font-bold text-purple-300 shrink-0">
+                        A
                     </div>
                 </div>
             </div>
 
-            {/* Optional: Stake Button (if needed) */}
-            {(homeButtonClicked || drawButtonClicked || awayButtonClicked) && (
-                <div className="mt-3 pt-3 border-t border-gray-600">
+            {/* ── Pool size bar ─────────────────────────────── */}
+            {hasPool && (
+                <div className="px-3 pb-2">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-gray-500 text-[10px]">Pool distribution</span>
+                        <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                            <Users size={9} />
+                            KES {formatPool(totalPool)}
+                        </span>
+                    </div>
+                    <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
+                        <div
+                            className="bg-blue-500 transition-all duration-700"
+                            style={{ width: `${homePct}%` }}
+                        />
+                        <div
+                            className="bg-gray-500 transition-all duration-700"
+                            style={{ width: `${drawPct}%` }}
+                        />
+                        <div
+                            className="bg-purple-500 transition-all duration-700"
+                            style={{ width: `${awayPct}%` }}
+                        />
+                    </div>
+                    <div className="flex justify-between mt-0.5 text-[9px]">
+                        <span className="text-blue-400">{homePct}%</span>
+                        <span className="text-gray-500">{drawPct}%</span>
+                        <span className="text-purple-400">{awayPct}%</span>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Divider ───────────────────────────────────── */}
+            <div className="mx-3 border-t border-gray-800 mb-3" />
+
+            {/* ── Odds buttons ─────────────────────────────── */}
+            <div className="flex gap-2 px-1 pb-3 justify-center">
+                <OddsButton
+                    label="1"
+                    teamName={homeTeam}
+                    pool={home_pool}
+                    totalPool={totalPool}
+                    clicked={homeButtonClicked && clickedStakeId === keyId}
+                    onClick={onClickHomeButton}
+                />
+                <OddsButton
+                    label="X"
+                    teamName="Draw"
+                    pool={draw_pool}
+                    totalPool={totalPool}
+                    clicked={drawButtonClicked && clickedStakeId === keyId}
+                    onClick={onClickDrawButton}
+                />
+                <OddsButton
+                    label="2"
+                    teamName={awayTeam}
+                    pool={away_pool}
+                    totalPool={totalPool}
+                    clicked={awayButtonClicked && clickedStakeId === keyId}
+                    onClick={onClickAwayButton}
+                />
+            </div>
+
+            {/* ── Place bet CTA ─────────────────────────────── */}
+            {anyClicked && (
+                <div className="px-3 pb-3 animate-in slide-in-from-bottom-2 duration-200">
                     <button
-                    onClick={onClickStakeButton}
-                    className="w-full bg-[#60991A] hover:bg-[#4d7a15] text-black font-bold py-2 rounded-lg transition-colors duration-200">
-                        Place bet
+                        onClick={onClickStakeButton}
+                        className="
+                            w-full py-3 rounded-xl font-bold text-sm text-black
+                            bg-gradient-to-r from-[#FED800] to-[#f5c800]
+                            hover:from-[#ffd700] hover:to-[#e8bc00]
+                            active:scale-[0.98] transition-all duration-150
+                            shadow-[0_4px_14px_rgba(254,216,0,0.3)]
+                            flex items-center justify-center gap-2
+                        "
+                    >
+                        <Flame size={15} />
+                        Join Pool Market
                     </button>
                 </div>
             )}
         </div>
-    )
+    );
 }

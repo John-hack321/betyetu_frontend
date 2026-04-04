@@ -9,8 +9,9 @@ import FooterComponent from "../components/footer"
 import { Fixture } from "../apiSchemas/matcheSchemas"
 import { SearchBar } from "../components/searchBar"
 import { fetchPoolStakes } from "../api/poolStakes"
-import { useInfiniteScroll } from "@/hooks/useIntersectionObserver"
 import PoolStakeCard from "../components/poolStakeCard"
+import PoolMarketsToggle from "../components/poolMarketToggle"
+import { useInfiniteScroll } from "@/hooks/useIntersectionObserver"
 
 // Redux imports
 import { AppDispatch, RootState } from "../app_state/store"
@@ -22,6 +23,7 @@ import { addOwnerMatchIdAndPlacemntToCurrentStakeData } from "../app_state/slice
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
 import { updateLeagueData } from "../app_state/slices/leagueData"
 import { updatePoolMarketData } from "../app_state/slices/poolMarketData"
+import { setInitialPoolStakingData } from "../app_state/slices/poolStakingData"
 
 
 import { getAvailableLeagues, LeagueInterface } from "../api/leagues"
@@ -63,9 +65,42 @@ function Home() {
 
     // Local state
     const [selectedOption, setSelectedOption] = useState<'home' | 'away' | 'draw' | null>(null)
+
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+
+    // pool logic functions: 
+    const handlePoolButtonClick = (stakeId: number, option: 'home' | 'away' | 'draw', matchId: number, homeTeam: string, awayTeam: string) => {
+        if (selectedStakeId === stakeId && selectedOption === option) {
+            setSelectedStakeId(null)
+            setSelectedOption(null)
+            dispatch(setInitialPoolStakingData({
+                poolStakeId: 0,
+                matchId: 0,
+                homeTeam: "",
+                awayTeam: "",
+                userStakeAmount: 0,
+                userStakeChoice: "",
+            }))
+
+            console.log("the pool staking data has been reset to defaults empty")
+
+        } else {
+            setSelectedStakeId(stakeId)
+            setSelectedOption(option)
+            dispatch(setInitialPoolStakingData({
+                poolStakeId: stakeId,
+                matchId: matchId,
+                homeTeam: homeTeam,
+                awayTeam: awayTeam,
+                userStakeAmount: 0,
+                userStakeChoice: option,
+            }))
+
+            console.log("the pool staking data has been updated succesfuly based on option")
+        }
+    }
 
     // Filter state
     const [filterState, setFilterState] = useState<FilterState>({
@@ -107,7 +142,7 @@ function Home() {
                 return searchFilteredPoolStakes
         }
 
-    }, [poolStakesData.data, selectedMatchId])
+    }, [poolStakesData.data, selectedMatchId, filterState, leagueListData, search])
 
     const filteredFixtures = useMemo(() => {
         if (!matchData.data || matchData.data.length === 0) return []
@@ -398,12 +433,10 @@ function Home() {
                             </div>
 
                             {/* for toggling pool markets on and off for viewing */}
-                            <button
-                            onClick={()=> {setShowPoolMarkets(!showPoolMarkets)}}
-                            className={`${showPoolMarkets 
-                                ? "text-green-500"
-                                : "text-gray-500"}`}
-                            >pool mkts</button>
+                            <PoolMarketsToggle
+                            active={showPoolMarkets}
+                            onToggle={() => setShowPoolMarkets(!showPoolMarkets)}/>
+
                         </div>
                         {filterState.type === 'leagues' && (
                             <div className="overflow-x-auto bg-[#1a2633] p-2 rounded-b-lg">
@@ -455,9 +488,9 @@ function Home() {
                                                 matchTime={formatMatchDate(stake.locks_at)} //  locks at refers to the time the match starts => after the match has started people cannot join or leave the stake
                                                 homeTeam={stake.home_team}
                                                 awayTeam={stake.away_team}
-                                                onClickHomeButton={() => handleOptionclick(stake.id, 'home', stake.home_team, stake.home_team, stake.away_team)}
-                                                onClickAwayButton={() => handleOptionclick(stake.id, 'away', stake.away_team, stake.home_team, stake.away_team)}
-                                                onClickDrawButton={() => handleOptionclick(stake.id, 'draw', 'draw', stake.home_team, stake.away_team)}
+                                                onClickHomeButton={() => handlePoolButtonClick(stake.id, 'home', stake.match_id, stake.home_team, stake.away_team)}
+                                                onClickAwayButton={() => handlePoolButtonClick(stake.id, 'away', stake.match_id, stake.home_team, stake.away_team)}
+                                                onClickDrawButton={() => handlePoolButtonClick(stake.id, 'draw', stake.match_id, stake.home_team, stake.away_team)}
                                                 isMatchLive={(matchData.data.find((match)=> match.match_id === stake.match_id))?.is_match_live === true }
                                                 scoreString= {(matchData.data.find((match)=> match.match_id === stake.match_id))?.score_string || ''}
                                                 onClickStakeButton={handleStakeButtonClick}

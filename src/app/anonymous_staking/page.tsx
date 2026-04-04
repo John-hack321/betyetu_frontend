@@ -21,7 +21,7 @@ import { setIsJoiningPublicStake } from '../app_state/slices/stakingData';
 
 import { fetchPublicStakes } from '../api/stakes';
 import { CurrentStakeData, FetchPublicStakesApiResponseInterface } from '../apiSchemas/stakingSchemas';
-import { useInfiniteScroll } from '../hooks/useIntersectionObserver';
+import { useInfiniteScroll } from '../../hooks/useIntersectionObserver';
 
 export default function AnonymousStakingPage () {
 
