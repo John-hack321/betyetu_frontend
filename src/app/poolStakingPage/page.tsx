@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from "react"
 import { Trophy} from 'lucide-react'
-
+import { useRouter } from "next/navigation"
 
 import FooterComponent from "../components/footer"
 import { truncateTeamName } from "../components/fixtureCard"
@@ -14,6 +14,7 @@ import { updateCurrentPage } from "../app_state/slices/pageTracking"
 
 export default function PoolStakingPage() {
     const thisPage= "main"
+    const router = useRouter()
 
     // redux data and setup
     const dispatch= useDispatch<AppDispatch>()
@@ -21,6 +22,8 @@ export default function PoolStakingPage() {
     const userData = useSelector((state: RootState) => state.userData)
     const currentPoolStakeData = useSelector((state: RootState) => state.poolStakingData)
     const [poolStakeAmount, setPoolStakeAmount] = useState<number | null>(null)
+    const [stakeInitialized, setStakeInitialized] = useState<boolean>(false)
+
     // though getting this feels like too much but lets just do it for now
     const poolStakeData = (useSelector((state: RootState) => state.poolMarketData.data)).find((poolStake) => poolStake.id === currentPoolStakeData.poolStakeId)
 
@@ -82,63 +85,175 @@ export default function PoolStakingPage() {
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col overflow-hidden lg:flex-row lg:gap-3 lg:px-3 lg:pt-3 lg:max-w-[1400px] lg:mx-auto lg:w-full">
-
+            {/* the main content area  */}
+            <div className="flex-1 flex flex-col overflow-hidden lg:flex-row lg:gap-6 lg:px-6 lg:pt-6 lg:max-w-[1400px] lg:mx-auto lg:w-full">
+            
                  {/* Left Sidebar - Desktop Only - Compact */}
-                <div className="hidden lg:block lg:w-[200px] bg-[#16202C] rounded-lg p-3 self-start sticky top-3 h-fit flex-shrink-0">
-                    <h3 className="text-gray-200 text-sm font-semibold mb-3 flex items-center gap-2">
-                        <Trophy className="text-[#FED800]" size={16} />
+                <div className="hidden lg:block lg:w-[280px] bg-[#16202C] rounded-lg p-6 self-start sticky top-6 h-fit flex-shrink-0">
+                    <h3 className="text-gray-200 text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Trophy className="text-[#FED800]" size={20} />
                         Match Info
                     </h3>
                     
                     {/* Match Details Card */}
-                    <div className="bg-[#1a2633] rounded-lg p-3 mb-3">
-                        <div className="text-center mb-3">
-                            <div className="flex items-center justify-between mb-2">
+                    <div className="bg-[#1a2633] rounded-lg p-6 mb-4">
+                        <div className="text-center mb-4">
+                            <div className="flex items-center justify-between mb-4">
                                 <div className="flex-1">
-                                    <div className="text-white font-bold text-sm mb-1">
+                                    <div className="text-white font-bold text-lg mb-2">
                                         {truncateTeamName(currentPoolStakeData.homeTeam, 10)}
                                     </div>
-                                    <div className="text-xs text-gray-400">Home</div>
+                                    <div className="text-sm text-gray-400">Home</div>
                                 </div>
-                                <div className="px-2">
-                                    <span className="text-[#FED800] font-bold text-lg">VS</span>
+                                <div className="px-4">
+                                    <span className="text-[#FED800] font-bold text-2xl">VS</span>
                                 </div>
                                 <div className="flex-1">
-                                    <div className="text-white font-bold text-sm mb-1">
+                                    <div className="text-white font-bold text-lg mb-2">
                                         {truncateTeamName(currentPoolStakeData.awayTeam, 10)}
                                     </div>
-                                    <div className="text-xs text-gray-400">Away</div>
+                                    <div className="text-sm text-gray-400">Away</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Quick Stats */}
-                    <div className="space-y-2">
-                        <div className="bg-[#1a2633] rounded-lg p-2">
+                    <div className="space-y-3">
+                        <div className="bg-[#1a2633] rounded-lg p-4">
                             <div className="flex items-center justify-between">
-                                <span className="text-gray-400 text-xs">Balance</span>
-                                <span className="text-[#FED800] font-bold text-xs">
+                                <span className="text-gray-400 text-sm">Balance</span>
+                                <span className="text-[#FED800] font-bold text-base">
                                     KES {userData.account_balance?.toLocaleString() || 0}
                                 </span>
                             </div>
                         </div>
                         
                         {poolStakeAmount && (
-                            <div className="bg-[#1a2633] rounded-lg p-2">
+                            <div className="bg-[#1a2633] rounded-lg p-4">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-gray-400 text-xs">Win</span>
-                                    <span className="text-[#60991A] font-semibold text-xs">
-                                        {/* for this one potential win the the calculation with the actual stake data in the system but I dont see any reason for showing it here though */}
-                                        KES {workOutPotentialWin(currentPoolStakeData.userStakeChoice, poolStakeAmount, poolStakeData!.home_pool, poolStakeData!.draw_pool, poolStakeData!.away_pool )}
+                                    <span className="text-gray-400 text-sm">Win</span>
+                                    <span className="text-[#60991A] font-semibold text-base">
+                                        KES {workOutPotentialWin(currentPoolStakeData.userStakeChoice, poolStakeAmount, poolStakeData!.home_pool, poolStakeData!.draw_pool, poolStakeData!.away_pool)}
                                     </span>
                                 </div>
                             </div>
                         )}
                     </div>
-                </div> {/** left side bar ends here */}
+                </div> {/* the left side bar ends here */}
 
+                {/* the center content now goes here */}
+                {stakeInitialized ? (
+                    // this is the success state => contains the best summary and an option to cancel the stake too 
+                    <div></div>
+                ) : (
+                    // betting state
+                    <div className="lg:mx-auto mx-4 pt-2 lg:pt-8 lg:max-w-4xl">
+
+                        {/* Page Title - Mobile */}
+                        <div className="mb-4 lg:mb-8">
+                            {/* Mobile Layout */}
+                            <div className="lg:hidden flex flex-col gap-3">
+                                <div>
+                                <h1 className="text-xl font-bold text-white mb-1">Place Your Bet</h1>
+                                <p className="text-gray-400 text-xs">Choose your prediction and amount</p>
+                                </div>  
+                            </div>
+
+                            {/* Desktop Layout */}
+                            <div className="hidden lg:flex items-center justify-start">
+                                <div>
+                                <h1 className="text-3xl font-bold text-white mb-2">Place Your Bet</h1>
+                                <p className="text-gray-400 text-base">Choose your prediction and amount</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Match Card - Mobile */}
+                        <div className="lg:hidden bg-[#1a2633] rounded-lg p-3 mb-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex-1 text-center">
+                                    <div className="text-white font-bold text-sm mb-1">
+                                        {truncateTeamName(currentPoolStakeData.homeTeam, 12)}
+                                    </div>
+                                    <div className="text-xs text-gray-400">Home</div>
+                                </div>
+                                <div className="px-3">
+                                    <span className="text-[#FED800] font-bold text-lg">VS</span>
+                                </div>
+                                <div className="flex-1 text-center">
+                                    <div className="text-white font-bold text-sm mb-1">
+                                        {truncateTeamName(currentPoolStakeData.awayTeam, 12)}
+                                    </div>
+                                    <div className="text-xs text-gray-400">Away</div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                )}
+
+                <div className="hidden lg:block lg:w-[260px] bg-[#16202C] rounded-lg p-6 self-start sticky top-6 h-fit flex-shrink-0">
+                    <h3 className="text-gray-200 text-lg font-semibold mb-4">Betting Tips</h3>
+                    
+                    <div className="space-y-3">
+                        <div className="bg-[#1a2633] rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="w-6 h-6 rounded-full bg-[#FED800] flex items-center justify-center shrink-0 mt-0.5">
+                                    <span className="text-black text-sm font-bold">1</span>
+                                </div>
+                                <div>
+                                    <h4 className="text-white font-semibold text-sm mb-1">Check Form</h4>
+                                    <p className="text-gray-400 text-sm">Review recent performance</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-[#1a2633] rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="w-6 h-6 rounded-full bg-[#FED800] flex items-center justify-center shrink-0 mt-0.5">
+                                    <span className="text-black text-sm font-bold">2</span>
+                                </div>
+                                <div>
+                                    <h4 className="text-white font-semibold text-sm mb-1">Bet Responsibly</h4>
+                                    <p className="text-gray-400 text-sm">Only stake what you can afford</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-[#1a2633] rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="w-6 h-6 rounded-full bg-[#FED800] flex items-center justify-center shrink-0 mt-0.5">
+                                    <span className="text-black text-sm font-bold">3</span>
+                                </div>
+                                <div>
+                                    <h4 className="text-white font-semibold text-sm mb-1">Share Wisely</h4>
+                                    <p className="text-gray-400 text-sm">Only with trusted friends</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="mt-6 pt-6">
+                        <h4 className="text-gray-300 text-sm font-semibold mb-3">Quick Actions</h4>
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => router.push('/main')}
+                                className="w-full bg-[#1a2633] hover:bg-[#23313D] text-gray-300 font-medium px-4 py-3 rounded-lg text-sm transition-all text-left"
+                            >
+                                ← Back to Matches
+                            </button>
+                            <button
+                                onClick={() => router.push('/stakes')}
+                                className="w-full bg-[#1a2633] hover:bg-[#23313D] text-gray-300 font-medium px-4 py-3 rounded-lg text-sm transition-all text-left"
+                            >
+                                View My Bets →
+                            </button>
+                        </div>
+                    </div>
+                </div> {/* the right side bar ends here */}
 
             </div>
 
