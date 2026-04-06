@@ -102,6 +102,10 @@ function Home() {
         }
     }
 
+    const handlePoolStakeButtonClick = () => {
+        router.push('/poolStakingPage')
+    }
+
     // Filter state
     const [filterState, setFilterState] = useState<FilterState>({
         type: 'all',
@@ -493,7 +497,7 @@ function Home() {
                                                 onClickDrawButton={() => handlePoolButtonClick(stake.id, 'draw', stake.match_id, stake.home_team, stake.away_team)}
                                                 isMatchLive={(matchData.data.find((match)=> match.match_id === stake.match_id))?.is_match_live === true }
                                                 scoreString= {(matchData.data.find((match)=> match.match_id === stake.match_id))?.score_string || ''}
-                                                onClickStakeButton={handleStakeButtonClick}
+                                                onClickStakeButton={handlePoolStakeButtonClick}
                                                 homeButtonClicked={selectedStakeId === stake.id && selectedOption === 'home'}
                                                 awayButtonClicked={selectedStakeId === stake.id && selectedOption === 'away'}
                                                 drawButtonClicked={selectedStakeId === stake.id && selectedOption === 'draw'}
