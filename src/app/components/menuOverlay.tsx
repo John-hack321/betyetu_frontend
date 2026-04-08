@@ -40,6 +40,11 @@ export default function MenuOverlay({
 
     const quickLinks = [
         {
+            label: 'My Profile',
+            icon: <User size={18} />,
+            onClick: () => handleNavigate('/profile'),
+        },
+        {
             label: 'Use Invite Link',
             icon: <Link2 size={18} />,
             onClick: () => handleNavigate('/stakeLinking'),

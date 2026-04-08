@@ -50,7 +50,7 @@ export default function FooterComponent ({currentPage, publicStakeNumber}: Foote
     const noOfPublicStakes= useSelector((state: RootState)=> state.allFixturesData.no_of_public_stakes)
 
     return (
-        <div className="flex-none bg-[#1a2633] border-t border-gray-800 px-2 py-2 shadow-2xl">
+        <div className="flex-none bg-[#1a2633] border-t border-gray-800 px-2 py-2 w-full shadow-2xl">
         <div className="flex items-center justify-around relative">
 
             {/* the buttons will be rendered differently based on whether the use is on the current page */}
@@ -143,23 +143,6 @@ export default function FooterComponent ({currentPage, publicStakeNumber}: Foote
                 className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-white/5 transition-colors">
                     <LayoutDashboard size={20} className="text-gray-400" />
                     <span className="text-xs text-gray-400">Board</span>
-                </button>
-            )}
-            
-            {currentPage === "profile" ? (
-                
-                <button 
-                    onClick={() => router.push('/profile')}
-                    className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                    <User size={20} className="text-[#FED800]" />
-                    <span className="text-xs text-[#FED800]">Profile</span>
-                </button>
-            ) : (
-                <button 
-                    onClick={() => router.push('/profile')}
-                    className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                    <User size={20} className="text-gray-400" />
-                    <span className="text-xs text-gray-400">Profile</span>
                 </button>
             )}
         </div>
