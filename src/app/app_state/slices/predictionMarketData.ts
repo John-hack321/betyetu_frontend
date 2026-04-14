@@ -4,7 +4,7 @@ import { MarketSummary } from "@/app/api/predictionMarket";
 
 export interface GroupMarket {
     id: number;
-    market_type: string;
+    market_type: "group";
     question: string;
     description: string;
     locks_at: string;
@@ -29,7 +29,7 @@ export interface GroupSubMarket {
 
 export interface PredictionMarket {
     id: number;
-    market_type: string;
+    market_type: "prediction";
     question: string;
     description: string;
     created_at: string;
@@ -48,7 +48,7 @@ export interface PredictionMarket {
 // we will soon rewrite most of the logic to remove the parts we will not be using here on the frontend.
 interface MatchPredictionMarket {
     id: number;
-    market_type: string;
+    market_type: "fixture";
     question: string;
     description: string;
     created_at: string;

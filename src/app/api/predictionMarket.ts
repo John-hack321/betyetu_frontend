@@ -1,4 +1,5 @@
 import axios from "axios";
+import { PredictionMarket, PredictionMarketState } from "../app_state/slices/predictionMarketData";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
@@ -93,11 +94,41 @@ export interface UserPosition {
     settled_payout: number | null;
 }
 
+// this one is self written
+// do extensive error handing for this model
+export const fetchMarkets = async (
+    page: number =1,
+    limit: number = 100,
+    category?: string // though I don't think this should be here since all filtering should be done on the frontend
+) : Promise<PredictionMarketState> => {
+    try {
+        const params: Record<string, string | number> = { page, limit };
+        if (category) params.category = category;
+        
+        const response = await axios.get(`${BASE_URL}/prediction_markets/all_markets`, {
+            params,
+            headers: getAuthHeaders(),
+        });
+        return response.data;
+    } catch (error: any) {
+        if (error.response?.status === 401) {
+            // Clear invalid token and redirect to login
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("accessToken");
+                localStorage.removeItem("userData");
+                window.location.href = "/login";
+            }
+            throw new Error("Authentication expired. Please login again.");
+        }
+        throw error;
+    }
+}
+
 export const fetchActiveMarkets = async (
     page: number = 1,
     limit: number = 50,
     category?: string
-): Promise<MarketsListResponse> => {
+): Promise<PredictionMarketState> => {
     const params: Record<string, string | number> = { page, limit };
     if (category) params.category = category;
     

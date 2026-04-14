@@ -2,6 +2,7 @@
 import { useAuth } from "../context/authContext"
 import MenuOverlay from "../components/menuOverlay"
 import FooterComponent from "../components/footer"
+import { fetchMarkets } from "../api/predictionMarket"
 
 import { useState, useEffect } from "react"
 import { Menu, Search } from "lucide-react"
@@ -10,12 +11,20 @@ import { Menu, Search } from "lucide-react"
 import { RootState, AppDispatch } from "../app_state/store"
 import { useDispatch, useSelector } from "react-redux"
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
+import { SearchBar } from "../components/searchBar"
+import { setMarkets } from "../app_state/slices/predictionMarketData"
 
-type FilterType = 'all' | 'leagues' | 'live' | 'top'
+type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon'
 
 interface FilterState {
     type: FilterType
     leagueId: number | null
+}
+
+interface FilterTab {
+    id: FilterType
+    label: string
+    dot?: boolean
 }
 
 
@@ -25,12 +34,17 @@ function MarketsPage () {
     const [menuOpen, setMenuOpen] = useState<boolean>(false)
     const [search, setSearch] = useState<string>("")
     const [searchButtonClicked, setSearchButtonClicked] = useState<boolean>(false)
+    const [activePill, setActivePill] = useState('all')
+    const [searchOpen, setSearchOpen] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [loading, setLoading] = useState<boolean>(true)
 
     // redux state
     const dispatch = useDispatch<AppDispatch>()
     const userData = useSelector((state: RootState) => state.userData)
     const currentPage = useSelector((state: RootState) => state.currentPageData.page)
     const MatchData = useSelector((state: RootState) => state.allFixturesData)
+    const predictionMarketData = useSelector((state: RootState) => state.predictionMarketData)
 
     const {logout} = useAuth()
 
@@ -38,9 +52,14 @@ function MarketsPage () {
     useEffect(() => {
         const init = async () => {
             try {
-                
+                const [PredictionMarkets] = await Promise.all([
+                    fetchMarkets()
+                ]) 
+                if (PredictionMarkets) dispatch(setMarkets(PredictionMarkets))
             } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to load data')
             } finally {
+                setLoading(false)
             }
         }
 
@@ -56,15 +75,21 @@ function MarketsPage () {
         leagueId: null,
     })
     
-    const filterTabs: { id: FilterType; name: string }[] = [
-        { id: 'all', name: 'All' },
-        { id: 'leagues', name: 'Leagues' },
-            { id: 'live', name: 'Live' },
-            { id: 'top', name: 'Top' },
-        ]
+    const filterTabs: FilterTab[] = [
+        { id: 'all', label: 'All' },
+        { id: 'football', label: 'Football' },
+        { id: 'kenya', label: 'Kenya' },
+        { id: 'premier-league', label: 'Premier League' },
+        { id: 'ucl', label: 'UCL' },
+        { id: 'afcon', label: 'AFCON' },
+        { id: 'live', label: 'Live', dot: true },
+        { id: 'closing-soon', label: 'Closing soon' },
+    ]
+
+    const filteredMarkets = predictionMarketData.data;
 
     const handleTabClick = (tabId: FilterType) => {
-        setFilterState({ type: tabId, leagueId: tabId === 'leagues' ? filterState.leagueId : null })
+        setFilterState({ type: tabId, leagueId: null })
     }
 
     return (
@@ -79,7 +104,7 @@ function MarketsPage () {
             />
 
             {/* Header */}
-            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none shadow-lg md:px-6 z-20 border-b md:border-none border-gray-800">
+            <div className="flex-none bg-[#1a2633] px-4 pt-4 sm:pb-1 lg:pb-4 md:pb-4 md:px-6 z-20  md:border-none ">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {/* Hamburger — mobile only */}
@@ -110,41 +135,89 @@ function MarketsPage () {
                         </button>
                     </div>
                 </div>
-
-                <div className="border-b border-gray-700 bg-[#1a2633] flex flex-row">
-                    <div className="flex gap-6  p-2 rounded-t-lg w-3/4">
-                        {filterTabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => handleTabClick(tab.id)}
-                                className={`pb-2 px-1 text-sm font-medium transition-colors relative ${filterState.type === tab.id ? 'text-[#FED800]' : 'text-gray-400 hover:text-gray-200'}`}
-                            >
-                                {tab.name}
-                                {filterState.type === tab.id && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />
-                                )}
-                            </button>
-                        ))}
-                    </div>
-
-                </div>
-                {filterState.type === 'leagues' && (
-                <div className="overflow-x-auto bg-[#1a2633] p-2 rounded-b-lg">
-                    <div className="flex gap-2 pb-2">
-                        {leagueListData.map((league) => (
-                            <button
-                                key={league.id}
-                                onClick={() => handleLeagueSelect(league.id)}
-                                className={`px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all ${filterState.leagueId === league.id ? 'bg-[#FED800] text-black' : 'bg-[#23313D] text-gray-300 hover:bg-[#2a3643]'}`}
-                            >
-                                {league.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
             </div>
 
+            <div className="flex-1 flex flex-col overflow-hidden lg:grid lg:grid-cols-[280px_1fr_280px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[350px_1fr_350px] lg:gap-6 lg:overflow-hidden lg:px-6 lg:pt-6">
+            {/** we will decide later on whethe we need the left and right side bars */}
+
+                {/* central content*/}
+                <div className="overflow-y-auto pb-24 lg:pb-4 custom-scrollbar lg:pr-4">
+
+
+                    {/* filters for mobile */}
+                    <div className="sticky top-0 bg-[#1a2633] z-10 p-2 md:hidden">  
+
+                        {/* the search bar will be rendered here now */}
+                        { searchButtonClicked && (
+                            <SearchBar
+                            onClose={()=> {
+                                setSearch("")
+                                setSearchButtonClicked(false)
+                            }}
+                            handleOnChange={e => setSearch(e.target.value)}
+                            />
+                        )}                
+
+                        <div className="border-b border-gray-700 bg-[#1a2633] overflow-x-scroll hide-horizontal-scrollbar">
+                            <div className="flex gap-6 p-2 rounded-t-lg min-w-max">
+                                {filterTabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => handleTabClick(tab.id)}
+                                        className={`pb-2 px-1 text-sm font-medium transition-colors relative flex items-center gap-1 whitespace-nowrap ${filterState.type === tab.id ? 'text-[#FED800]' : 'text-gray-400 hover:text-gray-200'}`}
+                                    >
+                                        {tab.label}
+                                        {tab.dot && (
+                                            <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                        )}
+                                        {filterState.type === tab.id && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div> 
+                    </div> {/* end of mobile header */}
+
+                    {/* Filter — desktop : this is just a stand in for now we are focused on mobile : I will make this better laters*/}
+                    <div className="hidden lg:block sticky top-0 bg-[#1a2633] z-10 pb-4 mb-4">
+                        <div className="bg-[#1a2633] rounded-lg p-4 border border-gray-700">
+                            <div className="flex gap-6 border-b border-gray-700 pb-3">
+                                {filterTabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => handleTabClick(tab.id)}
+                                        className={`pb-2 px-1 text-sm font-medium transition-colors relative flex items-center gap-1 whitespace-nowrap ${filterState.type === tab.id ? 'text-[#FED800]' : 'text-gray-400 hover:text-gray-200'}`}
+                                    >
+                                        {tab.label}
+                                        {tab.dot && (
+                                            <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                        )}
+                                        {filterState.type === tab.id && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/** rendering the markets now */}
+                    <div className="px-2 pt-2 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
+                        {filteredMarkets.length > 0 ? (
+                            filteredMarkets.map((market) => (
+                                
+                            ))
+                        ) : (
+                            <div className="text-center text-gray-400">
+                                No markets found
+                            </div>
+                        )}
+                    </div>
+
+                </div> {/* end of center content */}
+                
+            </div>
 
 
             {/* Footer — mobile only */}
