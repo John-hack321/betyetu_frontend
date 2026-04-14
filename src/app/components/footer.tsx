@@ -69,24 +69,6 @@ export default function FooterComponent ({currentPage, publicStakeNumber}: Foote
                     <span className="text-xs text-gray-400 font-medium">Home</span>
                 </button>
             )}
-
-            {/* trophy button : points to the stakes page */}
-            {currentPage === "bets" ? (
-            
-                <button 
-                onClick={()=> {handleTrophyButtonClick()}}
-                className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                    <Trophy size={20} className="text-[#FED800]" />
-                    <span className="text-xs text-[#FED800]">Bets</span>
-                </button>
-            ) : (
-                <button 
-                onClick={()=> {handleTrophyButtonClick()}}
-                className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                    <Trophy size={20} className="text-gray-400" />
-                    <span className="text-xs text-gray-400">Bets</span>
-                </button>
-            )}
             
             {/* Public button */}
             {currentPage === 'anonymous-staking' ? (
@@ -143,6 +125,24 @@ export default function FooterComponent ({currentPage, publicStakeNumber}: Foote
                 className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-white/5 transition-colors">
                     <LayoutDashboard size={20} className="text-gray-400" />
                     <span className="text-xs text-gray-400">Board</span>
+                </button>
+            )}
+            
+            {/* trophy button : points to the stakes page */}
+            {currentPage === "bets" ? (
+            
+                <button 
+                onClick={()=> {handleTrophyButtonClick()}}
+                className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-white/5 transition-colors">
+                    <Trophy size={20} className="text-[#FED800]" />
+                    <span className="text-xs text-[#FED800]">Bets</span>
+                </button>
+            ) : (
+                <button 
+                onClick={()=> {handleTrophyButtonClick()}}
+                className="flex flex-col items-center gap-0.5 p-1.5 rounded-lg hover:bg-white/5 transition-colors">
+                    <Trophy size={20} className="text-gray-400" />
+                    <span className="text-xs text-gray-400">Bets</span>
                 </button>
             )}
         </div>

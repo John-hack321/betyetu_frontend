@@ -4,6 +4,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
 const getAuthHeaders = () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    console.log("DEBUG: Token exists:", !!token);
+    console.log("DEBUG: Token length:", token?.length || 0);
+    console.log("DEBUG: BASE_URL:", BASE_URL);
     return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
@@ -97,11 +100,25 @@ export const fetchActiveMarkets = async (
 ): Promise<MarketsListResponse> => {
     const params: Record<string, string | number> = { page, limit };
     if (category) params.category = category;
-    const response = await axios.get(`${BASE_URL}/prediction_markets/`, {
-        params,
-        headers: getAuthHeaders(),
-    });
-    return response.data;
+    
+    try {
+        const response = await axios.get(`${BASE_URL}/prediction_markets/`, {
+            params,
+            headers: getAuthHeaders(),
+        });
+        return response.data;
+    } catch (error: any) {
+        if (error.response?.status === 401) {
+            // Clear invalid token and redirect to login
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("accessToken");
+                localStorage.removeItem("userData");
+                window.location.href = "/login";
+            }
+            throw new Error("Authentication expired. Please login again.");
+        }
+        throw error;
+    }
 };
 
 export const fetchMarketDetail = async (marketId: number): Promise<MarketDetail> => {
@@ -122,6 +139,7 @@ export const fetchPriceHistory = async (
     return response.data;
 };
 
+// but what a favout is it to be alble to build it from scratch at the same time too .
 export const fetchBuyQuote = async (
     marketId: number,
     side: string,
@@ -178,3 +196,4 @@ export const fetchMyPositions = async (): Promise<UserPosition[]> => {
     });
     return response.data;
 };
+
