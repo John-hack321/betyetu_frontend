@@ -71,6 +71,15 @@ html {
   display: none;  /* Safari and Chrome */
 }
 
+.hide-vertical-scrollbar::-webkit-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-vertical-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+
 /* Staggered/Cascading Grid Effect */
 @media (min-width: 768px) { /* Corresponds to md: breakpoint */
   .staggered-grid > *:nth-child(2n) {

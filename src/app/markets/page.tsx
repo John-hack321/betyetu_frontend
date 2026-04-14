@@ -3,6 +3,7 @@ import { useAuth } from "../context/authContext"
 import MenuOverlay from "../components/menuOverlay"
 import FooterComponent from "../components/footer"
 import { fetchMarkets } from "../api/predictionMarket"
+import { GroupMarket, PredictionMarket, MatchPredictionMarket } from "../app_state/slices/predictionMarketData"
 
 import { useState, useEffect } from "react"
 import { Menu, Search } from "lucide-react"
@@ -13,6 +14,8 @@ import { useDispatch, useSelector } from "react-redux"
 import { updateCurrentPage } from "../app_state/slices/pageTracking"
 import { SearchBar } from "../components/searchBar"
 import { setMarkets } from "../app_state/slices/predictionMarketData"
+import { truncateTeamName } from "../components/fixtureCard"
+import { formatMatchDate } from "@/utils/dateUtils"
 
 type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon'
 
@@ -27,6 +30,142 @@ interface FilterTab {
     dot?: boolean
 }
 
+function PredictionMarketCard ({ market }: { market: PredictionMarket }) {
+    return (
+        <div className="flex flex-col rounded-lg p-4 bg-lightblue-components gap-4 mb-3">
+
+            {/* question and percetage chance */}
+            <div className="flex flex-row justify-between">
+                <span
+                className="w-7/10">{market.question}</span>
+                <div className="p-3 w-15 h-15 items-center justify-center border-4 rounded-full"> {/* on this thing here I need this border or whatever implementation you will use , but I need it to have both red and green colors okay so that green color represetns the yes and red for no and the length of green color should be denoted be deonted by the percentage for yes and the red lenght by the percentage for no okay you can also change the size if you want okay or if you think doing semi-circles like in polymarket then it is also okay  though I thik the semi colom might be better to also allow us to write chance below it right ?*/}
+                    <span className="text-sm text-center">{(market.yes_price * 100).toFixed(0)}%</span> 
+                </div>
+            </div>
+
+            {/* selection buttons */}
+            <div className="gap-2 flex flex-row ">
+                <button 
+                className="w-1/2 rounded-lg bg-[#0C3D37] text-green-500 py-2">yes</button>
+                <button
+                className="w-1/2 rounded-lg bg-[#431D27] text-red-400 py-2">No</button>
+            </div>
+
+            {/* volume info and relevant stuff */}
+            <div className="flex flex-row justify-between">
+                <span className="text-sm">
+                    ksh{market.total_collected.toFixed(0)}
+                    <span className="text-sm">{(market.total_collected < 1000) ? "" : (market.total_collected < 1000000) ? "k" : "M" }</span>
+                </span>
+                <span
+                className="text-sm"
+                >{formatMatchDate(market.locks_at)}</span> {/* we have used locks at here just for now since in the backend it points to the matchs start time , we will find a better way later on */}
+            </div>
+
+        </div>
+    )
+}
+
+function GroupMarketCard ({ market }: { market: GroupMarket }) {
+    return (
+        <div className="bg-lightblue-components rounded-lg p-4 flex flex-col mb-2 gap-3">
+            {/* market name */}
+            <div>
+                <span>{market.question}</span>
+            </div>
+
+            {/* rendering of sub markets here */}
+            <div
+            className="overflow-y-hidden flex flex-col h-10 scroll-auto">
+                {market.sub_markets.length > 0 && (
+                    market.sub_markets.map((sub_market) => (
+                        <div
+                        className="flex justify-between items-center"
+                        key={sub_market.id}>
+                            <span>ruto</span> {/* ths is just a stand in this value should come from option in the data */}
+                            <div className="flex flex-row gap-3">
+                                <span>{(sub_market.yes_price * 100).toFixed(0)}%</span>
+                                <button className="text-sm px-3 py-2 rounded-full text-green-500 bg-[#0C3D37]">Yes</button>
+                                <button className="text-sm px-3 py-2 rounded-full bg-[#431D27] text-red-400">No</button>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* volume and other info */}
+            <div className="flex flex-row justify-between">
+                <span className="text-sm">
+                    ksh{market.total_collected.toFixed(0)}
+                    <span className="text-sm">{(market.total_collected < 1000) ? "" : (market.total_collected < 1000000) ? "k" : "M" }</span>
+                </span>
+                <span
+                className="text-sm"
+                >{formatMatchDate(market.locks_at)}</span> {/* we have used locks at here just for now since in the backend it points to the matchs start time , we will find a better way later on */}
+            </div>
+
+
+        </div>
+    )
+}
+
+function FixtureMarketCard ({ market }: { market: MatchPredictionMarket }) {
+    return (
+        <div className="flex p-4 flex-col rounded-lg bg-lightblue-components gap-3 mb-2">
+            {/* team name part */}
+            <div className="flex flex-col gap-2">
+                <div className="flex flex-row justify-between">
+                    <h2>{market.home_team}</h2>
+                    <h2>{(market.home_price * 100).toFixed(0)}%</h2> {/* we use toFixed to round it off to a whole nubmer */}
+                </div>
+                <div className="flex flex-row justify-between">
+                    <h2>{market.away_team}</h2>
+                    <h2>{(market.away_price * 100).toFixed(0)}%</h2>
+                </div>
+            </div>   
+            
+            {/* selection buttons */}       
+            <div className="flex flex-row gap-1 justify-between">
+                {/* in the color design of these buttons I would realy like it if the buttons were made to change color based on the percentage on the side eg: for low values it can be red and for heigher values it can be green , just like the coloring we did with the pool stake buttons for now I will just put any color as place holders */}
+                {/* the text color shold also change color so that it does not look that bad so in short the text color should also be flexible okay  */}
+                {/* also about the name formating if ther is way we can format the name for the team it would be good since others have very long names */}
+                <button 
+                className="px-3 py-2 w-1/3 text-sm rounded-lg bg-green-200"
+                >{truncateTeamName(market.home_team)}</button>
+                <button
+                className="px-3 py-2 w-1/3 text-sm rounded-lg bg-gray-200"
+                >Draw</button>
+                <button
+                className="px-3 py-2 w-1/3 text-sm rounded-lg bg-red-200"
+                >{truncateTeamName(market.away_team)}</button>
+            </div>
+
+            {/* volume informatin and relevant stuff */}
+            <div className="flex flex-row justify-between">
+                <span className="text-sm">
+                    ksh{market.total_collected.toFixed(0)}
+                    <span className="text-sm">{(market.total_collected < 1000) ? "" : (market.total_collected < 1000000) ? "k" : "M" }</span>
+                </span>
+                <span
+                className="text-sm"
+                >{formatMatchDate(market.locks_at)}</span> {/* we have used locks at here just for now since in the backend it points to the matchs start time , we will find a better way later on */}
+            </div>
+        </div>
+    )
+}
+
+function MarketCard ({ market }: { market: PredictionMarket | GroupMarket | MatchPredictionMarket }) {
+    switch (market.market_type) {
+        case 'prediction':
+            return <PredictionMarketCard market={market as PredictionMarket} />
+        case 'group':
+            return <GroupMarketCard market={market as GroupMarket} />
+        case 'fixture':
+            return <FixtureMarketCard market={market as MatchPredictionMarket} />
+        default:
+            return null
+    }
+}
 
 function MarketsPage () {
 
@@ -140,12 +279,11 @@ function MarketsPage () {
             <div className="flex-1 flex flex-col overflow-hidden lg:grid lg:grid-cols-[280px_1fr_280px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[350px_1fr_350px] lg:gap-6 lg:overflow-hidden lg:px-6 lg:pt-6">
             {/** we will decide later on whethe we need the left and right side bars */}
 
-                {/* central content*/}
-                <div className="overflow-y-auto pb-24 lg:pb-4 custom-scrollbar lg:pr-4">
-
+                {/* central content  TODO : Fix the hide vertical scrollbar part */}
+                <div className="overflow-y-auto pb-24 lg:pb-4  lg:pr-4">
 
                     {/* filters for mobile */}
-                    <div className="sticky top-0 bg-[#1a2633] z-10 p-2 md:hidden">  
+                    <div className="sticky top-0 bg-[#1a2633] z-10 p-2  md:hidden">  
 
                         {/* the search bar will be rendered here now */}
                         { searchButtonClicked && (
@@ -206,7 +344,7 @@ function MarketsPage () {
                     <div className="px-2 pt-2 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
                         {filteredMarkets.length > 0 ? (
                             filteredMarkets.map((market) => (
-                                
+                                <MarketCard key={market.created_at} market={market} /> // I dont think created_at is a good way for assigning market we will fix this later on 
                             ))
                         ) : (
                             <div className="text-center text-gray-400">

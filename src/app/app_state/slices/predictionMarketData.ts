@@ -15,6 +15,7 @@ export interface GroupMarket {
     category: string;
     resolved: boolean;
     sub_markets: GroupSubMarket[];
+    created_at: string;
 }
 
 export interface GroupSubMarket {
@@ -25,6 +26,7 @@ export interface GroupSubMarket {
     no_price: number;
     total_collected: number;
     locks_at: string;
+    option: string;
 }
 
 export interface PredictionMarket {
@@ -43,10 +45,11 @@ export interface PredictionMarket {
     yes_price: number,
     no_price: number,
     b: number,
+    option: string;
 }
 
 // we will soon rewrite most of the logic to remove the parts we will not be using here on the frontend.
-interface MatchPredictionMarket {
+export interface MatchPredictionMarket {
     id: number;
     market_type: "fixture";
     question: string;
