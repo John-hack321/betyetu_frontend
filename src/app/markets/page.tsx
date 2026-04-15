@@ -30,25 +30,54 @@ interface FilterTab {
     dot?: boolean
 }
 
+function ProbabilityGauge({ yesPct }: { yesPct: number }) {
+    const total = 82; // arc length
+    const filled = (yesPct / 100) * total;
+    const color = yesPct >= 60 ? '#10b981' : yesPct >= 40 ? '#fbbf24' : '#ef4444';
+
+    return (
+    <div className="flex flex-col items-center gap-1 shrink-0">
+        <svg width="80" height="40" viewBox="0 0 64 36" style={{ overflow: 'visible' }}>
+        <path
+            d="M 6,36 A 10,10 0 0,1 58,36"
+            fill="none"
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth="3.3"
+            strokeLinecap="round"
+        />
+        <path
+            d="M 6,36 A 10,10 0 0,1 58,36"
+            fill="none"
+            stroke={color}
+            strokeWidth="3.3"
+            strokeLinecap="round"
+            strokeDasharray={`${filled} ${total}`}
+        />
+        <text x="32" y="33" textAnchor="middle" fill="#e2e8f0"
+            fontSize="16" fontWeight="700">{yesPct.toFixed(0)}%</text>
+        </svg>
+        <span className="text-sm text-custom-white-text-color font-medium">Chance</span>
+    </div>
+    );
+}
+
 function PredictionMarketCard ({ market }: { market: PredictionMarket }) {
     return (
-        <div className="flex flex-col rounded-lg p-4 bg-lightblue-components gap-4 mb-3">
+        <div className="flex flex-col rounded-lg p-4 bg-[#131e28] gap-4 mb-3">
 
             {/* question and percetage chance */}
             <div className="flex flex-row justify-between">
                 <span
                 className="w-7/10">{market.question}</span>
-                <div className="p-3 w-15 h-15 items-center justify-center border-4 rounded-full"> {/* on this thing here I need this border or whatever implementation you will use , but I need it to have both red and green colors okay so that green color represetns the yes and red for no and the length of green color should be denoted be deonted by the percentage for yes and the red lenght by the percentage for no okay you can also change the size if you want okay or if you think doing semi-circles like in polymarket then it is also okay  though I thik the semi colom might be better to also allow us to write chance below it right ?*/}
-                    <span className="text-sm text-center">{(market.yes_price * 100).toFixed(0)}%</span> 
-                </div>
+                <ProbabilityGauge yesPct={market.yes_price * 100} />
             </div>
 
             {/* selection buttons */}
             <div className="gap-2 flex flex-row ">
                 <button 
-                className="w-1/2 rounded-lg bg-[#0C3D37] text-green-500 py-2">yes</button>
+                className="w-1/2 rounded-lg bg-[#233A32] text-green-500 py-2">yes</button>
                 <button
-                className="w-1/2 rounded-lg bg-[#431D27] text-red-400 py-2">No</button>
+                className="w-1/2 rounded-lg bg-[#382629] text-red-400 py-2">No</button>
             </div>
 
             {/* volume info and relevant stuff */}
@@ -68,7 +97,7 @@ function PredictionMarketCard ({ market }: { market: PredictionMarket }) {
 
 function GroupMarketCard ({ market }: { market: GroupMarket }) {
     return (
-        <div className="bg-lightblue-components rounded-lg p-4 flex flex-col mb-2 gap-3">
+        <div className="bg-[#131e28] rounded-lg p-4 flex flex-col mb-2 gap-3">
             {/* market name */}
             <div>
                 <span>{market.question}</span>
@@ -109,9 +138,16 @@ function GroupMarketCard ({ market }: { market: GroupMarket }) {
     )
 }
 
+function getFixtureButtonStyle(pct: number): { bar: string; text: string; label: string } {
+    if (pct >= 60) return { bar: 'bg-emerald-500', text: 'text-emerald-400', label: 'Favourite' };
+    if (pct >= 40) return { bar: 'bg-[#FED800]', text: 'text-[#FED800]', label: 'Even' };
+    if (pct >= 25) return { bar: 'bg-orange-400', text: 'text-orange-400', label: 'Underdog' };
+    return { bar: 'bg-[#431D27]', text: 'text-red-400', label: 'Long shot' };
+}
+
 function FixtureMarketCard ({ market }: { market: MatchPredictionMarket }) {
     return (
-        <div className="flex p-4 flex-col rounded-lg bg-lightblue-components gap-3 mb-2">
+        <div className="flex p-4 flex-col rounded-lg bg-[#131e28] gap-3 mb-2"> {/** initial bg color : 1e2d3d */}
             {/* team name part */}
             <div className="flex flex-col gap-2">
                 <div className="flex flex-row justify-between">
@@ -130,13 +166,13 @@ function FixtureMarketCard ({ market }: { market: MatchPredictionMarket }) {
                 {/* the text color shold also change color so that it does not look that bad so in short the text color should also be flexible okay  */}
                 {/* also about the name formating if ther is way we can format the name for the team it would be good since others have very long names */}
                 <button 
-                className="px-3 py-2 w-1/3 text-sm rounded-lg bg-green-200"
+                className= {`px-3 py-2 w-1/3 text-sm rounded-lg ${getFixtureButtonStyle(market.home_price).bar}`}
                 >{truncateTeamName(market.home_team)}</button>
                 <button
-                className="px-3 py-2 w-1/3 text-sm rounded-lg bg-gray-200"
+                className={`px-3 py-2 w-1/3 text-sm rounded-lg ${getFixtureButtonStyle(0.5).bar}`}
                 >Draw</button>
                 <button
-                className="px-3 py-2 w-1/3 text-sm rounded-lg bg-red-200"
+                className={`px-3 py-2 w-1/3 text-sm rounded-lg ${getFixtureButtonStyle(market.away_price).bar}`}
                 >{truncateTeamName(market.away_team)}</button>
             </div>
 
@@ -341,7 +377,7 @@ function MarketsPage () {
                     </div>
 
                     {/** rendering the markets now */}
-                    <div className="px-2 pt-2 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
+                    <div className=" lg:px-0 lg:grid lg:grid-cols-2 px-3 flex flex-col  lg:gap-4 staggered-grid">
                         {filteredMarkets.length > 0 ? (
                             filteredMarkets.map((market) => (
                                 <MarketCard key={market.created_at} market={market} /> // I dont think created_at is a good way for assigning market we will fix this later on 
