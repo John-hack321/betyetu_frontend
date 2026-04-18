@@ -7,6 +7,7 @@ import { GroupMarket, PredictionMarket, MatchPredictionMarket } from "../app_sta
 
 import { useState, useEffect } from "react"
 import { Menu, Search } from "lucide-react"
+import { useMemo } from "react"
 
 // redux imports 
 import { RootState, AppDispatch } from "../app_state/store"
@@ -30,65 +31,91 @@ interface FilterTab {
     dot?: boolean
 }
 
+function formatCurrencyCompact(amount: number): string {
+    if (amount >= 1_000_000) return `Ksh ${(amount / 1_000_000).toFixed(1)}M`
+    if (amount >= 1_000) return `Ksh ${(amount / 1_000).toFixed(1)}K`
+    return `Ksh ${amount.toFixed(0)}`
+}
+
+function formatVolumeTiny(amount: number): string {
+    if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1).replace('.0', '')}M`
+    if (amount >= 1_000) return `${(amount / 1_000).toFixed(1).replace('.0', '')}K`
+    return `${amount.toFixed(0)}`
+}
+
+function getCategoryLabel(category?: string): string {
+    if (typeof category === 'string' && category.trim().length > 0) {
+        return category.trim().toLowerCase()
+    }
+    return 'category'
+}
+
+function normalizeForSearch(value: unknown): string {
+    return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
 function ProbabilityGauge({ yesPct }: { yesPct: number }) {
     const total = 82; // arc length
     const filled = (yesPct / 100) * total;
     const color = yesPct >= 60 ? '#10b981' : yesPct >= 40 ? '#fbbf24' : '#ef4444';
 
     return (
-    <div className="flex flex-col items-center gap-1 shrink-0">
-        <svg width="80" height="40" viewBox="0 0 64 36" style={{ overflow: 'visible' }}>
+    <div className="flex flex-col items-center gap-1 shrink-0 self-start px-1 pt-0 pb-1">
+        <svg width="84" height="42" viewBox="0 0 64 36" style={{ overflow: 'visible' }}>
         <path
             d="M 6,36 A 10,10 0 0,1 58,36"
             fill="none"
-            stroke="rgba(255,255,255,0.08)"
-            strokeWidth="3.3"
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="3"
             strokeLinecap="round"
         />
         <path
             d="M 6,36 A 10,10 0 0,1 58,36"
             fill="none"
             stroke={color}
-            strokeWidth="3.3"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeDasharray={`${filled} ${total}`}
         />
-        <text x="32" y="33" textAnchor="middle" fill="#e2e8f0"
-            fontSize="16" fontWeight="700">{yesPct.toFixed(0)}%</text>
+        <text x="32" y="35.5" textAnchor="middle" fill="#e2e8f0"
+            fontSize="17" fontWeight="700">{yesPct.toFixed(0)}%</text>
         </svg>
-        <span className="text-sm text-custom-white-text-color font-medium">Chance</span>
+        <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wide">Chance</span>
     </div>
     );
 }
 
 function PredictionMarketCard ({ market }: { market: PredictionMarket }) {
-    return (
-        <div className="flex flex-col rounded-lg p-4 bg-[#131e28] gap-4 mb-3">
+    const yesButtonStyle = 'bg-emerald-500/20 border-emerald-400/35 text-emerald-200'
+    const noButtonStyle = 'bg-rose-500/20 border-rose-400/35 text-rose-100'
+    const marketCategory = getCategoryLabel(market.category)
 
-            {/* question and percetage chance */}
-            <div className="flex flex-row justify-between">
+    return (
+        <div className="flex flex-col rounded-2xl p-4 sm:p-5 bg-[#131e28] gap-4 mb-3 border border-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.2)]">
+
+            {/* question and probability chance */}
+            <div className="flex flex-row items-start justify-between gap-3">
                 <span
-                className="w-7/10">{market.question}</span>
+                className="text-slate-100 font-semibold leading-6">{market.question}</span>
                 <ProbabilityGauge yesPct={market.yes_price * 100} />
             </div>
 
             {/* selection buttons */}
-            <div className="gap-2 flex flex-row ">
+            <div className="gap-2 flex flex-row">
                 <button 
-                className="w-1/2 rounded-lg bg-[#233A32] text-green-500 py-2">yes</button>
+                className={`w-1/2 rounded-xl border py-2.5 font-semibold text-sm transition-all hover:brightness-110 ${yesButtonStyle}`}>Yes</button>
                 <button
-                className="w-1/2 rounded-lg bg-[#382629] text-red-400 py-2">No</button>
+                className={`w-1/2 rounded-xl border py-2.5 font-semibold text-sm transition-all hover:brightness-110 ${noButtonStyle}`}>No</button>
             </div>
 
-            {/* volume info and relevant stuff */}
-            <div className="flex flex-row justify-between">
-                <span className="text-sm">
-                    ksh{market.total_collected.toFixed(0)}
-                    <span className="text-sm">{(market.total_collected < 1000) ? "" : (market.total_collected < 1000000) ? "k" : "M" }</span>
-                </span>
-                <span
-                className="text-sm"
-                >{formatMatchDate(market.locks_at)}</span> {/* we have used locks at here just for now since in the backend it points to the matchs start time , we will find a better way later on */}
+            {/* volume info and relevant stuff (divider line intentionally removed) */}
+            <div className="flex flex-row items-center justify-between pt-2">
+                <div className="flex items-center gap-2 text-[12px] leading-none text-slate-400">
+                    <span className="font-medium text-slate-300">Ksh {formatVolumeTiny(market.total_collected)} Vol.</span>
+                    <span className="text-slate-600">·</span>
+                    <span className="tracking-wide lowercase">{marketCategory}</span>
+                </div>
+                <span className="text-[11px] text-slate-500">{formatMatchDate(market.locks_at)}</span>
             </div>
 
         </div>
@@ -96,95 +123,155 @@ function PredictionMarketCard ({ market }: { market: PredictionMarket }) {
 }
 
 function GroupMarketCard ({ market }: { market: GroupMarket }) {
+    const marketCategory = getCategoryLabel(market.category)
+    const yesButtonStyle = 'bg-emerald-500/20 text-emerald-200'
+    const noButtonStyle = 'bg-rose-500/20 text-rose-100'
+
     return (
-        <div className="bg-[#131e28] rounded-lg p-4 flex flex-col mb-2 gap-3">
-            {/* market name */}
-            <div>
-                <span>{market.question}</span>
+        <div className="bg-[#131e28] rounded-xl p-3 sm:p-3.5 flex flex-col mb-3 gap-2.5 border border-white/5 shadow-[0_6px_18px_rgba(0,0,0,0.18)]">
+            {/* main market question */}
+            <div className="flex items-start justify-between gap-2">
+                <h3 className="text-slate-100 font-semibold leading-6">
+                    {market.question}
+                </h3>
             </div>
 
-            {/* rendering of sub markets here */}
+            {/* sub-market rows (scrollable, two visible at a time) */}
             <div
-            className="overflow-y-hidden flex flex-col h-10 scroll-auto">
+            className=" h-[80px] overflow-y-auto hide-vertical-scrollbar space-y-0 pr-0.5">
                 {market.sub_markets.length > 0 && (
                     market.sub_markets.map((sub_market) => (
                         <div
-                        className="flex justify-between items-center"
+                        className="flex flex-row items-center justify-between gap-2 h-10 w-full"
                         key={sub_market.id}>
-                            <span>ruto</span> {/* ths is just a stand in this value should come from option in the data */}
-                            <div className="flex flex-row gap-3">
-                                <span>{(sub_market.yes_price * 100).toFixed(0)}%</span>
-                                <button className="text-sm px-3 py-2 rounded-full text-green-500 bg-[#0C3D37]">Yes</button>
-                                <button className="text-sm px-3 py-2 rounded-full bg-[#431D27] text-red-400">No</button>
+                            <span className="text-slate-200 text-sm font-semibold leading-5 truncate">
+                                {sub_market.option}
+                            </span>
+                            <div className="flex flex-row items-center gap-1.5">
+                                <span className="text-slate-100 font-semibold leading-6 tabular-nums pr-0.5">
+                                    {(sub_market.yes_price * 100).toFixed(0)}%
+                                </span>
+                                <button className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all hover:brightness-110 ${yesButtonStyle}`}>
+                                    Yes
+                                </button>
+                                <button className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all hover:brightness-110 ${noButtonStyle}`}>
+                                    No
+                                </button>
                             </div>
                         </div>
                     ))
                 )}
             </div>
 
-            {/* volume and other info */}
-            <div className="flex flex-row justify-between">
-                <span className="text-sm">
-                    ksh{market.total_collected.toFixed(0)}
-                    <span className="text-sm">{(market.total_collected < 1000) ? "" : (market.total_collected < 1000000) ? "k" : "M" }</span>
-                </span>
-                <span
-                className="text-sm"
-                >{formatMatchDate(market.locks_at)}</span> {/* we have used locks at here just for now since in the backend it points to the matchs start time , we will find a better way later on */}
+            {/* footer info (divider line intentionally removed) */}
+            <div className="flex flex-row items-center justify-between pt-1.5">
+                <div className="flex items-center gap-2 text-[12px] leading-none text-slate-400">
+                    <span className="font-medium text-slate-300">Ksh {formatVolumeTiny(market.total_collected)} Vol.</span>
+                    <span className="text-slate-600">·</span>
+                    <span className="tracking-wide lowercase">{marketCategory}</span>
+                </div>
+                <span className="text-[11px] text-slate-500">{formatMatchDate(market.locks_at)}</span>
             </div>
-
-
         </div>
     )
 }
 
-function getFixtureButtonStyle(pct: number): { bar: string; text: string; label: string } {
-    if (pct >= 60) return { bar: 'bg-emerald-500', text: 'text-emerald-400', label: 'Favourite' };
-    if (pct >= 40) return { bar: 'bg-[#FED800]', text: 'text-[#FED800]', label: 'Even' };
-    if (pct >= 25) return { bar: 'bg-orange-400', text: 'text-orange-400', label: 'Underdog' };
-    return { bar: 'bg-[#431D27]', text: 'text-red-400', label: 'Long shot' };
+function getFixtureButtonStyle(
+    pct: number,
+    hasTrades: boolean,
+    side: 'home' | 'draw' | 'away'
+): { bar: string; text: string } {
+    if (!hasTrades) {
+        if (side === 'home') return { bar: 'bg-emerald-700/35 border-emerald-500/30', text: 'text-emerald-200' };
+        if (side === 'away') return { bar: 'bg-yellow-700/35 border-yellow-500/30', text: 'text-yellow-100' };
+        return { bar: 'bg-slate-700/45 border-slate-500/40', text: 'text-slate-200' };
+    }
+
+    if (pct >= 0.6) return { bar: 'bg-emerald-500/25 border-emerald-400/40', text: 'text-emerald-200' };
+    if (pct >= 0.4) return { bar: 'bg-yellow-500/25 border-yellow-300/45', text: 'text-yellow-100' };
+    if (pct >= 0.25) return { bar: 'bg-orange-500/25 border-orange-300/45', text: 'text-orange-100' };
+    return { bar: 'bg-rose-600/25 border-rose-400/45', text: 'text-rose-100' };
 }
 
 function FixtureMarketCard ({ market }: { market: MatchPredictionMarket }) {
+    const hasTrades = market.total_collected >= 100
+    const homeStyle = getFixtureButtonStyle(market.home_price, hasTrades, 'home')
+    const drawStyle = getFixtureButtonStyle(market.draw_price, hasTrades, 'draw')
+    const awayStyle = getFixtureButtonStyle(market.away_price, hasTrades, 'away')
+    const marketCategory = getCategoryLabel(market.category)
+
+    const selections = [
+        {
+            key: 'home',
+            label: truncateTeamName(market.home_team),
+            price: market.home_price,
+            style: homeStyle,
+            widthClass: 'flex-[1.45]',
+        },
+        {
+            key: 'draw',
+            label: 'Draw',
+            price: market.draw_price,
+            style: drawStyle,
+            widthClass: 'flex-[0.8]',
+        },
+        {
+            key: 'away',
+            label: truncateTeamName(market.away_team),
+            price: market.away_price,
+            style: awayStyle,
+            widthClass: 'flex-[1.45]',
+        },
+    ]
+
     return (
-        <div className="flex p-4 flex-col rounded-lg bg-[#131e28] gap-3 mb-2"> {/** initial bg color : 1e2d3d */}
-            {/* team name part */}
-            <div className="flex flex-col gap-2">
-                <div className="flex flex-row justify-between">
-                    <h2>{market.home_team}</h2>
-                    <h2>{(market.home_price * 100).toFixed(0)}%</h2> {/* we use toFixed to round it off to a whole nubmer */}
+        <div className="flex p-4 sm:p-5 flex-col rounded-2xl bg-[#131e28] gap-4 mb-3 border border-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.2)]"> {/** initial bg color : 1e2d3d */}
+            {/* fixture header */}
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                        <h2 className="text-slate-100 font-semibold leading-6 truncate">
+                            {market.home_team}
+                        </h2>
+                        <span className="text-slate-100 font-semibold leading-6 shrink-0">
+                            {(market.home_price * 100).toFixed(0)}%
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                        <h2 className="text-slate-100 font-semibold leading-6 truncate">
+                            {market.away_team}
+                        </h2>
+                        <span className="text-slate-100 font-semibold leading-6 shrink-0">
+                            {(market.away_price * 100).toFixed(0)}%
+                        </span>
+                    </div>
                 </div>
-                <div className="flex flex-row justify-between">
-                    <h2>{market.away_team}</h2>
-                    <h2>{(market.away_price * 100).toFixed(0)}%</h2>
+                <div className="shrink-0 text-right">
+                    <span className="text-[11px] uppercase tracking-wide text-slate-400">Closes</span>
+                    <p className="text-xs sm:text-sm text-slate-200">{formatMatchDate(market.locks_at)}</p>
                 </div>
-            </div>   
-            
-            {/* selection buttons */}       
-            <div className="flex flex-row gap-1 justify-between">
-                {/* in the color design of these buttons I would realy like it if the buttons were made to change color based on the percentage on the side eg: for low values it can be red and for heigher values it can be green , just like the coloring we did with the pool stake buttons for now I will just put any color as place holders */}
-                {/* the text color shold also change color so that it does not look that bad so in short the text color should also be flexible okay  */}
-                {/* also about the name formating if ther is way we can format the name for the team it would be good since others have very long names */}
-                <button 
-                className= {`px-3 py-2 w-1/3 text-sm rounded-lg ${getFixtureButtonStyle(market.home_price).bar}`}
-                >{truncateTeamName(market.home_team)}</button>
-                <button
-                className={`px-3 py-2 w-1/3 text-sm rounded-lg ${getFixtureButtonStyle(0.5).bar}`}
-                >Draw</button>
-                <button
-                className={`px-3 py-2 w-1/3 text-sm rounded-lg ${getFixtureButtonStyle(market.away_price).bar}`}
-                >{truncateTeamName(market.away_team)}</button>
             </div>
 
-            {/* volume informatin and relevant stuff */}
-            <div className="flex flex-row justify-between">
-                <span className="text-sm">
-                    ksh{market.total_collected.toFixed(0)}
-                    <span className="text-sm">{(market.total_collected < 1000) ? "" : (market.total_collected < 1000000) ? "k" : "M" }</span>
-                </span>
-                <span
-                className="text-sm"
-                >{formatMatchDate(market.locks_at)}</span> {/* we have used locks at here just for now since in the backend it points to the matchs start time , we will find a better way later on */}
+            {/* selection buttons */}
+            <div className="flex flex-row gap-2 justify-between">
+                {selections.map((selection) => (
+                    <button
+                    key={selection.key}
+                    className={`${selection.widthClass} px-2.5 py-2.5 text-xs sm:text-sm rounded-xl font-semibold transition-all border ${selection.style.bar} ${selection.style.text} hover:brightness-110`}
+                    >
+                        <span className="block truncate">{selection.label}</span>
+                    </button>
+                ))}
+            </div>
+
+            {/* volume information and relevant stuff (divider line intentionally removed) */}
+            <div className="flex flex-row items-center justify-between pt-2">
+                <div className="flex items-center gap-2 text-[12px] leading-none text-slate-400">
+                    <span className="font-medium text-slate-300">Ksh {formatVolumeTiny(market.total_collected)} Vol.</span>
+                    <span className="text-slate-600">·</span>
+                    <span className="tracking-wide lowercase">{marketCategory}</span>
+                </div>
+                <span className="text-[11px] text-slate-500">{formatMatchDate(market.locks_at)}</span>
             </div>
         </div>
     )
@@ -208,7 +295,7 @@ function MarketsPage () {
     //local state 
     const [menuOpen, setMenuOpen] = useState<boolean>(false)
     const [search, setSearch] = useState<string>("")
-    const [searchButtonClicked, setSearchButtonClicked] = useState<boolean>(false)
+    const [searchButtonClicked, setSearchButtonClicked] = useState<boolean>(true) // for this page it looks better with the search bar open by default
     const [activePill, setActivePill] = useState('all')
     const [searchOpen, setSearchOpen] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -261,14 +348,24 @@ function MarketsPage () {
         { id: 'closing-soon', label: 'Closing soon' },
     ]
 
-    const filteredMarkets = predictionMarketData.data;
+    const filteredMarkets = useMemo(() => {
+        if (!predictionMarketData.data || predictionMarketData.data.length === 0) return []
+        let predictionMarketDataCopy = [...predictionMarketData.data]
+        let filtered = predictionMarketDataCopy.filter(market => {
+            const userSearch = normalizeForSearch(search)
+            return normalizeForSearch(market.question).includes(userSearch) || normalizeForSearch(market.category).includes(userSearch)
+            || (market.market_type === 'fixture' && (normalizeForSearch(truncateTeamName(market.home_team)).includes(userSearch) || normalizeForSearch(truncateTeamName(market.away_team)).includes(userSearch)))
+            || (market.market_type === 'group' && market.sub_markets.some(sub_market => normalizeForSearch(sub_market.option).includes(userSearch)))
+        })
+        return filtered
+    }, [predictionMarketData.data, search])
 
     const handleTabClick = (tabId: FilterType) => {
         setFilterState({ type: tabId, leagueId: null })
     }
 
     return (
-        <div className="flex flex-col h-screen bg-other-blue-main-background-color">
+        <div className="flex flex-col h-screen overflow-hidden bg-other-blue-main-background-color">
             {/* Mobile Menu Overlay */}
             <MenuOverlay
                 isOpen={menuOpen}
@@ -279,7 +376,7 @@ function MarketsPage () {
             />
 
             {/* Header */}
-            <div className="flex-none bg-[#1a2633] px-4 pt-4 sm:pb-1 lg:pb-4 md:pb-4 md:px-6 z-20  md:border-none ">
+            <div className="flex-none bg-[#1a2633] px-4 pt-4 sm:pb-1 lg:pb-4 md:pb-4 md:px-6 z-20  md:border-none overflow-hidden">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {/* Hamburger — mobile only */}
@@ -316,7 +413,7 @@ function MarketsPage () {
             {/** we will decide later on whethe we need the left and right side bars */}
 
                 {/* central content  TODO : Fix the hide vertical scrollbar part */}
-                <div className="overflow-y-auto pb-24 lg:pb-4  lg:pr-4">
+                <div className="overflow-y-auto hide-vertical-scrollbar pb-24 lg:pb-4  lg:pr-4">
 
                     {/* filters for mobile */}
                     <div className="sticky top-0 bg-[#1a2633] z-10 p-2  md:hidden">  

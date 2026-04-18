@@ -71,9 +71,9 @@ html {
   display: none;  /* Safari and Chrome */
 }
 
-.hide-vertical-scrollbar::-webkit-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.hide-vertical-scrollbar {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
 }
 .hide-vertical-scrollbar::-webkit-scrollbar {
   display: none;
