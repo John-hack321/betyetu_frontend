@@ -152,12 +152,60 @@ export const fetchActiveMarkets = async (
     }
 };
 
-export const fetchMarketDetail = async (marketId: number): Promise<MarketDetail> => {
-    const response = await axios.get(`${BASE_URL}/prediction_markets/${marketId}`, {
+
+export interface PredictionMarketReturnType {
+    id: number;
+    question: string;
+    description: string;
+    category: string;
+    q_yes: number;
+    q_no: number;
+    p_yes: number;
+    total_collected: number;
+    locks_at: string;
+    resolution_date: string;
+    resolution_source: string;
+    outcome: string;
+    outcome_notes: string;
+    admin_notes: string;
+    featured: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface PredictionMarketPriceHistory {
+    created_at: string;
+    yes_price_at_trade: number;
+    trade_type: string;
+    side: string;
+}
+
+export interface PredictionMarketDetailReturn {
+    market: PredictionMarketReturnType;
+    price_history: PredictionMarketPriceHistory[];
+}
+
+export interface MatchPredictionMarketDetailReturn {
+
+}
+
+export interface PredictionMarketGroupDetailReturn {
+
+}
+
+export const fetchMarketDetail = async (marketId: number, market_type: string): Promise<PredictionMarketDetailReturn | MatchPredictionMarketDetailReturn | PredictionMarketGroupDetailReturn> => {
+    const response = await axios.get(`${BASE_URL}/prediction_markets/${marketId}?market_type=${market_type}`, {
         headers: getAuthHeaders(),
     });
     return response.data;
 };
+
+
+
+
+
+
+
 
 export const fetchPriceHistory = async (
     marketId: number,
