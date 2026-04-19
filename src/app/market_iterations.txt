@@ -1,0 +1,2185 @@
+iteration 1 :
+
+'use client'
+import ProtectedRoute from "@/app/components/protectedRoute"
+import MenuOverlay from "@/app/components/menuOverlay"
+import {
+    fetchMarketDetail,
+    executeBuy,
+    executeSell,
+    PredictionMarketDetailReturn,
+    MatchPredictionMarketDetailReturn,
+    PredictionMarketGroupDetailReturn
+} from "@/app/api/predictionMarket"
+import { useAuth } from "@/app/context/authContext"
+import FooterComponent from "@/app/components/footer"
+
+import { useParams, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useMemo } from "react"
+import {
+    Menu, ArrowLeft, TrendingUp, TrendingDown, Clock,
+    Info, ExternalLink, Share2, BookOpen, ChevronDown,
+    CheckCircle2, AlertCircle, Zap, BarChart2
+} from "lucide-react"
+import {
+    AreaChart, Area, XAxis, YAxis, CartesianGrid,
+    Tooltip, ResponsiveContainer, ReferenceLine
+} from "recharts"
+
+// redux data setup
+import { RootState, AppDispatch } from "@/app/app_state/store"
+import { useSelector, useDispatch } from "react-redux"
+import { useRouter } from "next/navigation"
+import { formatMatchDate } from "@/utils/dateUtils"
+
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
+interface PricePoint {
+    created_at: string
+    yes_price_at_trade: number
+    trade_type: string
+    side: string
+}
+
+interface MarketData {
+    id: number
+    question: string
+    description: string
+    category: string
+    q_yes: number
+    q_no: number
+    p_yes: number
+    total_collected: number
+    locks_at: string
+    resolution_date: string
+    resolution_source: string
+    outcome: string | null
+    outcome_notes: string | null
+}
+
+// ─────────────────────────────────────────────
+// Custom Tooltip for chart
+// ─────────────────────────────────────────────
+function CustomChartTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null
+    const val = payload[0]?.value
+    const date = payload[0]?.payload?.fullDate
+    const side = payload[0]?.payload?.side
+
+    return (
+        <div className="bg-[#0d1520] border border-gray-700/60 rounded-xl px-4 py-3 shadow-2xl min-w-[160px]">
+            <p className="text-gray-400 text-[11px] mb-1">{date}</p>
+            <p className="text-white font-black text-2xl">{(val * 100).toFixed(0)}%</p>
+            <div className="flex items-center gap-1.5 mt-1">
+                <div className={`w-1.5 h-1.5 rounded-full ${side === 'yes' ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                <span className={`text-[11px] font-semibold uppercase tracking-wider ${side === 'yes' ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {side} bought
+                </span>
+            </div>
+        </div>
+    )
+}
+
+// ─────────────────────────────────────────────
+// Timeline filter pill
+// ─────────────────────────────────────────────
+const TIME_FILTERS = ['All', '1D', '1W', '1M'] as const
+type TimeFilter = typeof TIME_FILTERS[number]
+
+// ─────────────────────────────────────────────
+// Volume bar mini chart
+// ─────────────────────────────────────────────
+function VolumeBar({ pct, label, color }: { pct: number; label: string; color: string }) {
+    return (
+        <div className="flex items-center gap-3">
+            <span className="text-gray-400 text-xs w-6">{label}</span>
+            <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+                <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${pct}%`, background: color }}
+                />
+            </div>
+            <span className="text-white text-xs font-semibold w-10 text-right">{pct.toFixed(0)}%</span>
+        </div>
+    )
+}
+
+// ─────────────────────────────────────────────
+// The main prediction market detail
+// ─────────────────────────────────────────────
+function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDetailReturn }) {
+    const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('All')
+    const [tradeTab, setTradeTab] = useState<'yes' | 'no'>('yes')
+    const [shares, setShares] = useState<string>('10')
+    const [isTrading, setIsTrading] = useState(false)
+    const [tradeSuccess, setTradeSuccess] = useState<string | null>(null)
+    const [tradeError, setTradeError] = useState<string | null>(null)
+    const [showInfo, setShowInfo] = useState(false)
+    const router = useRouter()
+
+    if (!marketData) return (
+        <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]" />
+        </div>
+    )
+
+    const market = marketData.market as unknown as MarketData
+    const priceHistory: PricePoint[] = marketData.price_history as unknown as PricePoint[]
+
+    // Derived values
+    const yesPct = market.p_yes != null
+        ? market.p_yes * 100
+        : market.q_yes / (market.q_yes + market.q_no) * 100
+    const noPct = 100 - yesPct
+    const isLocked = market.locks_at ? new Date(market.locks_at) < new Date() : false
+    const isResolved = !!market.outcome
+
+    // Chart data — filtered by time + formatted
+    const chartData = useMemo(() => {
+        if (!priceHistory?.length) return []
+
+        let filtered = [...priceHistory]
+        const now = new Date()
+
+        if (activeTimeFilter === '1D') {
+            const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+            filtered = filtered.filter(p => new Date(p.created_at) >= cutoff)
+        } else if (activeTimeFilter === '1W') {
+            const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            filtered = filtered.filter(p => new Date(p.created_at) >= cutoff)
+        } else if (activeTimeFilter === '1M') {
+            const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            filtered = filtered.filter(p => new Date(p.created_at) >= cutoff)
+        }
+
+        return filtered.map((p, i) => {
+            const d = new Date(p.created_at)
+            return {
+                index: i,
+                value: p.yes_price_at_trade,
+                side: p.side,
+                label: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            }
+        })
+    }, [priceHistory, activeTimeFilter])
+
+    // Price trend
+    const latestPrice = chartData.length > 0 ? chartData[chartData.length - 1].value : (yesPct / 100)
+    const firstPrice = chartData.length > 0 ? chartData[0].value : (yesPct / 100)
+    const priceChange = latestPrice - firstPrice
+    const priceChangePct = firstPrice > 0 ? (priceChange / firstPrice) * 100 : 0
+    const trending = priceChange >= 0
+
+    // Chart gradient color based on trend
+    const chartColor = trending ? '#10b981' : '#ef4444'
+    const chartColorLight = trending ? '#10b98122' : '#ef444422'
+
+    // Trade action
+    const handleTrade = async () => {
+        const amt = parseFloat(shares)
+        if (!amt || amt <= 0) return
+        setIsTrading(true)
+        setTradeError(null)
+        setTradeSuccess(null)
+        try {
+            await executeBuy(market.id, tradeTab, amt)
+            setTradeSuccess(`Bought ${amt} ${tradeTab.toUpperCase()} shares successfully!`)
+        } catch (e: any) {
+            setTradeError(e?.message || 'Trade failed. Please try again.')
+        } finally {
+            setIsTrading(false)
+        }
+    }
+
+    // Estimated cost (simplified: shares * current price)
+    const currentPrice = tradeTab === 'yes' ? (yesPct / 100) : (noPct / 100)
+    const estimatedCost = (parseFloat(shares) || 0) * currentPrice * 100 // in KES
+
+    const quickShareAmounts = [5, 10, 25, 50, 100]
+
+    return (
+        <div className="flex flex-col gap-0 px-0 pb-6">
+
+            {/* ── Back nav ───────────────────────────────────── */}
+            <button
+                onClick={() => router.push('/markets')}
+                className="flex items-center gap-2 text-gray-400 hover:text-white text-sm font-medium mb-4 px-4 pt-3 transition-colors group"
+            >
+                <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+                Markets
+            </button>
+
+            {/* ── Hero header ────────────────────────────────── */}
+            <div className="px-4 mb-5">
+                {/* Category pill */}
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[11px] font-bold uppercase tracking-widest bg-[#FED800]/10 text-[#FED800] border border-[#FED800]/20 px-2.5 py-1 rounded-full">
+                        {market.category}
+                    </span>
+                    {isResolved && (
+                        <span className="text-[11px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+                            <CheckCircle2 size={10} />
+                            Resolved
+                        </span>
+                    )}
+                    {isLocked && !isResolved && (
+                        <span className="text-[11px] font-bold uppercase tracking-widest bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+                            <AlertCircle size={10} />
+                            Locked
+                        </span>
+                    )}
+                </div>
+
+                {/* Question */}
+                <h1 className="text-white font-bold text-xl leading-tight mb-4 lg:text-2xl">
+                    {market.question}
+                </h1>
+
+                {/* Big probability display */}
+                <div className="flex items-end gap-3 mb-4">
+                    <span className="text-5xl font-black text-white tabular-nums leading-none">
+                        {yesPct.toFixed(0)}%
+                    </span>
+                    <div className="pb-1.5">
+                        <div className={`flex items-center gap-1 text-sm font-bold ${trending ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {trending ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                            {Math.abs(priceChangePct).toFixed(1)}%
+                        </div>
+                        <span className="text-gray-500 text-xs">chance YES</span>
+                    </div>
+                </div>
+
+                {/* Yes / No progress bar */}
+                <div className="mb-3">
+                    <div className="flex h-2.5 rounded-full overflow-hidden gap-px">
+                        <div
+                            className="bg-emerald-500 transition-all duration-700 rounded-l-full"
+                            style={{ width: `${yesPct}%` }}
+                        />
+                        <div
+                            className="bg-red-500 transition-all duration-700 rounded-r-full"
+                            style={{ width: `${noPct}%` }}
+                        />
+                    </div>
+                    <div className="flex justify-between mt-1.5 text-xs font-semibold">
+                        <span className="text-emerald-400">YES {yesPct.toFixed(0)}%</span>
+                        <span className="text-red-400">NO {noPct.toFixed(0)}%</span>
+                    </div>
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-3 mt-4">
+                    <div className="bg-[#131e28] rounded-xl p-3 border border-white/5">
+                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Volume</p>
+                        <p className="text-white font-black text-base">
+                            KES {market.total_collected >= 1000
+                                ? `${(market.total_collected / 1000).toFixed(1)}K`
+                                : market.total_collected.toFixed(0)}
+                        </p>
+                    </div>
+                    <div className="bg-[#131e28] rounded-xl p-3 border border-white/5">
+                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Closes</p>
+                        <p className="text-white font-bold text-sm leading-tight">
+                            {formatMatchDate(market.locks_at)}
+                        </p>
+                    </div>
+                    <div className="bg-[#131e28] rounded-xl p-3 border border-white/5">
+                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Resolves</p>
+                        <p className="text-white font-bold text-sm leading-tight">
+                            {formatMatchDate(market.resolution_date)}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Price chart ────────────────────────────────── */}
+            <div className="px-4 mb-5">
+                <div className="bg-[#0d1520] rounded-2xl border border-white/5 overflow-hidden">
+                    {/* Chart header */}
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                        <div>
+                            <p className="text-gray-400 text-xs font-medium">YES probability over time</p>
+                        </div>
+                        {/* Time filter pills */}
+                        <div className="flex gap-1 bg-[#131e28] rounded-lg p-1">
+                            {TIME_FILTERS.map(f => (
+                                <button
+                                    key={f}
+                                    onClick={() => setActiveTimeFilter(f)}
+                                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                                        activeTimeFilter === f
+                                            ? 'bg-[#FED800] text-black'
+                                            : 'text-gray-500 hover:text-gray-300'
+                                    }`}
+                                >
+                                    {f}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Chart */}
+                    {chartData.length > 1 ? (
+                        <div className="h-[200px] px-0 pb-2">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={chartData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor={chartColor} stopOpacity={0.3} />
+                                            <stop offset="100%" stopColor={chartColor} stopOpacity={0.01} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid stroke="#ffffff08" vertical={false} />
+                                    <XAxis
+                                        dataKey="label"
+                                        tick={{ fill: '#4b5563', fontSize: 10 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis
+                                        domain={[0, 1]}
+                                        tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
+                                        tick={{ fill: '#4b5563', fontSize: 10 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        ticks={[0, 0.25, 0.5, 0.75, 1]}
+                                    />
+                                    <ReferenceLine
+                                        y={0.5}
+                                        stroke="#ffffff15"
+                                        strokeDasharray="4 4"
+                                        label=""
+                                    />
+                                    <Tooltip content={<CustomChartTooltip />} />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="value"
+                                        stroke={chartColor}
+                                        strokeWidth={2.5}
+                                        fill="url(#chartGrad)"
+                                        dot={false}
+                                        activeDot={{ r: 5, fill: chartColor, stroke: '#0d1520', strokeWidth: 2 }}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    ) : (
+                        <div className="h-[120px] flex items-center justify-center">
+                            <div className="text-center">
+                                <BarChart2 size={28} className="text-gray-700 mx-auto mb-2" />
+                                <p className="text-gray-600 text-sm">Not enough data for this period</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Latest price stamp */}
+                    <div className="flex items-center justify-between px-4 pb-4 pt-1 border-t border-white/5">
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full animate-pulse ${trending ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                            <span className="text-gray-500 text-xs">Current</span>
+                        </div>
+                        <span className={`font-bold text-sm ${trending ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {(latestPrice * 100).toFixed(1)}%
+                            <span className="ml-1 text-gray-500 font-normal text-xs">
+                                ({trending ? '+' : ''}{priceChangePct.toFixed(1)}%)
+                            </span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Share distribution ─────────────────────────── */}
+            <div className="px-4 mb-5">
+                <div className="bg-[#131e28] rounded-2xl border border-white/5 p-4">
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4">Share distribution</p>
+                    <div className="space-y-3">
+                        <VolumeBar
+                            label="YES"
+                            pct={market.q_yes / (market.q_yes + market.q_no) * 100}
+                            color="linear-gradient(90deg, #10b981, #34d399)"
+                        />
+                        <VolumeBar
+                            label="NO"
+                            pct={market.q_no / (market.q_yes + market.q_no) * 100}
+                            color="linear-gradient(90deg, #ef4444, #f87171)"
+                        />
+                    </div>
+                    <div className="flex justify-between mt-4 pt-3 border-t border-white/5 text-xs text-gray-500">
+                        <span>{market.q_yes.toLocaleString()} YES shares</span>
+                        <span>{market.q_no.toLocaleString()} NO shares</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Trade panel ────────────────────────────────── */}
+            {!isResolved && (
+                <div className="px-4 mb-5">
+                    <div className="bg-[#131e28] rounded-2xl border border-white/5 overflow-hidden">
+                        {/* Tab header */}
+                        <div className="flex">
+                            <button
+                                onClick={() => setTradeTab('yes')}
+                                className={`flex-1 py-3.5 text-sm font-bold transition-all ${
+                                    tradeTab === 'yes'
+                                        ? 'bg-emerald-500/15 text-emerald-400 border-b-2 border-emerald-400'
+                                        : 'text-gray-500 hover:text-gray-300 border-b border-gray-700/50'
+                                }`}
+                            >
+                                Buy YES · {yesPct.toFixed(0)}¢
+                            </button>
+                            <button
+                                onClick={() => setTradeTab('no')}
+                                className={`flex-1 py-3.5 text-sm font-bold transition-all ${
+                                    tradeTab === 'no'
+                                        ? 'bg-red-500/15 text-red-400 border-b-2 border-red-400'
+                                        : 'text-gray-500 hover:text-gray-300 border-b border-gray-700/50'
+                                }`}
+                            >
+                                Buy NO · {noPct.toFixed(0)}¢
+                            </button>
+                        </div>
+
+                        <div className="p-4">
+                            {/* Quick amounts */}
+                            <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider mb-2">Shares</p>
+                            <div className="flex gap-2 mb-3">
+                                {quickShareAmounts.map(a => (
+                                    <button
+                                        key={a}
+                                        onClick={() => setShares(String(a))}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                                            shares === String(a)
+                                                ? tradeTab === 'yes' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                                : 'bg-[#1a2633] text-gray-400 hover:text-gray-200'
+                                        }`}
+                                    >
+                                        {a}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Custom amount input */}
+                            <div className="relative mb-4">
+                                <input
+                                    type="number"
+                                    value={shares}
+                                    onChange={e => setShares(e.target.value)}
+                                    placeholder="Custom shares..."
+                                    className={`w-full bg-[#0d1520] text-white rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 transition-all border border-transparent ${
+                                        tradeTab === 'yes'
+                                            ? 'focus:ring-emerald-500/40 focus:border-emerald-500/30'
+                                            : 'focus:ring-red-500/40 focus:border-red-500/30'
+                                    }`}
+                                />
+                            </div>
+
+                            {/* Cost estimate */}
+                            <div className="bg-[#0d1520] rounded-xl p-3 mb-4 flex justify-between items-center">
+                                <span className="text-gray-400 text-xs">Est. cost</span>
+                                <span className="text-white font-bold text-sm">
+                                    KES {estimatedCost.toFixed(2)}
+                                </span>
+                            </div>
+
+                            {/* Feedback */}
+                            {tradeSuccess && (
+                                <div className="mb-3 flex items-center gap-2 text-emerald-400 text-sm bg-emerald-500/10 px-3 py-2 rounded-lg border border-emerald-500/20">
+                                    <CheckCircle2 size={14} />
+                                    {tradeSuccess}
+                                </div>
+                            )}
+                            {tradeError && (
+                                <div className="mb-3 flex items-center gap-2 text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">
+                                    <AlertCircle size={14} />
+                                    {tradeError}
+                                </div>
+                            )}
+
+                            {/* CTA */}
+                            <button
+                                onClick={handleTrade}
+                                disabled={isTrading || isLocked || !shares || parseFloat(shares) <= 0}
+                                className={`w-full py-4 rounded-xl font-black text-base transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                                    tradeTab === 'yes'
+                                        ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_4px_20px_rgba(16,185,129,0.3)]'
+                                        : 'bg-red-500 hover:bg-red-400 text-white shadow-[0_4px_20px_rgba(239,68,68,0.3)]'
+                                }`}
+                            >
+                                {isTrading ? (
+                                    <>
+                                        <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : isLocked ? (
+                                    <>
+                                        <AlertCircle size={16} />
+                                        Market Locked
+                                    </>
+                                ) : (
+                                    <>
+                                        <Zap size={16} />
+                                        Buy {(parseFloat(shares) || 0)} {tradeTab.toUpperCase()} shares
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Resolution outcome (if resolved) ──────────── */}
+            {isResolved && (
+                <div className="px-4 mb-5">
+                    <div className={`rounded-2xl p-5 border ${
+                        market.outcome === 'yes'
+                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                            : 'bg-red-500/10 border-red-500/30'
+                    }`}>
+                        <div className="flex items-center gap-3 mb-2">
+                            <CheckCircle2 size={20} className={market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'} />
+                            <span className={`font-black text-lg uppercase ${market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                Resolved {market.outcome?.toUpperCase()}
+                            </span>
+                        </div>
+                        {market.outcome_notes && (
+                            <p className="text-gray-400 text-sm">{market.outcome_notes}</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ── About / Rules ──────────────────────────────── */}
+            <div className="px-4 mb-4">
+                <div className="bg-[#131e28] rounded-2xl border border-white/5 overflow-hidden">
+                    <button
+                        onClick={() => setShowInfo(!showInfo)}
+                        className="flex items-center justify-between w-full px-4 py-4"
+                    >
+                        <div className="flex items-center gap-2 text-gray-300 font-semibold text-sm">
+                            <BookOpen size={15} />
+                            About this market
+                        </div>
+                        <ChevronDown
+                            size={16}
+                            className={`text-gray-500 transition-transform ${showInfo ? 'rotate-180' : ''}`}
+                        />
+                    </button>
+
+                    {showInfo && (
+                        <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
+                            <div>
+                                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider mb-2">Description</p>
+                                <p className="text-gray-300 text-sm leading-relaxed">{market.description}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider mb-2">Resolution Source</p>
+                                <div className="flex items-center gap-2 text-[#FED800] text-sm">
+                                    <ExternalLink size={13} />
+                                    <span>{market.resolution_source}</span>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-[#0d1520] rounded-xl p-3">
+                                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Created</p>
+                                    <p className="text-white text-xs font-semibold">
+                                        {new Date((market as any).created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </p>
+                                </div>
+                                <div className="bg-[#0d1520] rounded-xl p-3">
+                                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Resolution</p>
+                                    <p className="text-white text-xs font-semibold">
+                                        {formatMatchDate(market.resolution_date)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─────────────────────────────────────────────
+// Fixture / Group detail stubs (unchanged structure)
+// ─────────────────────────────────────────────
+function FixtureMarketDetail({ marketData }: { marketData: MatchPredictionMarketDetailReturn }) {
+    if (!marketData) return <div className="p-4 text-gray-400">Loading...</div>
+    return <div className="p-4"><h1 className="text-white">Fixture Market Detail</h1></div>
+}
+
+function GroupMarketDetail({ marketData }: { marketData: PredictionMarketGroupDetailReturn }) {
+    if (!marketData) return <div className="p-4 text-gray-400">Loading...</div>
+    return <div className="p-4"><h1 className="text-white">Group Market Detail</h1></div>
+}
+
+function MarketDetailContentRouter({
+    marketType,
+    marketData
+}: {
+    marketType: "fixture" | "group" | "prediction" | ""
+    marketData: PredictionMarketDetailReturn | MatchPredictionMarketDetailReturn | PredictionMarketGroupDetailReturn | null
+}) {
+    if (!marketData) return (
+        <div className="flex items-center justify-center py-24">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#FED800]" />
+        </div>
+    )
+
+    switch (marketType) {
+        case 'fixture': return <FixtureMarketDetail marketData={marketData as MatchPredictionMarketDetailReturn} />
+        case 'group': return <GroupMarketDetail marketData={marketData as PredictionMarketGroupDetailReturn} />
+        case 'prediction': return <PredictionMarketDetail marketData={marketData as PredictionMarketDetailReturn} />
+        default: return (
+            <div className="flex items-center justify-center py-24">
+                <p className="text-gray-400">Unknown market type</p>
+            </div>
+        )
+    }
+}
+
+// ─────────────────────────────────────────────
+// Page inner
+// ─────────────────────────────────────────────
+function MarketDetailPageInner() {
+    const params = useParams()
+    const searchParams = useSearchParams()
+    const router = useRouter()
+
+    const [menuOpen, setMenuOpen] = useState<boolean>(false)
+    const marketId = parseInt(params.id as string)
+    const marketType = searchParams.get('type')
+    const [marketToRender, setMarketToRender] = useState<"fixture" | "group" | "prediction" | "">("")
+    const [marketData, setMarketData] = useState<PredictionMarketDetailReturn | MatchPredictionMarketDetailReturn | PredictionMarketGroupDetailReturn | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    const { logout } = useAuth()
+    const userData = useSelector((state: RootState) => state.userData)
+    const matchData = useSelector((state: RootState) => state.allFixturesData)
+
+    useEffect(() => {
+        const init = async () => {
+            try {
+                setLoading(true)
+                switch (marketType) {
+                    case "fixture":
+                        setMarketToRender("fixture")
+                        setMarketData(await fetchMarketDetail(marketId, "fixture"))
+                        break
+                    case "group":
+                        setMarketToRender("group")
+                        setMarketData(await fetchMarketDetail(marketId, "group"))
+                        break
+                    case "prediction":
+                        setMarketToRender("prediction")
+                        setMarketData(await fetchMarketDetail(marketId, "prediction"))
+                        break
+                    default:
+                        setMarketToRender("")
+                }
+            } catch (err) {
+                console.error(err)
+            } finally {
+                setLoading(false)
+            }
+        }
+        init()
+    }, [marketId, marketType])
+
+    return (
+        <div className="flex flex-col h-screen overflow-hidden bg-[#0f1923]">
+            <MenuOverlay
+                isOpen={menuOpen}
+                onClose={() => setMenuOpen(false)}
+                onLogoutClick={logout}
+                username={userData.username}
+                accountBalance={userData.account_balance}
+            />
+
+            {/* Header */}
+            <div className="flex-none bg-[#0f1923] px-4 pt-4 pb-3 md:px-6 z-20 border-b border-gray-800/50">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setMenuOpen(true)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
+                        >
+                            <Menu className="text-gray-300" size={22} />
+                        </button>
+                        <h1 className="text-xl font-bold">
+                            <span className="text-[#FED800]">peer</span>
+                            <span className="text-gray-100">stake</span>
+                        </h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all">
+                            Deposit
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (navigator.share) {
+                                    navigator.share({ title: 'PeerStake Market', url: window.location.href })
+                                }
+                            }}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        >
+                            <Share2 size={18} className="text-gray-400" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* 3-col layout desktop */}
+            <div className="flex-1 flex overflow-hidden lg:grid lg:grid-cols-[280px_1fr_280px] xl:grid-cols-[320px_1fr_320px] lg:gap-6 lg:px-6 lg:pt-6">
+
+                {/* Left sidebar desktop */}
+                <div className="hidden lg:flex flex-col gap-4 self-start sticky top-6">
+                    <div className="bg-[#131e28] rounded-2xl border border-white/5 p-4">
+                        <h3 className="text-gray-300 text-sm font-bold mb-3">Navigation</h3>
+                        <button
+                            onClick={() => router.push('/markets')}
+                            className="flex items-center gap-2 text-gray-400 hover:text-white text-sm font-medium transition-colors w-full p-2 rounded-lg hover:bg-white/5"
+                        >
+                            <ArrowLeft size={16} />
+                            Back to Markets
+                        </button>
+                    </div>
+                    {marketData && marketType === 'prediction' && (
+                        <div className="bg-[#131e28] rounded-2xl border border-white/5 p-4">
+                            <h3 className="text-gray-300 text-sm font-bold mb-3 flex items-center gap-2">
+                                <Info size={14} className="text-[#FED800]" />
+                                Quick Stats
+                            </h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500 text-xs">Market ID</span>
+                                    <span className="text-white text-xs font-mono">#{marketId}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500 text-xs">Type</span>
+                                    <span className="text-[#FED800] text-xs font-semibold capitalize">{marketType}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500 text-xs">Status</span>
+                                    <span className="text-emerald-400 text-xs font-semibold">Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Center — scrollable */}
+                <div className="flex-1 overflow-y-auto hide-vertical-scrollbar pb-24 lg:pb-6">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-24">
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#FED800]" />
+                                <p className="text-gray-500 text-sm">Loading market...</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <MarketDetailContentRouter
+                            marketType={marketToRender}
+                            marketData={marketData}
+                        />
+                    )}
+                </div>
+
+                {/* Right sidebar desktop */}
+                <div className="hidden lg:block self-start sticky top-6">
+                    <div className="bg-[#131e28] rounded-2xl border border-white/5 p-4">
+                        <h3 className="text-gray-300 text-sm font-bold mb-3">How it works</h3>
+                        <div className="space-y-4">
+                            {[
+                                { n: 1, title: 'Buy shares', desc: 'Buy YES or NO shares based on your prediction' },
+                                { n: 2, title: 'Price moves', desc: 'Prices shift as more people trade' },
+                                { n: 3, title: 'Market resolves', desc: 'Correct side earns from the pool' },
+                            ].map(tip => (
+                                <div key={tip.n} className="flex gap-3">
+                                    <div className="w-6 h-6 rounded-full bg-[#FED800]/15 border border-[#FED800]/20 flex items-center justify-center shrink-0 text-[#FED800] text-[11px] font-black">
+                                        {tip.n}
+                                    </div>
+                                    <div>
+                                        <p className="text-white text-xs font-semibold mb-0.5">{tip.title}</p>
+                                        <p className="text-gray-500 text-xs leading-relaxed">{tip.desc}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer mobile */}
+            <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden">
+                <FooterComponent currentPage="markets" publicStakeNumber={matchData.no_of_public_stakes} />
+            </div>
+        </div>
+    )
+}
+
+export default function MarketDetailPage() {
+    return (
+        <ProtectedRoute>
+            <MarketDetailPageInner />
+        </ProtectedRoute>
+    )
+}
+
+
+itertion 2:
+
+'use client'
+import ProtectedRoute from "@/app/components/protectedRoute"
+import MenuOverlay from "@/app/components/menuOverlay"
+import {
+    fetchMarketDetail,
+    executeBuy,
+    executeSell,
+    PredictionMarketDetailReturn,
+    MatchPredictionMarketDetailReturn,
+    PredictionMarketGroupDetailReturn
+} from "@/app/api/predictionMarket"
+import { useAuth } from "@/app/context/authContext"
+import FooterComponent from "@/app/components/footer"
+
+import { useParams, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useMemo, useRef } from "react"
+import {
+    Menu, ArrowLeft, Share2, ChevronDown,
+    CheckCircle2, AlertCircle, Minus, Plus, X
+} from "lucide-react"
+import {
+    LineChart, Line, XAxis, YAxis,
+    Tooltip, ResponsiveContainer, ReferenceLine
+} from "recharts"
+
+import { RootState } from "@/app/app_state/store"
+import { useSelector } from "react-redux"
+import { useRouter } from "next/navigation"
+import { formatMatchDate } from "@/utils/dateUtils"
+
+// ─── Types ────────────────────────────────────────────────────────
+interface PricePoint {
+    created_at: string
+    yes_price_at_trade: number
+    trade_type: string
+    side: string
+}
+
+interface MarketData {
+    id: number
+    question: string
+    description: string
+    category: string
+    q_yes: number
+    q_no: number
+    p_yes: number
+    total_collected: number
+    locks_at: string
+    resolution_date: string
+    resolution_source: string
+    outcome: string | null
+    outcome_notes: string | null
+    created_at?: string
+}
+
+// ─── Custom Tooltip ───────────────────────────────────────────────
+function CustomTooltip({ active, payload }: any) {
+    if (!active || !payload?.length) return null
+    const val: number = payload[0]?.value
+    const full: string = payload[0]?.payload?.fullDate
+    return (
+        <div style={{ background: '#1a2330', borderRadius: 8, padding: '8px 12px' }}>
+            <p style={{ color: '#9ca3af', fontSize: 11, marginBottom: 2 }}>{full}</p>
+            <p style={{ color: '#fff', fontWeight: 800, fontSize: 18, margin: 0 }}>
+                {(val * 100).toFixed(0)}%
+            </p>
+        </div>
+    )
+}
+
+const TIME_FILTERS = ['1H', '6H', '1D', '1W', 'MAX'] as const
+type TimeFilter = typeof TIME_FILTERS[number]
+
+// ─── Trade bottom sheet ───────────────────────────────────────────
+function TradeSheet({
+    mode,
+    side,
+    yesPct,
+    noPct,
+    marketId,
+    question,
+    onClose,
+}: {
+    mode: 'buy' | 'sell'
+    side: 'yes' | 'no'
+    yesPct: number
+    noPct: number
+    marketId: number
+    question: string
+    onClose: () => void
+}) {
+    const [shares, setShares] = useState(0)
+    const [loading, setLoading] = useState(false)
+    const [done, setDone] = useState(false)
+    const [err, setErr] = useState<string | null>(null)
+
+    const price = side === 'yes' ? yesPct / 100 : noPct / 100
+    const total = shares * price * 100
+    const toWin = shares * 100
+
+    const quickDeltas = mode === 'buy'
+        ? [-100, -10, +10, +100, +200]
+        : [25, 50, 100] // % for sell
+
+    const handleConfirm = async () => {
+        if (shares <= 0) return
+        setLoading(true)
+        setErr(null)
+        try {
+            if (mode === 'buy') await executeBuy(marketId, side, shares)
+            else await executeSell(marketId, side, shares)
+            setDone(true)
+            setTimeout(() => { setDone(false); onClose() }, 1400)
+        } catch (e: any) {
+            setErr(e?.message || 'Something went wrong')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <>
+            {/* Backdrop */}
+            <div
+                className="fixed inset-0 z-40 bg-black/60"
+                onClick={onClose}
+            />
+
+            {/* Sheet */}
+            <div
+                className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl overflow-hidden"
+                style={{ background: '#16202C', maxHeight: '90vh' }}
+            >
+                {/* Drag handle */}
+                <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-10 h-1 rounded-full bg-gray-600" />
+                </div>
+
+                {/* Header row */}
+                <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                        <button
+                            className="text-white text-base font-semibold flex items-center gap-1"
+                        >
+                            {mode === 'buy' ? 'Buy' : 'Sell'}
+                            <ChevronDown size={16} className="text-gray-400" />
+                        </button>
+                    </div>
+                    <button onClick={onClose} className="p-1 text-gray-400 hover:text-white">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Market + side row */}
+                <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800/60">
+                    <p className="text-gray-300 text-sm truncate flex-1 mr-3">
+                        {question.length > 48 ? question.slice(0, 48) + '…' : question}
+                    </p>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${side === 'yes' ? 'text-emerald-400 bg-emerald-500/15' : 'text-red-400 bg-red-500/15'}`}>
+                        {side.toUpperCase()}
+                    </span>
+                </div>
+
+                <div className="px-4 py-4 space-y-5">
+                    {/* Limit price */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">
+                            {mode === 'buy' ? 'Limit Price' : 'Price'}
+                        </span>
+                        <div className="flex items-center gap-3">
+                            <button className="text-gray-400 hover:text-white">
+                                <Minus size={16} />
+                            </button>
+                            <span className="text-white font-bold text-lg w-14 text-center">
+                                {(price * 100).toFixed(0)}¢
+                            </span>
+                            <button className="text-gray-400 hover:text-white">
+                                <Plus size={16} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Shares */}
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-gray-400 text-sm">Shares</span>
+                            <input
+                                type="number"
+                                value={shares || ''}
+                                onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
+                                placeholder="0"
+                                className="bg-transparent text-white font-bold text-lg text-right w-24 focus:outline-none"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            {quickDeltas.map(d => (
+                                <button
+                                    key={d}
+                                    onClick={() => {
+                                        if (mode === 'buy') {
+                                            setShares(prev => Math.max(0, prev + d))
+                                        } else {
+                                            // percentage buttons for sell
+                                            setShares(Math.round((d / 100) * 100))
+                                        }
+                                    }}
+                                    className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors"
+                                    style={{ background: '#23313D' }}
+                                >
+                                    {mode === 'buy' ? (d > 0 ? `+${d}` : d) : `${d}%`}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Expiration toggle */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Set expiration</span>
+                        <div className="w-10 h-5 rounded-full bg-gray-700 relative cursor-pointer">
+                            <div className="w-4 h-4 rounded-full bg-gray-400 absolute top-0.5 left-0.5" />
+                        </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-gray-800/60" />
+
+                    {/* Summary */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between">
+                            <span className="text-gray-400 text-sm">
+                                {mode === 'buy' ? 'Total' : "You'll receive"}
+                            </span>
+                            <span className="text-emerald-400 font-semibold text-sm">
+                                KES {total > 0 ? total.toFixed(2) : '0'}
+                            </span>
+                        </div>
+                        {mode === 'buy' && (
+                            <div className="flex justify-between">
+                                <span className="text-gray-400 text-sm flex items-center gap-1">
+                                    To win
+                                </span>
+                                <span className="text-emerald-400 font-semibold text-sm">
+                                    💵 KES {toWin > 0 ? toWin.toFixed(2) : '0'}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {err && (
+                        <p className="text-red-400 text-sm text-center">{err}</p>
+                    )}
+
+                    {/* CTA */}
+                    <button
+                        onClick={handleConfirm}
+                        disabled={loading || shares <= 0 || done}
+                        className="w-full py-4 rounded-xl font-bold text-base transition-all active:scale-[0.98] disabled:opacity-60"
+                        style={{
+                            background: done ? '#10b981' : side === 'yes' ? '#1DA462' : '#ef4444',
+                            color: '#fff',
+                        }}
+                    >
+                        {done ? '✓ Done!' : loading ? 'Processing…' : `${mode === 'buy' ? 'Buy' : 'Sell'} ${side === 'yes' ? 'Yes' : 'No'}`}
+                    </button>
+
+                    <div className="h-4" /> {/* safe area */}
+                </div>
+            </div>
+        </>
+    )
+}
+
+// ─── Prediction Market Detail ─────────────────────────────────────
+function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDetailReturn }) {
+    const [activeTime, setActiveTime] = useState<TimeFilter>('1W')
+    const [sheet, setSheet] = useState<{ mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null>(null)
+    const [showRules, setShowRules] = useState(false)
+    const router = useRouter()
+
+    if (!marketData) return null
+
+    const market = marketData.market as unknown as MarketData
+    const priceHistory: PricePoint[] = (marketData.price_history as unknown as PricePoint[]) || []
+
+    const yesPct = market.p_yes != null
+        ? market.p_yes * 100
+        : market.q_yes / Math.max(market.q_yes + market.q_no, 1) * 100
+    const noPct = 100 - yesPct
+    const isLocked = market.locks_at ? new Date(market.locks_at) < new Date() : false
+
+    // filter chart data
+    const chartData = useMemo(() => {
+        if (!priceHistory.length) return []
+        let filtered = [...priceHistory]
+        const now = new Date()
+        const cutoffs: Record<TimeFilter, number> = {
+            '1H': 1 * 60 * 60 * 1000,
+            '6H': 6 * 60 * 60 * 1000,
+            '1D': 24 * 60 * 60 * 1000,
+            '1W': 7 * 24 * 60 * 60 * 1000,
+            'MAX': Infinity,
+        }
+        const cutoff = cutoffs[activeTime]
+        if (cutoff !== Infinity) {
+            filtered = filtered.filter(p => now.getTime() - new Date(p.created_at).getTime() <= cutoff)
+        }
+        if (!filtered.length) filtered = priceHistory
+        return filtered.map((p, i) => {
+            const d = new Date(p.created_at)
+            return {
+                i,
+                value: p.yes_price_at_trade,
+                side: p.side,
+                label: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            }
+        })
+    }, [priceHistory, activeTime])
+
+    const latestVal = chartData.length ? chartData[chartData.length - 1].value : yesPct / 100
+    const firstVal = chartData.length ? chartData[0].value : yesPct / 100
+    const delta = latestVal - firstVal
+    const trending = delta >= 0
+
+    const volFormatted = market.total_collected >= 1_000_000
+        ? `$${(market.total_collected / 1_000_000).toFixed(1)}M`
+        : market.total_collected >= 1_000
+            ? `$${(market.total_collected / 1_000).toFixed(0)}K`
+            : `$${market.total_collected.toFixed(0)}`
+
+    return (
+        <div className="flex flex-col min-h-full" style={{ background: '#0f1923' }}>
+
+            {/* ── Scrollable content ─────────────────── */}
+            <div className="flex-1 overflow-y-auto pb-28">
+
+                {/* Category + question */}
+                <div className="px-4 pt-4 pb-3">
+                    <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider">{market.category}</p>
+                    <h1 className="text-white font-bold text-lg leading-snug">
+                        {market.question}
+                    </h1>
+                </div>
+
+                {/* Time pills — above chart */}
+                <div className="flex items-center px-4 mb-1 gap-1">
+                    {TIME_FILTERS.map(f => (
+                        <button
+                            key={f}
+                            onClick={() => setActiveTime(f)}
+                            className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                activeTime === f
+                                    ? 'bg-white text-black'
+                                    : 'text-gray-500 hover:text-gray-300'
+                            }`}
+                        >
+                            {f}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Probability + delta */}
+                <div className="px-4 mb-2 flex items-baseline gap-2">
+                    <span className="text-[#4ADE80] text-2xl font-black">{yesPct.toFixed(0)}% chance</span>
+                    <span className={`text-sm font-semibold flex items-center gap-0.5 ${trending ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {trending ? '▾' : '▴'} {Math.abs(delta * 100).toFixed(0)}%
+                    </span>
+                </div>
+
+                {/* ── Chart — edge to edge ───────────── */}
+                <div className="w-full" style={{ height: 220 }}>
+                    {chartData.length > 1 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart
+                                data={chartData}
+                                margin={{ top: 8, right: 0, left: 0, bottom: 0 }}
+                            >
+                                <XAxis dataKey="label" hide />
+                                <YAxis
+                                    domain={['auto', 'auto']}
+                                    tickFormatter={v => `${(v * 100).toFixed(0)}%`}
+                                    tick={{ fill: '#4b5563', fontSize: 10 }}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    width={36}
+                                    ticks={[0.3, 0.45, 0.6, 0.75, 0.9]}
+                                />
+                                <Tooltip content={<CustomTooltip />} />
+                                <Line
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke="#3b82f6"
+                                    strokeWidth={2}
+                                    dot={false}
+                                    activeDot={{ r: 5, fill: '#3b82f6', stroke: '#0f1923', strokeWidth: 2 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full flex items-center justify-center">
+                            <p className="text-gray-600 text-sm">Not enough data</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Vol + time filter row (below chart, like Polymarket) */}
+                <div className="flex items-center justify-between px-4 mt-1 mb-5">
+                    <span className="text-gray-400 text-sm font-semibold">{volFormatted} Vol.</span>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-gray-800/60 mx-0 mb-5" />
+
+                {/* Order Book row */}
+                <button
+                    className="flex items-center justify-between w-full px-4 py-3"
+                    onClick={() => {}}
+                >
+                    <span className="text-white font-semibold text-sm">Order Book</span>
+                    <ChevronDown size={18} className="text-gray-400" />
+                </button>
+
+                <div className="h-px bg-gray-800/60 mb-5" />
+
+                {/* Rules / Market Context */}
+                <div className="px-4">
+                    <div className="flex gap-6 mb-4">
+                        <button
+                            onClick={() => setShowRules(true)}
+                            className={`text-sm font-semibold pb-1 border-b-2 transition-colors ${showRules ? 'text-white border-white' : 'text-white border-white'}`}
+                        >
+                            Rules
+                        </button>
+                        <button
+                            onClick={() => setShowRules(false)}
+                            className={`text-sm font-semibold pb-1 border-b-2 transition-colors ${!showRules ? 'text-gray-500 border-transparent' : 'text-gray-500 border-transparent'}`}
+                        >
+                            Market Context
+                        </button>
+                    </div>
+
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                        {market.description}
+                        {market.description && market.description.length > 120 && (
+                            <span className="text-blue-400 ml-1 cursor-pointer">Show more</span>
+                        )}
+                    </p>
+
+                    {market.resolution_source && (
+                        <p className="text-gray-500 text-xs mt-3">
+                            Resolution source: <span className="text-gray-300">{market.resolution_source}</span>
+                        </p>
+                    )}
+                </div>
+
+                {/* Resolved state */}
+                {market.outcome && (
+                    <div className="mx-4 mt-6 rounded-xl p-4" style={{
+                        background: market.outcome === 'yes' ? '#10b98115' : '#ef444415',
+                        border: `1px solid ${market.outcome === 'yes' ? '#10b98130' : '#ef444430'}`
+                    }}>
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 size={16} className={market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'} />
+                            <span className={`font-bold text-sm uppercase ${market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                Resolved {market.outcome}
+                            </span>
+                        </div>
+                        {market.outcome_notes && (
+                            <p className="text-gray-400 text-xs mt-1">{market.outcome_notes}</p>
+                        )}
+                    </div>
+                )}
+
+                <div className="h-6" />
+            </div>
+
+            {/* ── Sticky buy/sell bar ────────────────── */}
+            {!market.outcome && (
+                <div
+                    className="fixed bottom-0 left-0 right-0 z-30 px-4 py-3 flex gap-3"
+                    style={{
+                        background: '#0f1923',
+                        borderTop: '1px solid #1f2d3a',
+                        paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))'
+                    }}
+                >
+                    <button
+                        onClick={() => setSheet({ mode: 'buy', side: 'yes' })}
+                        disabled={isLocked}
+                        className="flex-1 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.97] disabled:opacity-50"
+                        style={{ background: '#1DA462', color: '#fff' }}
+                    >
+                        Buy Yes {yesPct.toFixed(0)}¢
+                    </button>
+                    <button
+                        onClick={() => setSheet({ mode: 'buy', side: 'no' })}
+                        disabled={isLocked}
+                        className="flex-1 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.97] disabled:opacity-50"
+                        style={{ background: '#ef4444', color: '#fff' }}
+                    >
+                        Buy No {noPct.toFixed(0)}¢
+                    </button>
+                    <button
+                        onClick={() => setSheet({ mode: 'sell', side: 'yes' })}
+                        className="p-3.5 rounded-xl transition-all active:scale-[0.97]"
+                        style={{ background: '#1a2633' }}
+                    >
+                        <span className="text-gray-400 text-lg">···</span>
+                    </button>
+                </div>
+            )}
+
+            {/* Trade sheet */}
+            {sheet && (
+                <TradeSheet
+                    mode={sheet.mode}
+                    side={sheet.side}
+                    yesPct={yesPct}
+                    noPct={noPct}
+                    marketId={market.id}
+                    question={market.question}
+                    onClose={() => setSheet(null)}
+                />
+            )}
+        </div>
+    )
+}
+
+// ─── Stubs ────────────────────────────────────────────────────────
+function FixtureMarketDetail({ marketData }: { marketData: MatchPredictionMarketDetailReturn }) {
+    if (!marketData) return <div className="p-4 text-gray-400">Loading...</div>
+    return <div className="p-4 text-white">Fixture Market</div>
+}
+
+function GroupMarketDetail({ marketData }: { marketData: PredictionMarketGroupDetailReturn }) {
+    if (!marketData) return <div className="p-4 text-gray-400">Loading...</div>
+    return <div className="p-4 text-white">Group Market</div>
+}
+
+function MarketDetailContentRouter({
+    marketType,
+    marketData
+}: {
+    marketType: "fixture" | "group" | "prediction" | ""
+    marketData: any
+}) {
+    if (!marketData) return (
+        <div className="flex items-center justify-center py-24">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
+        </div>
+    )
+    switch (marketType) {
+        case 'fixture': return <FixtureMarketDetail marketData={marketData} />
+        case 'group': return <GroupMarketDetail marketData={marketData} />
+        case 'prediction': return <PredictionMarketDetail marketData={marketData} />
+        default: return <div className="p-4 text-gray-400">Unknown market type</div>
+    }
+}
+
+// ─── Page ─────────────────────────────────────────────────────────
+function MarketDetailPageInner() {
+    const params = useParams()
+    const searchParams = useSearchParams()
+    const router = useRouter()
+
+    const [menuOpen, setMenuOpen] = useState(false)
+    const marketId = parseInt(params.id as string)
+    const marketType = searchParams.get('type')
+    const [marketToRender, setMarketToRender] = useState<"fixture" | "group" | "prediction" | "">("")
+    const [marketData, setMarketData] = useState<any>(null)
+    const [loading, setLoading] = useState(true)
+
+    const { logout } = useAuth()
+    const userData = useSelector((state: RootState) => state.userData)
+    const matchData = useSelector((state: RootState) => state.allFixturesData)
+
+    useEffect(() => {
+        const init = async () => {
+            try {
+                setLoading(true)
+                const type = marketType as "fixture" | "group" | "prediction"
+                setMarketToRender(type || "")
+                if (type) setMarketData(await fetchMarketDetail(marketId, type))
+            } catch (err) {
+                console.error(err)
+            } finally {
+                setLoading(false)
+            }
+        }
+        init()
+    }, [marketId, marketType])
+
+    return (
+        <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#0f1923' }}>
+            <MenuOverlay
+                isOpen={menuOpen}
+                onClose={() => setMenuOpen(false)}
+                onLogoutClick={logout}
+                username={userData.username}
+                accountBalance={userData.account_balance}
+            />
+
+            {/* Header */}
+            <div
+                className="flex-none px-4 pt-4 pb-3 z-20"
+                style={{ background: '#0f1923' }}
+            >
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => router.push('/markets')}
+                            className="p-1 text-gray-400 hover:text-white transition-colors"
+                        >
+                            <ArrowLeft size={22} />
+                        </button>
+                        <button
+                            onClick={() => setMenuOpen(true)}
+                            className="p-1 text-gray-400 hover:text-white transition-colors md:hidden"
+                        >
+                            <Menu size={22} />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button className="p-2 text-gray-400 hover:text-white">
+                            <Share2 size={20} />
+                        </button>
+                        <button className="p-2 text-gray-400 hover:text-white">
+                            {/* bookmark */}
+                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-hidden">
+                {loading ? (
+                    <div className="flex items-center justify-center h-full">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
+                            <p className="text-gray-500 text-sm">Loading market…</p>
+                        </div>
+                    </div>
+                ) : (
+                    <MarketDetailContentRouter
+                        marketType={marketToRender}
+                        marketData={marketData}
+                    />
+                )}
+            </div>
+
+            {/* Footer mobile - only shown when no market data (fallback) */}
+            {!marketData && (
+                <div className="fixed bottom-0 left-0 right-0 z-20 lg:hidden">
+                    <FooterComponent currentPage="markets" publicStakeNumber={matchData.no_of_public_stakes} />
+                </div>
+            )}
+        </div>
+    )
+}
+
+export default function MarketDetailPage() {
+    return (
+        <ProtectedRoute>
+            <MarketDetailPageInner />
+        </ProtectedRoute>
+    )
+}
+
+itertion 3:
+
+
+'use client'
+import ProtectedRoute from "@/app/components/protectedRoute"
+import MenuOverlay from "@/app/components/menuOverlay"
+import {
+    fetchMarketDetail,
+    executeBuy,
+    executeSell,
+    PredictionMarketDetailReturn,
+    MatchPredictionMarketDetailReturn,
+    PredictionMarketGroupDetailReturn
+} from "@/app/api/predictionMarket"
+import { useAuth } from "@/app/context/authContext"
+import FooterComponent from "@/app/components/footer"
+
+import { useParams, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useMemo } from "react"
+import {
+    Menu, Search, ArrowLeft,
+    ChevronDown, CheckCircle2, Minus, Plus, X
+} from "lucide-react"
+import {
+    LineChart, Line, XAxis, YAxis,
+    Tooltip, ResponsiveContainer
+} from "recharts"
+
+import { RootState, AppDispatch } from "@/app/app_state/store"
+import { useSelector, useDispatch } from "react-redux"
+import { useRouter } from "next/navigation"
+import { formatMatchDate } from "@/utils/dateUtils"
+import { updateCurrentPage } from "@/app/app_state/slices/pageTracking"
+
+// ─── Types ────────────────────────────────────────────────────────
+interface PricePoint {
+    created_at: string
+    yes_price_at_trade: number
+    trade_type: string
+    side: string
+}
+
+interface MarketData {
+    id: number
+    question: string
+    description: string
+    category: string
+    q_yes: number
+    q_no: number
+    p_yes: number
+    total_collected: number
+    locks_at: string
+    resolution_date: string
+    resolution_source: string
+    outcome: string | null
+    outcome_notes: string | null
+    created_at?: string
+}
+
+// ─── Custom Tooltip ───────────────────────────────────────────────
+function CustomTooltip({ active, payload }: any) {
+    if (!active || !payload?.length) return null
+    const val: number = payload[0]?.value
+    const full: string = payload[0]?.payload?.fullDate
+    return (
+        <div className="bg-[#1a2633] rounded-lg px-3 py-2 shadow-xl">
+            <p className="text-gray-400 text-[11px] mb-1">{full}</p>
+            <p className="text-white font-black text-xl">{(val * 100).toFixed(0)}%</p>
+        </div>
+    )
+}
+
+const TIME_FILTERS = ['1H', '6H', '1D', '1W', 'MAX'] as const
+type TimeFilter = typeof TIME_FILTERS[number]
+
+// ─── Trade bottom sheet ───────────────────────────────────────────
+function TradeSheet({
+    mode,
+    side,
+    yesPct,
+    noPct,
+    marketId,
+    question,
+    onClose,
+}: {
+    mode: 'buy' | 'sell'
+    side: 'yes' | 'no'
+    yesPct: number
+    noPct: number
+    marketId: number
+    question: string
+    onClose: () => void
+}) {
+    const [shares, setShares] = useState(0)
+    const [loading, setLoading] = useState(false)
+    const [done, setDone] = useState(false)
+    const [err, setErr] = useState<string | null>(null)
+    const [visible, setVisible] = useState(false)
+
+    // Slide up on mount
+    useEffect(() => {
+        const t = setTimeout(() => setVisible(true), 10)
+        return () => clearTimeout(t)
+    }, [])
+
+    const handleClose = () => {
+        setVisible(false)
+        setTimeout(onClose, 280)
+    }
+
+    const price = side === 'yes' ? yesPct / 100 : noPct / 100
+    const total = shares * price * 100
+    const toWin = shares * 100
+
+    const handleConfirm = async () => {
+        if (shares <= 0) return
+        setLoading(true)
+        setErr(null)
+        try {
+            if (mode === 'buy') await executeBuy(marketId, side, shares)
+            else await executeSell(marketId, side, shares)
+            setDone(true)
+            setTimeout(() => { setDone(false); handleClose() }, 1400)
+        } catch (e: any) {
+            setErr(e?.message || 'Something went wrong')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <>
+            {/* Backdrop */}
+            <div
+                onClick={handleClose}
+                className="fixed inset-0 z-40 bg-black/60 transition-opacity duration-280"
+                style={{ opacity: visible ? 1 : 0 }}
+            />
+
+            {/* Sheet — slides up from bottom */}
+            <div
+                className="fixed left-0 right-0 z-50 rounded-t-2xl"
+                style={{
+                    bottom: 0,
+                    background: '#16202C',
+                    maxHeight: '90vh',
+                    transform: visible ? 'translateY(0)' : 'translateY(100%)',
+                    transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
+                }}
+            >
+                {/* Drag handle */}
+                <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-10 h-1 rounded-full bg-gray-600" />
+                </div>
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-1">
+                        <span className="text-white text-base font-semibold capitalize">{mode}</span>
+                        <ChevronDown size={16} className="text-gray-400" />
+                    </div>
+                    <button onClick={handleClose} className="p-1 text-gray-400 hover:text-white">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Market + side */}
+                <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800/60">
+                    <p className="text-gray-300 text-sm truncate flex-1 mr-3">
+                        {question.length > 50 ? question.slice(0, 50) + '…' : question}
+                    </p>
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${
+                        side === 'yes'
+                            ? 'text-emerald-400 bg-emerald-500/15'
+                            : 'text-red-400 bg-red-500/15'
+                    }`}>
+                        {side.toUpperCase()}
+                    </span>
+                </div>
+
+                <div
+                    className="px-4 py-5 space-y-5 overflow-y-auto"
+                    style={{ maxHeight: 'calc(90vh - 130px)' }}
+                >
+                    {/* Limit price */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Limit Price</span>
+                        <div className="flex items-center gap-4">
+                            <button className="w-8 h-8 rounded-full bg-[#23313D] flex items-center justify-center text-gray-300 hover:text-white">
+                                <Minus size={14} />
+                            </button>
+                            <span className="text-white font-bold text-lg min-w-[48px] text-center">
+                                {(price * 100).toFixed(0)}¢
+                            </span>
+                            <button className="w-8 h-8 rounded-full bg-[#23313D] flex items-center justify-center text-gray-300 hover:text-white">
+                                <Plus size={14} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Shares */}
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-gray-400 text-sm">Shares</span>
+                            <input
+                                type="number"
+                                value={shares || ''}
+                                onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
+                                placeholder="0"
+                                className="bg-transparent text-white font-bold text-lg text-right w-24 focus:outline-none placeholder-gray-600"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            {(mode === 'buy'
+                                ? [-100, -10, +10, +100, +200]
+                                : [25, 50, 100]
+                            ).map((d, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => {
+                                        if (mode === 'buy') setShares(prev => Math.max(0, prev + (d as number)))
+                                        else setShares(Math.round(((d as number) / 100) * 100))
+                                    }}
+                                    className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors bg-[#23313D]"
+                                >
+                                    {mode === 'buy' ? ((d as number) > 0 ? `+${d}` : `${d}`) : `${d}%`}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Expiration toggle */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Set expiration</span>
+                        <div className="w-10 h-5 rounded-full bg-gray-700 relative flex items-center px-0.5 cursor-pointer">
+                            <div className="w-4 h-4 rounded-full bg-gray-400" />
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-800/60" />
+
+                    {/* Summary */}
+                    <div className="space-y-2.5">
+                        <div className="flex justify-between">
+                            <span className="text-gray-400 text-sm">
+                                {mode === 'buy' ? 'Total' : "You'll receive"}
+                            </span>
+                            <span className="text-emerald-400 font-semibold">
+                                {total > 0 ? `KES ${total.toFixed(2)}` : '$0'}
+                            </span>
+                        </div>
+                        {mode === 'buy' && (
+                            <div className="flex justify-between">
+                                <span className="text-gray-400 text-sm">To win</span>
+                                <span className="text-emerald-400 font-semibold">
+                                    💵 {toWin > 0 ? `KES ${toWin.toFixed(2)}` : '$0'}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {err && (
+                        <p className="text-red-400 text-sm text-center bg-red-500/10 py-2 px-3 rounded-lg">{err}</p>
+                    )}
+
+                    {/* CTA */}
+                    <button
+                        onClick={handleConfirm}
+                        disabled={loading || shares <= 0 || done}
+                        className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60"
+                        style={{
+                            background: done ? '#10b981' : side === 'yes' ? '#1DA462' : '#ef4444',
+                        }}
+                    >
+                        {done ? '✓ Done!'
+                            : loading ? 'Processing…'
+                            : `${mode === 'buy' ? 'Buy' : 'Sell'} ${side === 'yes' ? 'Yes' : 'No'}`}
+                    </button>
+
+                    <div className="h-2" />
+                </div>
+            </div>
+        </>
+    )
+}
+
+// ─── Prediction Market Detail ─────────────────────────────────────
+function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDetailReturn }) {
+    const [activeTime, setActiveTime] = useState<TimeFilter>('1W')
+    const [sheet, setSheet] = useState<{ mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null>(null)
+
+    if (!marketData) return null
+
+    const market = marketData.market as unknown as MarketData
+    const priceHistory: PricePoint[] = (marketData.price_history as unknown as PricePoint[]) || []
+
+    const yesPct = market.p_yes != null
+        ? market.p_yes * 100
+        : market.q_yes / Math.max(market.q_yes + market.q_no, 1) * 100
+    const noPct = 100 - yesPct
+    const isLocked = market.locks_at ? new Date(market.locks_at) < new Date() : false
+
+    const chartData = useMemo(() => {
+        if (!priceHistory.length) return []
+        let filtered = [...priceHistory]
+        const now = new Date()
+        const cutoffs: Record<TimeFilter, number> = {
+            '1H': 1 * 60 * 60 * 1000,
+            '6H': 6 * 60 * 60 * 1000,
+            '1D': 24 * 60 * 60 * 1000,
+            '1W': 7 * 24 * 60 * 60 * 1000,
+            'MAX': Infinity,
+        }
+        const cutoff = cutoffs[activeTime]
+        if (cutoff !== Infinity) {
+            filtered = filtered.filter(p => now.getTime() - new Date(p.created_at).getTime() <= cutoff)
+        }
+        if (!filtered.length) filtered = priceHistory
+        return filtered.map(p => {
+            const d = new Date(p.created_at)
+            return {
+                value: p.yes_price_at_trade,
+                side: p.side,
+                label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            }
+        })
+    }, [priceHistory, activeTime])
+
+    const latestVal = chartData.length ? chartData[chartData.length - 1].value : yesPct / 100
+    const firstVal = chartData.length ? chartData[0].value : yesPct / 100
+    const delta = latestVal - firstVal
+    const trending = delta >= 0
+
+    const volFormatted = market.total_collected >= 1_000_000
+        ? `$${(market.total_collected / 1_000_000).toFixed(1)}M`
+        : market.total_collected >= 1_000
+            ? `$${(market.total_collected / 1_000).toFixed(1)}K`
+            : `$${market.total_collected.toFixed(0)}`
+
+    // Y axis: auto range with padding
+    const yValues = chartData.map(d => d.value)
+    const yMin = yValues.length ? Math.max(0, Math.min(...yValues) - 0.1) : 0
+    const yMax = yValues.length ? Math.min(1, Math.max(...yValues) + 0.1) : 1
+    const step = (yMax - yMin) / 4
+    const yTicks = Array.from({ length: 5 }, (_, i) =>
+        parseFloat((yMin + i * step).toFixed(2))
+    )
+
+    return (
+        <div className="flex flex-col" style={{ background: '#0f1923' }}>
+
+            {/* Category + question */}
+            <div className="px-4 pt-2 pb-3">
+                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">
+                    {market.category}
+                </p>
+                <h1 className="text-white font-bold text-lg leading-snug">{market.question}</h1>
+            </div>
+
+            {/* Probability headline */}
+            <div className="px-4 mb-3 flex items-baseline gap-2">
+                <span className="text-[#4ADE80] text-2xl font-black">{yesPct.toFixed(0)}% chance</span>
+                <span className={`text-sm font-semibold ${trending ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {trending ? '▾' : '▴'} {Math.abs(delta * 100).toFixed(0)}%
+                </span>
+            </div>
+
+            {/* Chart — with horizontal margins */}
+            <div className="w-full" style={{ height: 240 }}>
+                {chartData.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                            data={chartData}
+                            margin={{ top: 8, right: 16, left: 8, bottom: 4 }}
+                        >
+                            <XAxis
+                                dataKey="label"
+                                tick={{ fill: '#6b7280', fontSize: 11 }}
+                                tickLine={false}
+                                axisLine={false}
+                                tickCount={2}
+                                interval="preserveStartEnd"
+                            />
+                            <YAxis
+                                orientation="right"
+                                domain={[yMin, yMax]}
+                                ticks={yTicks}
+                                tickFormatter={v => `${(v * 100).toFixed(0)}%`}
+                                tick={{ fill: '#6b7280', fontSize: 12 }}
+                                tickLine={false}
+                                axisLine={false}
+                                width={46}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Line
+                                type="monotone"
+                                dataKey="value"
+                                stroke="#3b82f6"
+                                strokeWidth={2.5}
+                                dot={false}
+                                activeDot={{ r: 5, fill: '#3b82f6', stroke: '#0f1923', strokeWidth: 2 }}
+                            />
+                        </LineChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="h-full flex items-center justify-center">
+                        <p className="text-gray-600 text-sm">Not enough data for this period</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Volume (left) + Time filters (right) */}
+            <div className="flex items-center justify-between px-4 mt-1 mb-6">
+                <span className="text-gray-400 text-sm font-semibold">{volFormatted} Vol.</span>
+                <div className="flex items-center gap-0.5">
+                    {TIME_FILTERS.map(f => (
+                        <button
+                            key={f}
+                            onClick={() => setActiveTime(f)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                                activeTime === f
+                                    ? 'bg-white text-black'
+                                    : 'text-gray-500 hover:text-gray-300'
+                            }`}
+                        >
+                            {f}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-gray-800/70 mx-4 mb-5" />
+
+            {/* Rules */}
+            <div className="px-4 mb-4">
+                <div className="flex gap-6 mb-4">
+                    <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">
+                        Rules
+                    </button>
+                    <button className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">
+                        Market Context
+                    </button>
+                </div>
+                <p className="text-gray-400 text-sm leading-relaxed">{market.description}</p>
+                {market.resolution_source && (
+                    <p className="text-gray-500 text-xs mt-3">
+                        Resolution source: <span className="text-gray-300">{market.resolution_source}</span>
+                    </p>
+                )}
+                {market.locks_at && (
+                    <p className="text-gray-500 text-xs mt-1">
+                        Closes: <span className="text-gray-300">{formatMatchDate(market.locks_at)}</span>
+                        {'  ·  '}
+                        Resolves: <span className="text-gray-300">{formatMatchDate(market.resolution_date)}</span>
+                    </p>
+                )}
+            </div>
+
+            {/* Resolved */}
+            {market.outcome && (
+                <div className={`mx-4 mb-4 rounded-xl p-4 ${
+                    market.outcome === 'yes'
+                        ? 'bg-emerald-500/10 border border-emerald-500/30'
+                        : 'bg-red-500/10 border border-red-500/30'
+                }`}>
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 size={16} className={market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'} />
+                        <span className={`font-bold text-sm uppercase ${market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'}`}>
+                            Resolved {market.outcome}
+                        </span>
+                    </div>
+                    {market.outcome_notes && (
+                        <p className="text-gray-400 text-xs mt-1">{market.outcome_notes}</p>
+                    )}
+                </div>
+            )}
+
+            {/* Space so content doesn't hide behind the sticky bar */}
+            <div className="h-24" />
+
+            {/* ── Sticky buy/sell — sits above footer ── */}
+            {!market.outcome && (
+                <div
+                    className="fixed left-0 right-0 z-30 px-4 py-3 flex gap-3"
+                    style={{
+                        bottom: 56, // height of the footer nav bar
+                        background: '#0f1923',
+                        borderTop: '1px solid #1f2d3a',
+                    }}
+                >
+                    <button
+                        onClick={() => setSheet({ mode: 'buy', side: 'yes' })}
+                        disabled={isLocked}
+                        className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50"
+                        style={{ background: '#1DA462' }}
+                    >
+                        Buy Yes {yesPct.toFixed(0)}¢
+                    </button>
+                    <button
+                        onClick={() => setSheet({ mode: 'buy', side: 'no' })}
+                        disabled={isLocked}
+                        className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50"
+                        style={{ background: '#ef4444' }}
+                    >
+                        Buy No {noPct.toFixed(0)}¢
+                    </button>
+                    <button
+                        onClick={() => setSheet({ mode: 'sell', side: 'yes' })}
+                        className="px-4 py-3.5 rounded-xl transition-all active:scale-[0.97] bg-[#1a2633] text-gray-300 font-bold text-lg leading-none"
+                    >
+                        ···
+                    </button>
+                </div>
+            )}
+
+            {/* Trade sheet portal */}
+            {sheet && (
+                <TradeSheet
+                    mode={sheet.mode}
+                    side={sheet.side}
+                    yesPct={yesPct}
+                    noPct={noPct}
+                    marketId={market.id}
+                    question={market.question}
+                    onClose={() => setSheet(null)}
+                />
+            )}
+        </div>
+    )
+}
+
+// ─── Stubs ────────────────────────────────────────────────────────
+function FixtureMarketDetail({ marketData }: { marketData: MatchPredictionMarketDetailReturn }) {
+    if (!marketData) return <div className="p-4 text-gray-400">Loading...</div>
+    return <div className="p-4 text-white">Fixture Market</div>
+}
+
+function GroupMarketDetail({ marketData }: { marketData: PredictionMarketGroupDetailReturn }) {
+    if (!marketData) return <div className="p-4 text-gray-400">Loading...</div>
+    return <div className="p-4 text-white">Group Market</div>
+}
+
+function MarketDetailContentRouter({
+    marketType,
+    marketData
+}: {
+    marketType: "fixture" | "group" | "prediction" | ""
+    marketData: any
+}) {
+    if (!marketData) return (
+        <div className="flex items-center justify-center py-24">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]" />
+        </div>
+    )
+    switch (marketType) {
+        case 'fixture': return <FixtureMarketDetail marketData={marketData} />
+        case 'group': return <GroupMarketDetail marketData={marketData} />
+        case 'prediction': return <PredictionMarketDetail marketData={marketData} />
+        default: return <div className="p-4 text-gray-400">Unknown market type</div>
+    }
+}
+
+// ─── Page ─────────────────────────────────────────────────────────
+function MarketDetailPageInner() {
+    const params = useParams()
+    const searchParams = useSearchParams()
+    const router = useRouter()
+
+    const [menuOpen, setMenuOpen] = useState(false)
+    const marketId = parseInt(params.id as string)
+    const marketType = searchParams.get('type')
+    const [marketToRender, setMarketToRender] = useState<"fixture" | "group" | "prediction" | "">("")
+    const [marketData, setMarketData] = useState<any>(null)
+    const [loading, setLoading] = useState(true)
+
+    const { logout } = useAuth()
+    const dispatch = useDispatch<AppDispatch>()
+    const userData = useSelector((state: RootState) => state.userData)
+    const currentPage = useSelector((state: RootState) => state.currentPageData.page)
+    const matchData = useSelector((state: RootState) => state.allFixturesData)
+
+    useEffect(() => {
+        dispatch(updateCurrentPage('markets'))
+        const init = async () => {
+            try {
+                setLoading(true)
+                const type = marketType as "fixture" | "group" | "prediction"
+                setMarketToRender(type || "")
+                if (type) setMarketData(await fetchMarketDetail(marketId, type))
+            } catch (err) {
+                console.error(err)
+            } finally {
+                setLoading(false)
+            }
+        }
+        init()
+    }, [marketId, marketType])
+
+    return (
+        <div className="flex flex-col h-screen overflow-hidden bg-[#1a2633]">
+
+            <MenuOverlay
+                isOpen={menuOpen}
+                onClose={() => setMenuOpen(false)}
+                onLogoutClick={logout}
+                username={userData.username}
+                accountBalance={userData.account_balance}
+            />
+
+            {/* ── Header — identical to the rest of the app ── */}
+            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none shadow-lg md:px-6 z-20 border-b md:border-none border-gray-800">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setMenuOpen(true)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
+                        >
+                            <Menu className="text-gray-300" size={24} />
+                        </button>
+                        <h1 className="text-2xl font-bold md:text-3xl">
+                            <span className="text-[#FED800]">bet</span>
+                            <span className="text-gray-100">yetu</span>
+                        </h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button className="bg-[#FED800] text-black font-semibold px-4 py-2 rounded-full text-sm shadow-lg hover:bg-[#ffd700] transition-all md:text-base">
+                            Deposit
+                        </button>
+                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                            <Search className="text-gray-300" size={20} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Scrollable body ── */}
+            <div className="flex-1 overflow-y-auto bg-[#0f1923]">
+
+                {/* Back link */}
+                <button
+                    onClick={() => router.push('/markets')}
+                    className="flex items-center gap-1.5 px-4 pt-3 pb-0 text-gray-400 hover:text-white text-sm transition-colors group"
+                >
+                    <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+                    Markets
+                </button>
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-24">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]" />
+                            <p className="text-gray-500 text-sm">Loading market…</p>
+                        </div>
+                    </div>
+                ) : (
+                    <MarketDetailContentRouter
+                        marketType={marketToRender}
+                        marketData={marketData}
+                    />
+                )}
+            </div>
+
+            {/* ── Footer nav — flex-none so it's always at the bottom ── */}
+            <div className="flex-none lg:hidden">
+                <FooterComponent currentPage={currentPage} publicStakeNumber={matchData.no_of_public_stakes} />
+            </div>
+
+        </div>
+    )
+}
+
+export default function MarketDetailPage() {
+    return (
+        <ProtectedRoute>
+            <MarketDetailPageInner />
+        </ProtectedRoute>
+    )
+}
