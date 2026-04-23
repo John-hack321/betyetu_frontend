@@ -20,14 +20,28 @@ import {
 } from "lucide-react"
 import {
     LineChart, Line, XAxis, YAxis,
-    Tooltip, ResponsiveContainer
+    Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts"
+import Image from "next/image"
 
 import { RootState, AppDispatch } from "@/app/app_state/store"
 import { useSelector, useDispatch } from "react-redux"
 import { useRouter } from "next/navigation"
 import { formatMatchDate } from "@/utils/dateUtils"
 import { updateCurrentPage } from "@/app/app_state/slices/pageTracking"
+
+type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon'
+
+interface FilterState {
+    type: FilterType
+    leagueId: number | null
+}
+
+interface FilterTab {
+    id: FilterType
+    label: string
+    dot?: boolean
+}
 
 // ─── Types ────────────────────────────────────────────────────────
 interface PricePoint {
@@ -356,11 +370,23 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
             </div>
 
             {/* Probability headline */}
-            <div className="px-4 mb-3 flex items-baseline gap-2">
-                <span className="text-[#4ADE80] text-2xl font-black">{yesPct.toFixed(0)}% chance</span>
-                <span className={`text-sm font-semibold ${trending ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {trending ? '▾' : '▴'} {Math.abs(delta * 100).toFixed(0)}%
-                </span>
+            <div className="px-4 mb-3 flex items-baseline gap-2 justify-between">
+                <div className="flex items-baseline gap-2">
+                    <span className="text-[#4ADE80] text-2xl font-black">{yesPct.toFixed(0)}% chance</span>
+                    <span className={`text-sm font-semibold ${trending ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {trending ? '▾' : '▴'} {Math.abs(delta * 100).toFixed(0)}%
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-500/70 text-xl font-bold">
+                    <Image 
+                        src="/icons/favicon-32x32.png" 
+                        alt="peerstake" 
+                        width={28}
+                        height={28}
+                        className="opacity-60"
+                    />
+                    <span>peerstake</span>
+                </div>
             </div>
 
             {/* Chart — with horizontal margins */}
@@ -369,8 +395,9 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart
                             data={chartData}
-                            margin={{ top: 8, right: 16, left: 8, bottom: 4 }}
+                            margin={{ top: 8, right: 1, left: 8, bottom: 4 }}
                         >
+                            <CartesianGrid horizontal={true} vertical={false} stroke="#334155" strokeDasharray="3 3" />
                             <XAxis
                                 dataKey="label"
                                 tick={{ fill: '#6b7280', fontSize: 11 }}
@@ -388,6 +415,7 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                                 tickLine={true}
                                 axisLine={false}
                                 width={46}
+                                //interval={}
                             />
                             <Tooltip content={<CustomTooltip />} />
                             <Line
@@ -571,6 +599,27 @@ function MarketDetailPageInner() {
     const [marketToRender, setMarketToRender] = useState<"fixture" | "group" | "prediction" | "">("")
     const [marketData, setMarketData] = useState<any>(null)
     const [loading, setLoading] = useState(true)
+    
+    // Filter state
+    const [filterState, setFilterState] = useState<FilterState>({
+        type: 'all',
+        leagueId: null,
+    })
+    
+    const filterTabs: FilterTab[] = [
+        { id: 'all', label: 'All' },
+        { id: 'football', label: 'Football' },
+        { id: 'kenya', label: 'Kenya' },
+        { id: 'premier-league', label: 'Premier League' },
+        { id: 'ucl', label: 'UCL' },
+        { id: 'afcon', label: 'AFCON' },
+        { id: 'live', label: 'Live', dot: true },
+        { id: 'closing-soon', label: 'Closing soon' },
+    ]
+    
+    const handleTabClick = (tabId: FilterType) => {
+        setFilterState({ type: tabId, leagueId: null })
+    }
 
     const { logout } = useAuth()
     const dispatch = useDispatch<AppDispatch>()
@@ -607,7 +656,7 @@ function MarketDetailPageInner() {
             />
 
             {/* ── Header — identical to the rest of the app ── */}
-            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none  md:px-6 z-20  md:border-none border-gray-800">
+            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none  md:px-6 z-20  md:border-none border-b border-gray-700">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button
@@ -630,10 +679,31 @@ function MarketDetailPageInner() {
                         </button>
                     </div>
                 </div>
+                
+                {/* Filter tabs */}
+                <div className="mt-4 overflow-x-scroll hide-horizontal-scrollbar">
+                    <div className="flex gap-6 min-w-max">
+                        {filterTabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleTabClick(tab.id)}
+                                className={`pb-2 px-1 text-sm font-medium transition-colors relative flex items-center gap-1 whitespace-nowrap ${filterState.type === tab.id ? 'text-[#FED800]' : 'text-gray-400 hover:text-gray-200'}`}
+                            >
+                                {tab.label}
+                                {tab.dot && (
+                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                )}
+                                {filterState.type === tab.id && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* ── Scrollable body ── */}
-            <div className="flex-1 overflow-y-auto bg-[#1a2633]">
+            <div className="flex-1 overflow-y-auto bg-[#1a2633] hide-vertical-scrollbar">
 
                 {/* Back link */}
                 <button
