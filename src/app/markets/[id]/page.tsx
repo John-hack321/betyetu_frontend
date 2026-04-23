@@ -7,7 +7,8 @@ import {
     executeSell,
     PredictionMarketDetailReturn,
     MatchPredictionMarketDetailReturn,
-    PredictionMarketGroupDetailReturn
+    PredictionMarketGroupDetailReturn,
+    fetchPredMktRecentTradeData
 } from "@/app/api/predictionMarket"
 import { useAuth } from "@/app/context/authContext"
 import FooterComponent from "@/app/components/footer"
@@ -16,7 +17,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useMemo } from "react"
 import {
     Menu, Search, ArrowLeft,
-    ChevronDown, CheckCircle2, Minus, Plus, X
+    ChevronDown, CheckCircle2, Minus, Plus, X, Settings2, ChevronDownIcon
 } from "lucide-react"
 import {
     LineChart, Line, XAxis, YAxis,
@@ -68,21 +69,85 @@ interface MarketData {
     created_at?: string
 }
 
+// we have to do this kind of unique naming for the sake of the different kind of markets we have in the system
+export interface RecentPredMktTradeActivityReturnType {
+    recent_trades: RecentPredMktTradeActivity[]
+    count: number
+}
+
+export interface RecentPredMktTradeActivity {
+    created_at: string
+    market_id: number
+    trade_type: string
+    side: string
+    shares: number
+    kes_amount: number
+    yes_price_at_trade: number
+}
+
+
+
 // ─── Custom Tooltip ───────────────────────────────────────────────
 function CustomTooltip({ active, payload }: any) {
     if (!active || !payload?.length) return null
-    const val: number = payload[0]?.value
     const full: string = payload[0]?.payload?.fullDate
+
+    const items = payload
+        .filter((entry: any) => typeof entry?.value === 'number')
+        .map((entry: any) => {
+            const dataKey = entry?.dataKey
+            const label = dataKey === 'noValue' ? 'No' : 'Yes'
+            return {
+                label,
+                color: entry?.color || '#ffffff',
+                value: `${(entry.value * 100).toFixed(0)}%`
+            }
+        })
+
     return (
         <div className="bg-[#1a2633] rounded-lg px-3 py-2 shadow-xl">
             <p className="text-gray-400 text-[11px] mb-1">{full}</p>
-            <p className="text-white font-black text-xl">{(val * 100).toFixed(0)}%</p>
+            <div className="space-y-0.5">
+                {items.map((item: { label: string; color: string; value: string }) => (
+                    <p key={item.label} className="font-black text-base" style={{ color: item.color }}>
+                        {item.label}: {item.value}
+                    </p>
+                ))}
+            </div>
         </div>
     )
 }
 
-const TIME_FILTERS = ['1H', '6H', '1D', '1W', 'MAX'] as const
+const TIME_FILTERS = ['6H', '1D', '1W', '1M', 'MAX'] as const
 type TimeFilter = typeof TIME_FILTERS[number]
+type ChartView = 'yes' | 'no' | 'both'
+
+function computeTicks(min: number, max: number) {
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1]
+    if (max <= min) return [parseFloat(min.toFixed(2))]
+
+    const range = max - min
+    let step: number
+
+    if (range <= 0.08) step = 0.02
+    else if (range <= 0.20) step = 0.05
+    else if (range <= 0.40) step = 0.10
+    else if (range <= 0.60) step = 0.15
+    else step = 0.20
+
+    const toFixed2 = (n: number) => parseFloat(n.toFixed(2))
+    const ticks = new Set<number>()
+    ticks.add(toFixed2(min))
+    ticks.add(toFixed2(max))
+
+    let current = Math.ceil(min / step) * step
+    while (current < max) {
+        if (current > min) ticks.add(toFixed2(current))
+        current += step
+    }
+
+    return Array.from(ticks).sort((a, b) => a - b)
+}
 
 // ─── Trade bottom sheet ───────────────────────────────────────────
 function TradeSheet({
@@ -108,7 +173,6 @@ function TradeSheet({
     const [err, setErr] = useState<string | null>(null)
     const [visible, setVisible] = useState(false)
 
-    // Slide up on mount
     useEffect(() => {
         const t = setTimeout(() => setVisible(true), 10)
         return () => clearTimeout(t)
@@ -141,14 +205,12 @@ function TradeSheet({
 
     return (
         <>
-            {/* Backdrop */}
             <div
                 onClick={handleClose}
                 className="fixed inset-0 z-40 bg-black/60 transition-opacity duration-280"
                 style={{ opacity: visible ? 1 : 0 }}
             />
 
-            {/* Sheet — slides up from bottom */}
             <div
                 className="fixed left-0 right-0 z-50 rounded-t-2xl"
                 style={{
@@ -159,12 +221,10 @@ function TradeSheet({
                     transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
                 }}
             >
-                {/* Drag handle */}
                 <div className="flex justify-center pt-3 pb-1">
                     <div className="w-10 h-1 rounded-full bg-gray-600" />
                 </div>
 
-                {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-1">
                         <span className="text-white text-base font-semibold capitalize">{mode}</span>
@@ -175,7 +235,6 @@ function TradeSheet({
                     </button>
                 </div>
 
-                {/* Market + side */}
                 <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800/60">
                     <p className="text-gray-300 text-sm truncate flex-1 mr-3">
                         {question.length > 50 ? question.slice(0, 50) + '…' : question}
@@ -193,7 +252,6 @@ function TradeSheet({
                     className="px-4 py-5 space-y-5 overflow-y-auto"
                     style={{ maxHeight: 'calc(90vh - 130px)' }}
                 >
-                    {/* Limit price */}
                     <div className="flex items-center justify-between">
                         <span className="text-gray-400 text-sm">Limit Price</span>
                         <div className="flex items-center gap-4">
@@ -209,7 +267,6 @@ function TradeSheet({
                         </div>
                     </div>
 
-                    {/* Shares */}
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-gray-400 text-sm">Shares</span>
@@ -240,7 +297,6 @@ function TradeSheet({
                         </div>
                     </div>
 
-                    {/* Expiration toggle */}
                     <div className="flex items-center justify-between">
                         <span className="text-gray-400 text-sm">Set expiration</span>
                         <div className="w-10 h-5 rounded-full bg-gray-700 relative flex items-center px-0.5 cursor-pointer">
@@ -250,7 +306,6 @@ function TradeSheet({
 
                     <div className="border-t border-gray-800/60" />
 
-                    {/* Summary */}
                     <div className="space-y-2.5">
                         <div className="flex justify-between">
                             <span className="text-gray-400 text-sm">
@@ -274,7 +329,6 @@ function TradeSheet({
                         <p className="text-red-400 text-sm text-center bg-red-500/10 py-2 px-3 rounded-lg">{err}</p>
                     )}
 
-                    {/* CTA */}
                     <button
                         onClick={handleConfirm}
                         disabled={loading || shares <= 0 || done}
@@ -296,9 +350,19 @@ function TradeSheet({
 }
 
 // ─── Prediction Market Detail ─────────────────────────────────────
-function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDetailReturn }) {
+function PredictionMarketDetail({
+    marketData,
+    isScrolled
+}: {
+    marketData: PredictionMarketDetailReturn
+    isScrolled: boolean
+}) {
     const [activeTime, setActiveTime] = useState<TimeFilter>('1W')
+    const [chartView, setChartView] = useState<ChartView>('yes')
+    const [chartSettingsOpen, setChartSettingsOpen] = useState(false)
     const [sheet, setSheet] = useState<{ mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null>(null)
+    const [showRecentActivity, setShowRecentActivity] = useState(false)
+    const [showFullRules, setShowFullRules] = useState(false)
 
     if (!marketData) return null
 
@@ -316,10 +380,10 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
         let filtered = [...priceHistory]
         const now = new Date()
         const cutoffs: Record<TimeFilter, number> = {
-            '1H': 1 * 60 * 60 * 1000,
             '6H': 6 * 60 * 60 * 1000,
             '1D': 24 * 60 * 60 * 1000,
             '1W': 7 * 24 * 60 * 60 * 1000,
+            '1M': 30 * 24 * 60 * 60 * 1000,
             'MAX': Infinity,
         }
         const cutoff = cutoffs[activeTime]
@@ -327,21 +391,36 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
             filtered = filtered.filter(p => now.getTime() - new Date(p.created_at).getTime() <= cutoff)
         }
         if (!filtered.length) filtered = priceHistory
-        return filtered.map(p => {
+        return filtered.map((p, index) => {
             const d = new Date(p.created_at)
+            const yesValue = p.yes_price_at_trade
             return {
-                value: p.yes_price_at_trade,
-                side: p.side, // the timzone should be in nairobi kenya timezone okay
+                xIndex: index,
+                yesValue,
+                noValue: 1 - yesValue,
+                side: p.side,
                 label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                 fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
             }
         })
     }, [priceHistory, activeTime])
 
-    const latestVal = chartData.length ? chartData[chartData.length - 1].value : yesPct / 100
-    const firstVal = chartData.length ? chartData[0].value : yesPct / 100
-    const delta = latestVal - firstVal
-    const trending = delta >= 0
+    const latestYesVal = chartData.length ? chartData[chartData.length - 1].yesValue : yesPct / 100
+    const firstYesVal = chartData.length ? chartData[0].yesValue : yesPct / 100
+    const latestNoVal = chartData.length ? chartData[chartData.length - 1].noValue : noPct / 100
+    const firstNoVal = chartData.length ? chartData[0].noValue : noPct / 100
+
+    const activeLatestVal = chartView === 'no' ? latestNoVal : latestYesVal
+    const activeFirstVal = chartView === 'no' ? firstNoVal : firstYesVal
+    const activeDelta = activeLatestVal - activeFirstVal
+    const trending = activeDelta >= 0
+    const chanceLabel = chartView === 'both'
+        ? `${Math.round(latestYesVal * 100)}% chance`
+        : `${Math.round(activeLatestVal * 100)}% chance`
+    const shouldTruncateRules = (market.description || '').length > 200
+    const rulesPreview = shouldTruncateRules
+        ? `${market.description.slice(0, 200).trimEnd()}...`
+        : market.description
 
     const volFormatted = market.total_collected >= 1_000_000
         ? `$${(market.total_collected / 1_000_000).toFixed(1)}M`
@@ -349,20 +428,40 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
             ? `$${(market.total_collected / 1_000).toFixed(1)}K`
             : `$${market.total_collected.toFixed(0)}`
 
-    // Y axis: auto range with padding
-    const yValues = chartData.map(d => d.value)
-    const yMin = yValues.length ? Math.max(0, Math.min(...yValues) - 0.1) : 0
-    const yMax = yValues.length ? Math.min(1, Math.max(...yValues) + 0.1) : 1
-    const step = (yMax - yMin) / 4
-    const yTicks = Array.from({ length: 5 }, (_, i) =>
-        parseFloat((yMin + i * step).toFixed(2))
-    )
+    // ── Adaptive Y-axis (Polymarket style) ────────────────────────
+    const yValues = chartData.flatMap(d => {
+        if (chartView === 'both') return [d.yesValue, d.noValue]
+        return [chartView === 'no' ? d.noValue : d.yesValue]
+    })
+    const dataMin = yValues.length ? Math.min(...yValues) : 0
+    const dataMax = yValues.length ? Math.max(...yValues) : 1
+    const padding = Math.max((dataMax - dataMin) * 0.15, 0.03)
+    const yMin = Math.max(0, dataMin - padding)
+    const yMax = Math.min(1, dataMax + padding)
+    const yTicks = computeTicks(yMin, yMax)
+    const xEdgeTicks = chartData.length > 0 ? [0, chartData.length - 1] : []
+    
+    const [activityData, setActivityData] = useState<RecentPredMktTradeActivityReturnType | null>(null)
+
+    const handleRecentActivityButtonClick = async (market_id: number) => {
+        if (showRecentActivity) {
+            setShowRecentActivity(false)
+            return
+        }
+
+        if (!activityData) {
+            const fetchedActivityData: RecentPredMktTradeActivityReturnType = await fetchPredMktRecentTradeData(market_id)
+            setActivityData(fetchedActivityData)
+        }
+
+        setShowRecentActivity(true)
+    }
 
     return (
         <div className="flex flex-col bg-[#1a2633]">
 
             {/* Category + question */}
-            <div className="px-4 pt-2 pb-3 sticky z-2 top-0 bg-[#1a2633]">
+            <div className={`sticky top-0 z-30 px-4 pt-2 pb-3 bg-[#1a2633] border-b ${isScrolled ? 'border-gray-700/70' : 'border-transparent'}`}>
                 <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">
                     {market.category}
                 </p>
@@ -370,17 +469,21 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
             </div>
 
             {/* Probability headline */}
-            <div className="px-4 mb-3 flex items-baseline gap-2 justify-between">
+            <div className="px-4 mb-3 mt-6 flex items-baseline gap-2 justify-between">
                 <div className="flex items-baseline gap-2">
-                    <span className="text-[#4ADE80] text-2xl font-black">{yesPct.toFixed(0)}% chance</span>
-                    <span className={`text-sm font-semibold ${trending ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {trending ? '▾' : '▴'} {Math.abs(delta * 100).toFixed(0)}%
+                    <span className={`text-2xl font-black ${chartView === 'no' ? 'text-red-400' : 'text-[#4ADE80]'}`}>
+                        {chanceLabel}
                     </span>
+                    {chartView !== 'both' && (
+                        <span className={`text-sm font-semibold ${trending ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {trending ? '▾' : '▴'} {Math.abs(activeDelta * 100).toFixed(0)}%
+                        </span>
+                    )}
                 </div>
                 <div className="flex items-center gap-2 text-gray-500/70 text-xl font-bold">
-                    <Image 
-                        src="/icons/favicon-32x32.png" 
-                        alt="peerstake" 
+                    <Image
+                        src="/icons/favicon-32x32.png"
+                        alt="peerstake"
                         width={28}
                         height={28}
                         className="opacity-60"
@@ -389,22 +492,28 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                 </div>
             </div>
 
-            {/* Chart — with horizontal margins */}
+            {/* Chart */}
             <div className="w-full" style={{ height: 300 }}>
                 {chartData.length > 1 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart
                             data={chartData}
-                            margin={{ top: 8, right: 1, left: 8, bottom: 4 }}
+                            margin={{ top: 8, right: 1, left: 8, bottom: 8 }}
                         >
                             <CartesianGrid horizontal={true} vertical={false} stroke="#334155" strokeDasharray="3 3" />
                             <XAxis
-                                dataKey="label"
-                                tick={{ fill: '#6b7280', fontSize: 11 }}
+                                dataKey="xIndex"
+                                type="number"
+                                domain={[0, Math.max(chartData.length - 1, 0)]}
+                                ticks={xEdgeTicks}
+                                padding={{ left: 24, right: 24 }}
+                                allowDecimals={false}
+                                tickFormatter={value => chartData[value]?.label ?? ''}
+                                tick={{ fill: '#6b7280', fontSize: 14 }}
                                 tickLine={false}
+                                tickMargin={20}
                                 axisLine={false}
-                                tickCount={2}
-                                // interval="" just tweaking till we get teh best design
+                                interval="preserveStartEnd"
                             />
                             <YAxis
                                 orientation="right"
@@ -412,20 +521,33 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                                 ticks={yTicks}
                                 tickFormatter={v => `${(v * 100).toFixed(0)}%`}
                                 tick={{ fill: '#6b7280', fontSize: 12 }}
-                                tickLine={true}
+                                tickLine={false}
                                 axisLine={false}
                                 width={46}
-                                //interval={}
                             />
                             <Tooltip content={<CustomTooltip />} />
-                            <Line
-                                type="monotone"
-                                dataKey="value"
-                                stroke="#3b82f6"
-                                strokeWidth={2.5}
-                                dot={false}
-                                activeDot={{ r: 5, fill: '#3b82f6', stroke: '#0f1923', strokeWidth: 2 }}
-                            />
+                            {(chartView === 'yes' || chartView === 'both') && (
+                                <Line
+                                    type="monotone"
+                                    dataKey="yesValue"
+                                    name="Yes"
+                                    stroke="#3b82f6"
+                                    strokeWidth={2.5}
+                                    dot={false}
+                                    activeDot={{ r: 5, fill: '#3b82f6', stroke: '#0f1923', strokeWidth: 2 }}
+                                />
+                            )}
+                            {(chartView === 'no' || chartView === 'both') && (
+                                <Line
+                                    type="monotone"
+                                    dataKey="noValue"
+                                    name="No"
+                                    stroke="#ef4444"
+                                    strokeWidth={2.5}
+                                    dot={false}
+                                    activeDot={{ r: 5, fill: '#ef4444', stroke: '#0f1923', strokeWidth: 2 }}
+                                />
+                            )}
                         </LineChart>
                     </ResponsiveContainer>
                 ) : (
@@ -435,10 +557,10 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                 )}
             </div>
 
-            {/* Volume (left) + Time filters (right) */}
-            <div className="flex items-center justify-between px-4 mt-3 mb-600">
+            {/* Volume + Time filters */}
+            <div className="flex items-center justify-between px-4  mb-2 gap-3 mt-4">
                 <span className="text-gray-400 text-sm font-semibold">{volFormatted} Vol.</span>
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-0.5 ml-auto">
                     {TIME_FILTERS.map(f => (
                         <button
                             key={f}
@@ -452,14 +574,114 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                             {f}
                         </button>
                     ))}
+                    <button
+                        onClick={() => setChartSettingsOpen(true)}
+                        aria-label="Open chart settings"
+                        title="Open chart settings"
+                        className="w-7 h-7 rounded-md border border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500 flex items-center justify-center transition-colors"
+                    >
+                        <Settings2 size={14} />
+                    </button>
                 </div>
             </div>
 
-            {/* Divider */}
-            <div className="h-px bg-gray-800/70 mx-4 mb-5" />
+            {chartSettingsOpen && (
+                <>
+                    <div
+                        className="fixed inset-0 z-40 bg-black/55"
+                        onClick={() => setChartSettingsOpen(false)}
+                    />
+                    <div className="fixed left-1/2 top-1/2 z-50 w-[92%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-700 bg-[#16202C] p-4 shadow-2xl">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-white text-sm font-semibold">Chart display</h3>
+                            <button
+                                onClick={() => setChartSettingsOpen(false)}
+                                aria-label="Close chart settings"
+                                className="text-gray-400 hover:text-gray-200 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                            <button
+                                onClick={() => {
+                                    setChartView('yes')
+                                    setChartSettingsOpen(false)
+                                }}
+                                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+                                    chartView === 'yes'
+                                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
+                                        : 'text-gray-300 border-gray-700 hover:border-gray-500'
+                                }`}
+                            >
+                                Yes line only
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setChartView('no')
+                                    setChartSettingsOpen(false)
+                                }}
+                                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+                                    chartView === 'no'
+                                        ? 'bg-red-500/15 text-red-300 border-red-400/40'
+                                        : 'text-gray-300 border-gray-700 hover:border-gray-500'
+                                }`}
+                            >
+                                No line only
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setChartView('both')
+                                    setChartSettingsOpen(false)
+                                }}
+                                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+                                    chartView === 'both'
+                                        ? 'bg-sky-500/15 text-sky-300 border-sky-400/40'
+                                        : 'text-gray-300 border-gray-700 hover:border-gray-500'
+                                }`}
+                            >
+                                Show both lines
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
 
+            {/* Divider */}
+            <div className="h-px bg-gray-800/70 mx-4 " />
+
+            {/* order book */}
+            <div className="flex items-center justify-between px-4 mt-3 mb-2 gap-3 text-sm font-semibold border border-gray-700 rounded-lg p-3 mx-2">
+                <span>Recent activity</span>
+                <button onClick={() => handleRecentActivityButtonClick(market.id)}>
+                    {showRecentActivity ? <X size={16} /> : <ChevronDownIcon size={16} />}
+                </button>
+            </div>
+
+            {showRecentActivity && (
+                <div className="mx-2 mb-4 border border-gray-700 rounded-lg bg-[#1a2633] w-auto h-60 overflow-y-auto p-2">
+                    {activityData?.recent_trades.map((trade) => (
+                        <div
+                            key={`${trade.created_at}-${trade.shares}-${trade.kes_amount}`}
+                            className={`grid grid-cols-3 gap-2 text-xs px-2 py-2 border-b border-gray-700/60 last:border-b-0 ${
+                                trade.side?.toLowerCase() === 'no' ? 'bg-red-500/5 text-gray-100' : 'text-gray-200'
+                            }`}
+                        >
+                            <span>{new Date(trade.created_at).toLocaleDateString()}</span>
+                            <span>{trade.shares} shares</span>
+                            <span className={trade.side?.toLowerCase() === 'no' ? 'text-red-300 font-semibold' : 'text-emerald-300 font-semibold'}>
+                                KES {trade.kes_amount.toLocaleString()}
+                            </span>
+                        </div>
+                    ))}
+
+                    {!activityData?.recent_trades?.length && (
+                        <p className="text-gray-400 text-xs px-2 py-3">No recent activity yet.</p>
+                    )}
+                </div>
+            )} 
             {/* Rules */}
-            <div className="px-4 mb-4">
+            <div className="px-4 mb-4 mt-4">
                 <div className="flex gap-6 mb-4">
                     <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">
                         Rules
@@ -468,7 +690,17 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                         Market Context
                     </button>
                 </div>
-                <p className="text-gray-400 text-sm leading-relaxed">{market.description}</p>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                    {showFullRules ? market.description : rulesPreview}
+                </p>
+                {shouldTruncateRules && (
+                    <button
+                        onClick={() => setShowFullRules(prev => !prev)}
+                        className="mt-2 text-xs font-semibold text-[#FED800] hover:text-[#ffd700] transition-colors"
+                    >
+                        {showFullRules ? 'Show less' : 'Show more'}
+                    </button>
+                )}
                 {market.resolution_source && (
                     <p className="text-gray-500 text-xs mt-3">
                         Resolution source: <span className="text-gray-300">{market.resolution_source}</span>
@@ -502,15 +734,14 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                 </div>
             )}
 
-            {/* Space so content doesn't hide behind the sticky bar */}
             <div className="h-24" />
 
-            {/* ── Sticky buy/sell — sits above footer ── */}
+            {/* Sticky buy/sell bar */}
             {!market.outcome && (
                 <div
                     className="fixed left-0 right-0 z-30 px-4 py-3 flex gap-3"
                     style={{
-                        bottom: 56, // height of the footer nav bar
+                        bottom: 56,
                         background: '#0f1923',
                         borderTop: '1px solid #1f2d3a',
                     }}
@@ -540,7 +771,6 @@ function PredictionMarketDetail({ marketData }: { marketData: PredictionMarketDe
                 </div>
             )}
 
-            {/* Trade sheet portal */}
             {sheet && (
                 <TradeSheet
                     mode={sheet.mode}
@@ -569,10 +799,12 @@ function GroupMarketDetail({ marketData }: { marketData: PredictionMarketGroupDe
 
 function MarketDetailContentRouter({
     marketType,
-    marketData
+    marketData,
+    isScrolled
 }: {
     marketType: "fixture" | "group" | "prediction" | ""
     marketData: any
+    isScrolled: boolean
 }) {
     if (!marketData) return (
         <div className="flex items-center justify-center py-24">
@@ -582,7 +814,7 @@ function MarketDetailContentRouter({
     switch (marketType) {
         case 'fixture': return <FixtureMarketDetail marketData={marketData} />
         case 'group': return <GroupMarketDetail marketData={marketData} />
-        case 'prediction': return <PredictionMarketDetail marketData={marketData} />
+        case 'prediction': return <PredictionMarketDetail marketData={marketData} isScrolled={isScrolled} />
         default: return <div className="p-4 text-gray-400">Unknown market type</div>
     }
 }
@@ -599,13 +831,14 @@ function MarketDetailPageInner() {
     const [marketToRender, setMarketToRender] = useState<"fixture" | "group" | "prediction" | "">("")
     const [marketData, setMarketData] = useState<any>(null)
     const [loading, setLoading] = useState(true)
-    
+    const [isBodyScrolled, setIsBodyScrolled] = useState(false)
+
     // Filter state
     const [filterState, setFilterState] = useState<FilterState>({
         type: 'all',
         leagueId: null,
     })
-    
+
     const filterTabs: FilterTab[] = [
         { id: 'all', label: 'All' },
         { id: 'football', label: 'Football' },
@@ -616,7 +849,7 @@ function MarketDetailPageInner() {
         { id: 'live', label: 'Live', dot: true },
         { id: 'closing-soon', label: 'Closing soon' },
     ]
-    
+
     const handleTabClick = (tabId: FilterType) => {
         setFilterState({ type: tabId, leagueId: null })
     }
@@ -655,8 +888,8 @@ function MarketDetailPageInner() {
                 accountBalance={userData.account_balance}
             />
 
-            {/* ── Header — identical to the rest of the app ── */}
-            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none  md:px-6 z-20  md:border-none border-b border-gray-700">
+            {/* Header */}
+            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none md:px-6 z-20 md:border-none border-b border-gray-700">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button
@@ -679,7 +912,7 @@ function MarketDetailPageInner() {
                         </button>
                     </div>
                 </div>
-                
+
                 {/* Filter tabs */}
                 <div className="mt-4 overflow-x-scroll hide-horizontal-scrollbar">
                     <div className="flex gap-6 min-w-max">
@@ -702,13 +935,15 @@ function MarketDetailPageInner() {
                 </div>
             </div>
 
-            {/* ── Scrollable body ── */}
-            <div className="flex-1 overflow-y-auto bg-[#1a2633] hide-vertical-scrollbar">
+            {/* Scrollable body */}
+            <div
+                className="flex-1 overflow-y-auto bg-[#1a2633] hide-vertical-scrollbar"
+                onScroll={(e) => setIsBodyScrolled(e.currentTarget.scrollTop > 0)}
+            >
 
-                {/* Back link */}
                 <button
                     onClick={() => router.push('/markets')}
-                    className="flex items-center  w-full  bg-[#1a2633] gap-1.5 px-4 pt-3 pb-0 text-gray-400 hover:text-white text-sm transition-colors group"
+                    className="flex items-center w-full bg-[#1a2633] gap-1.5 px-4 pt-3 pb-0 text-gray-400 hover:text-white text-sm transition-colors group"
                 >
                     <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
                     Markets
@@ -725,11 +960,12 @@ function MarketDetailPageInner() {
                     <MarketDetailContentRouter
                         marketType={marketToRender}
                         marketData={marketData}
+                        isScrolled={isBodyScrolled}
                     />
                 )}
             </div>
 
-            {/* ── Footer nav — flex-none so it's always at the bottom ── */}
+            {/* Footer nav */}
             <div className="flex-none lg:hidden">
                 <FooterComponent currentPage={currentPage} publicStakeNumber={matchData.no_of_public_stakes} />
             </div>

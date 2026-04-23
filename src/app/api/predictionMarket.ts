@@ -1,5 +1,6 @@
 import axios from "axios";
 import { PredictionMarket, PredictionMarketState } from "../app_state/slices/predictionMarketData";
+import { RecentPredMktTradeActivity, RecentPredMktTradeActivityReturnType } from "../markets/[id]/page";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
@@ -201,9 +202,14 @@ export const fetchMarketDetail = async (marketId: number, market_type: string): 
 };
 
 
-
-
-
+export const fetchPredMktRecentTradeData = async (
+    market_id: number
+) : Promise<RecentPredMktTradeActivityReturnType> => {
+    const respoonse = await axios.get(`${BASE_URL}/prediction_markets/recent_activity/${market_id}`, {
+        headers: getAuthHeaders(),
+    });
+    return respoonse.data;
+}
 
 
 
