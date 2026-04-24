@@ -17,7 +17,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useMemo } from "react"
 import {
     Menu, Search, ArrowLeft,
-    ChevronDown, CheckCircle2, Minus, Plus, X, Settings2, ChevronDownIcon
+    ChevronDown, CheckCircle2, AlertCircle, Minus, Plus, X, Settings2, ChevronDownIcon
 } from "lucide-react"
 import {
     LineChart, Line, XAxis, YAxis,
@@ -69,7 +69,6 @@ interface MarketData {
     created_at?: string
 }
 
-// we have to do this kind of unique naming for the sake of the different kind of markets we have in the system
 export interface RecentPredMktTradeActivityReturnType {
     recent_trades: RecentPredMktTradeActivity[]
     count: number
@@ -84,8 +83,6 @@ export interface RecentPredMktTradeActivity {
     kes_amount: number
     yes_price_at_trade: number
 }
-
-
 
 // ─── Custom Tooltip ───────────────────────────────────────────────
 function CustomTooltip({ active, payload }: any) {
@@ -149,7 +146,7 @@ function computeTicks(min: number, max: number) {
     return Array.from(ticks).sort((a, b) => a - b)
 }
 
-// ─── Trade bottom sheet ───────────────────────────────────────────
+// ─── Trade bottom sheet — Polymarket style ───────────────────────
 function TradeSheet({
     mode,
     side,
@@ -172,6 +169,7 @@ function TradeSheet({
     const [done, setDone] = useState(false)
     const [err, setErr] = useState<string | null>(null)
     const [visible, setVisible] = useState(false)
+    const [currentMode, setCurrentMode] = useState<'buy' | 'sell'>(mode)
 
     useEffect(() => {
         const t = setTimeout(() => setVisible(true), 10)
@@ -180,7 +178,7 @@ function TradeSheet({
 
     const handleClose = () => {
         setVisible(false)
-        setTimeout(onClose, 280)
+        setTimeout(onClose, 300)
     }
 
     const price = side === 'yes' ? yesPct / 100 : noPct / 100
@@ -192,7 +190,7 @@ function TradeSheet({
         setLoading(true)
         setErr(null)
         try {
-            if (mode === 'buy') await executeBuy(marketId, side, shares)
+            if (currentMode === 'buy') await executeBuy(marketId, side, shares)
             else await executeSell(marketId, side, shares)
             setDone(true)
             setTimeout(() => { setDone(false); handleClose() }, 1400)
@@ -203,146 +201,173 @@ function TradeSheet({
         }
     }
 
+    const quickDeltas = [-100, -10, +10, +100, +200]
+    const isYes = side === 'yes'
+    const isBuy = currentMode === 'buy'
+    const ctaColor = done ? '#10b981' : isBuy ? (isYes ? '#1DA462' : '#ef4444') : '#f59e0b'
+
     return (
         <>
+            {console.log('TradeSheet render', { visible, currentMode, side, marketId })}
+            {/* Backdrop */}
             <div
                 onClick={handleClose}
-                className="fixed inset-0 z-40 bg-black/60 transition-opacity duration-280"
+                className="fixed inset-0 z-[9998] bg-black/60 transition-opacity duration-300"
                 style={{ opacity: visible ? 1 : 0 }}
             />
 
+            {/* Sheet — slides up from bottom */}
             <div
-                className="fixed left-0 right-0 z-50 rounded-t-2xl"
+                className="fixed left-0 right-0 z-[9999] rounded-t-2xl overflow-hidden"
                 style={{
                     bottom: 0,
                     background: '#16202C',
-                    maxHeight: '90vh',
+                    maxHeight: '92vh',
                     transform: visible ? 'translateY(0)' : 'translateY(100%)',
-                    transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
+                    transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
                 }}
             >
+                {/* Drag handle */}
                 <div className="flex justify-center pt-3 pb-1">
-                    <div className="w-10 h-1 rounded-full bg-gray-600" />
+                    <div className="w-9 h-1 rounded-full bg-gray-600" />
                 </div>
 
-                <div className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center gap-1">
-                        <span className="text-white text-base font-semibold capitalize">{mode}</span>
-                        <ChevronDown size={16} className="text-gray-400" />
+                {/* Header: buy/sell toggle + close */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60">
+                    <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1">
+                        <button
+                            onClick={() => setCurrentMode('buy')}
+                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${
+                                currentMode === 'buy'
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            Buy
+                        </button>
+                        <button
+                            onClick={() => setCurrentMode('sell')}
+                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${
+                                currentMode === 'sell'
+                                    ? 'bg-amber-500 text-white'
+                                    : 'text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            Sell
+                        </button>
                     </div>
-                    <button onClick={handleClose} className="p-1 text-gray-400 hover:text-white">
-                        <X size={18} />
+                    <button
+                        onClick={handleClose}
+                        className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    >
+                        <X size={17} />
                     </button>
                 </div>
 
-                <div className="flex items-center justify-between px-4 py-2 border-t border-gray-800/60">
-                    <p className="text-gray-300 text-sm truncate flex-1 mr-3">
-                        {question.length > 50 ? question.slice(0, 50) + '…' : question}
+                {/* Market name + side badge */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/40">
+                    <p className="text-gray-300 text-sm leading-snug truncate flex-1 mr-3 max-w-[260px]">
+                        {question.length > 55 ? question.slice(0, 55) + '…' : question}
                     </p>
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${
-                        side === 'yes'
-                            ? 'text-emerald-400 bg-emerald-500/15'
-                            : 'text-red-400 bg-red-500/15'
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-md shrink-0 ${
+                        isYes
+                            ? 'text-emerald-300 bg-emerald-500/15 border border-emerald-500/25'
+                            : 'text-red-300 bg-red-500/15 border border-red-500/25'
                     }`}>
                         {side.toUpperCase()}
                     </span>
                 </div>
 
+                {/* Scrollable body */}
                 <div
-                    className="px-4 py-5 space-y-5 overflow-y-auto"
-                    style={{ maxHeight: 'calc(90vh - 130px)' }}
+                    className="overflow-y-auto"
+                    style={{ maxHeight: 'calc(92vh - 130px)' }}
                 >
-                    <div className="flex items-center justify-between">
-                        <span className="text-gray-400 text-sm">Limit Price</span>
-                        <div className="flex items-center gap-4">
-                            <button className="w-8 h-8 rounded-full bg-[#23313D] flex items-center justify-center text-gray-300 hover:text-white">
-                                <Minus size={14} />
-                            </button>
-                            <span className="text-white font-bold text-lg min-w-[48px] text-center">
+                    <div className="px-4 py-5 space-y-5">
+
+                        {/* Current Price (LMSR) */}
+                        <div className="flex items-center justify-between">
+                            <span className="text-gray-400 text-sm">Current Price</span>
+                            <span className="text-white font-bold text-lg tabular-nums">
                                 {(price * 100).toFixed(0)}¢
                             </span>
-                            <button className="w-8 h-8 rounded-full bg-[#23313D] flex items-center justify-center text-gray-300 hover:text-white">
-                                <Plus size={14} />
-                            </button>
                         </div>
-                    </div>
 
-                    <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-gray-400 text-sm">Shares</span>
-                            <input
-                                type="number"
-                                value={shares || ''}
-                                onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
-                                placeholder="0"
-                                className="bg-transparent text-white font-bold text-lg text-right w-24 focus:outline-none placeholder-gray-600"
-                            />
+                        {/* Shares */}
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-gray-400 text-sm">Shares</span>
+                                <input
+                                    type="number"
+                                    value={shares || ''}
+                                    onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
+                                    placeholder="0"
+                                    className="bg-transparent text-white font-bold text-xl text-right w-28 focus:outline-none placeholder-gray-700 tabular-nums"
+                                />
+                            </div>
+                            <div className="flex gap-1.5">
+                                {quickDeltas.map((d, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setShares(prev => Math.max(0, prev + d))}
+                                        className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors bg-[#23313D] hover:bg-[#2a3d4f] active:scale-95"
+                                    >
+                                        {d > 0 ? `+${d}` : d}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="flex gap-2">
-                            {(mode === 'buy'
-                                ? [-100, -10, +10, +100, +200]
-                                : [25, 50, 100]
-                            ).map((d, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => {
-                                        if (mode === 'buy') setShares(prev => Math.max(0, prev + (d as number)))
-                                        else setShares(Math.round(((d as number) / 100) * 100))
-                                    }}
-                                    className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors bg-[#23313D]"
-                                >
-                                    {mode === 'buy' ? ((d as number) > 0 ? `+${d}` : `${d}`) : `${d}%`}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
 
-                    <div className="flex items-center justify-between">
-                        <span className="text-gray-400 text-sm">Set expiration</span>
-                        <div className="w-10 h-5 rounded-full bg-gray-700 relative flex items-center px-0.5 cursor-pointer">
-                            <div className="w-4 h-4 rounded-full bg-gray-400" />
-                        </div>
-                    </div>
+                        
+                        {/* Divider */}
+                        <div className="border-t border-gray-800/70" />
 
-                    <div className="border-t border-gray-800/60" />
-
-                    <div className="space-y-2.5">
-                        <div className="flex justify-between">
-                            <span className="text-gray-400 text-sm">
-                                {mode === 'buy' ? 'Total' : "You'll receive"}
-                            </span>
-                            <span className="text-emerald-400 font-semibold">
-                                {total > 0 ? `KES ${total.toFixed(2)}` : '$0'}
-                            </span>
-                        </div>
-                        {mode === 'buy' && (
-                            <div className="flex justify-between">
-                                <span className="text-gray-400 text-sm">To win</span>
-                                <span className="text-emerald-400 font-semibold">
-                                    💵 {toWin > 0 ? `KES ${toWin.toFixed(2)}` : '$0'}
+                        {/* Total + To win */}
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <span className="text-gray-400 text-sm">Total</span>
+                                <span className={`font-semibold text-sm ${total > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
+                                    {total > 0 ? `KES ${total.toFixed(2)}` : '$0'}
                                 </span>
                             </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-gray-400 text-sm flex items-center gap-1.5">
+                                    {isBuy ? 'To win' : 'To receive'}
+                                    <span className="w-3.5 h-3.5 rounded-full border border-gray-600 text-[9px] flex items-center justify-center text-gray-500 cursor-help">i</span>
+                                </span>
+                                <span className={`font-semibold text-sm flex items-center gap-1 ${toWin > 0 ? (isBuy ? 'text-emerald-400' : 'text-amber-400') : 'text-gray-500'}`}>
+                                    {toWin > 0 && <span>{isBuy ? '💵' : '💰'}</span>}
+                                    {toWin > 0 ? `KES ${toWin.toFixed(2)}` : '$0'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Error */}
+                        {err && (
+                            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 px-3 py-2.5 rounded-lg border border-red-500/20">
+                                <AlertCircle size={14} className="shrink-0" />
+                                {err}
+                            </div>
                         )}
+
+                        {/* Trade CTA */}
+                        <button
+                            onClick={handleConfirm}
+                            disabled={loading || shares <= 0 || done}
+                            className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                            style={{ background: ctaColor }}
+                        >
+                            {done ? (
+                                <><CheckCircle2 size={18} /> Done!</>
+                            ) : loading ? (
+                                <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Processing…</>
+                            ) : (
+                                `${isBuy ? 'Buy' : 'Sell'} ${side.toUpperCase()}`
+                            )}
+                        </button>
+
+                        <div className="h-2" />
                     </div>
-
-                    {err && (
-                        <p className="text-red-400 text-sm text-center bg-red-500/10 py-2 px-3 rounded-lg">{err}</p>
-                    )}
-
-                    <button
-                        onClick={handleConfirm}
-                        disabled={loading || shares <= 0 || done}
-                        className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60"
-                        style={{
-                            background: done ? '#10b981' : side === 'yes' ? '#1DA462' : '#ef4444',
-                        }}
-                    >
-                        {done ? '✓ Done!'
-                            : loading ? 'Processing…'
-                            : `${mode === 'buy' ? 'Buy' : 'Sell'} ${side === 'yes' ? 'Yes' : 'No'}`}
-                    </button>
-
-                    <div className="h-2" />
                 </div>
             </div>
         </>
@@ -352,15 +377,20 @@ function TradeSheet({
 // ─── Prediction Market Detail ─────────────────────────────────────
 function PredictionMarketDetail({
     marketData,
-    isScrolled
+    isScrolled,
+    sheet,
+    setSheet,
+    tradeSheetAcitvated,
 }: {
     marketData: PredictionMarketDetailReturn
     isScrolled: boolean
+    sheet: { mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null
+    setSheet: (sheet: { mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null) => void
+    tradeSheetAcitvated: boolean
 }) {
     const [activeTime, setActiveTime] = useState<TimeFilter>('1W')
     const [chartView, setChartView] = useState<ChartView>('yes')
     const [chartSettingsOpen, setChartSettingsOpen] = useState(false)
-    const [sheet, setSheet] = useState<{ mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null>(null)
     const [showRecentActivity, setShowRecentActivity] = useState(false)
     const [showFullRules, setShowFullRules] = useState(false)
 
@@ -428,7 +458,6 @@ function PredictionMarketDetail({
             ? `$${(market.total_collected / 1_000).toFixed(1)}K`
             : `$${market.total_collected.toFixed(0)}`
 
-    // ── Adaptive Y-axis (Polymarket style) ────────────────────────
     const yValues = chartData.flatMap(d => {
         if (chartView === 'both') return [d.yesValue, d.noValue]
         return [chartView === 'no' ? d.noValue : d.yesValue]
@@ -440,7 +469,7 @@ function PredictionMarketDetail({
     const yMax = Math.min(1, dataMax + padding)
     const yTicks = computeTicks(yMin, yMax)
     const xEdgeTicks = chartData.length > 0 ? [0, chartData.length - 1] : []
-    
+
     const [activityData, setActivityData] = useState<RecentPredMktTradeActivityReturnType | null>(null)
 
     const handleRecentActivityButtonClick = async (market_id: number) => {
@@ -448,16 +477,16 @@ function PredictionMarketDetail({
             setShowRecentActivity(false)
             return
         }
-
         if (!activityData) {
             const fetchedActivityData: RecentPredMktTradeActivityReturnType = await fetchPredMktRecentTradeData(market_id)
             setActivityData(fetchedActivityData)
         }
-
         setShowRecentActivity(true)
     }
 
     return (
+        // NOTE: This component renders inside a scrollable parent.
+        // The buy/sell bar is rendered OUTSIDE this component, in the page layout.
         <div className="flex flex-col bg-[#1a2633]">
 
             {/* Category + question */}
@@ -558,7 +587,7 @@ function PredictionMarketDetail({
             </div>
 
             {/* Volume + Time filters */}
-            <div className="flex items-center justify-between px-4  mb-2 gap-3 mt-4">
+            <div className="flex items-center justify-between px-4 mb-2 gap-3 mt-4">
                 <span className="text-gray-400 text-sm font-semibold">{volFormatted} Vol.</span>
                 <div className="flex items-center gap-0.5 ml-auto">
                     {TIME_FILTERS.map(f => (
@@ -577,7 +606,6 @@ function PredictionMarketDetail({
                     <button
                         onClick={() => setChartSettingsOpen(true)}
                         aria-label="Open chart settings"
-                        title="Open chart settings"
                         className="w-7 h-7 rounded-md border border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500 flex items-center justify-center transition-colors"
                     >
                         <Settings2 size={14} />
@@ -596,61 +624,38 @@ function PredictionMarketDetail({
                             <h3 className="text-white text-sm font-semibold">Chart display</h3>
                             <button
                                 onClick={() => setChartSettingsOpen(false)}
-                                aria-label="Close chart settings"
                                 className="text-gray-400 hover:text-gray-200 transition-colors"
                             >
                                 <X size={16} />
                             </button>
                         </div>
                         <div className="grid grid-cols-1 gap-2">
-                            <button
-                                onClick={() => {
-                                    setChartView('yes')
-                                    setChartSettingsOpen(false)
-                                }}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
-                                    chartView === 'yes'
-                                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
-                                        : 'text-gray-300 border-gray-700 hover:border-gray-500'
-                                }`}
-                            >
-                                Yes line only
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setChartView('no')
-                                    setChartSettingsOpen(false)
-                                }}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
-                                    chartView === 'no'
-                                        ? 'bg-red-500/15 text-red-300 border-red-400/40'
-                                        : 'text-gray-300 border-gray-700 hover:border-gray-500'
-                                }`}
-                            >
-                                No line only
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setChartView('both')
-                                    setChartSettingsOpen(false)
-                                }}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
-                                    chartView === 'both'
-                                        ? 'bg-sky-500/15 text-sky-300 border-sky-400/40'
-                                        : 'text-gray-300 border-gray-700 hover:border-gray-500'
-                                }`}
-                            >
-                                Show both lines
-                            </button>
+                            {(['yes', 'no', 'both'] as ChartView[]).map(v => (
+                                <button
+                                    key={v}
+                                    onClick={() => { setChartView(v); setChartSettingsOpen(false) }}
+                                    className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+                                        chartView === v
+                                            ? v === 'yes'
+                                                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
+                                                : v === 'no'
+                                                    ? 'bg-red-500/15 text-red-300 border-red-400/40'
+                                                    : 'bg-sky-500/15 text-sky-300 border-sky-400/40'
+                                            : 'text-gray-300 border-gray-700 hover:border-gray-500'
+                                    }`}
+                                >
+                                    {v === 'yes' ? 'Yes line only' : v === 'no' ? 'No line only' : 'Show both lines'}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </>
             )}
 
             {/* Divider */}
-            <div className="h-px bg-gray-800/70 mx-4 " />
+            <div className="h-px bg-gray-800/70 mx-4" />
 
-            {/* order book */}
+            {/* Recent activity */}
             <div className="flex items-center justify-between px-4 mt-3 mb-2 gap-3 text-sm font-semibold border border-gray-700 rounded-lg p-3 mx-2">
                 <span>Recent activity</span>
                 <button onClick={() => handleRecentActivityButtonClick(market.id)}>
@@ -659,7 +664,7 @@ function PredictionMarketDetail({
             </div>
 
             {showRecentActivity && (
-                <div className="mx-2 mb-4 border border-gray-700 rounded-lg bg-[#1a2633] w-auto h-60 overflow-y-auto p-2">
+                <div className="mx-2 mb-4 border border-gray-700 rounded-lg bg-[#1a2633] h-60 overflow-y-auto p-2">
                     {activityData?.recent_trades.map((trade) => (
                         <div
                             key={`${trade.created_at}-${trade.shares}-${trade.kes_amount}`}
@@ -674,12 +679,12 @@ function PredictionMarketDetail({
                             </span>
                         </div>
                     ))}
-
                     {!activityData?.recent_trades?.length && (
                         <p className="text-gray-400 text-xs px-2 py-3">No recent activity yet.</p>
                     )}
                 </div>
-            )} 
+            )}
+
             {/* Rules */}
             <div className="px-4 mb-4 mt-4">
                 <div className="flex gap-6 mb-4">
@@ -734,54 +739,33 @@ function PredictionMarketDetail({
                 </div>
             )}
 
-            <div className="h-24" />
+            {/* Bottom spacer so last content isn't hidden behind buy/sell bar */}
+            <div className="h-6" />
 
-            {/* Sticky buy/sell bar */}
-            {!market.outcome && (
-                <div
-                    className="fixed left-0 right-0 z-30 px-4 py-3 flex gap-3"
-                    style={{
-                        bottom: 56,
-                        background: '#0f1923',
-                        borderTop: '1px solid #1f2d3a',
-                    }}
-                >
-                    <button
-                        onClick={() => setSheet({ mode: 'buy', side: 'yes' })}
-                        disabled={isLocked}
-                        className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50"
-                        style={{ background: '#1DA462' }}
-                    >
-                        Buy Yes {yesPct.toFixed(0)}¢
-                    </button>
-                    <button
-                        onClick={() => setSheet({ mode: 'buy', side: 'no' })}
-                        disabled={isLocked}
-                        className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50"
-                        style={{ background: '#ef4444' }}
-                    >
-                        Buy No {noPct.toFixed(0)}¢
-                    </button>
-                    <button
-                        onClick={() => setSheet({ mode: 'sell', side: 'yes' })}
-                        className="px-4 py-3.5 rounded-xl transition-all active:scale-[0.97] bg-[#1a2633] text-gray-300 font-bold text-lg leading-none"
-                    >
-                        ···
-                    </button>
-                </div>
-            )}
-
-            {sheet && (
-                <TradeSheet
-                    mode={sheet.mode}
-                    side={sheet.side}
+            {/* TradeSheet portal — rendered here, inside the component */}
+            {tradeSheetAcitvated &&  (
+                sheet ? (
+                    <TradeSheet
+                    mode={sheet?.mode}
+                    side={sheet?.side}
                     yesPct={yesPct}
                     noPct={noPct}
                     marketId={market.id}
                     question={market.question}
                     onClose={() => setSheet(null)}
                 />
+                ) : (
+                    <div>sheet data is still loading</div>
+                )
             )}
+
+            {/*
+                IMPORTANT: the buy/sell bar is NOT rendered here.
+                It is rendered in MarketDetailPageInner as a flex-none sibling
+                of the scrollable content area, sitting above the footer.
+                We expose `sheet` state via the `onOpenSheet` prop below.
+                See MarketDetailPageInner for the actual bar rendering.
+            */}
         </div>
     )
 }
@@ -800,11 +784,17 @@ function GroupMarketDetail({ marketData }: { marketData: PredictionMarketGroupDe
 function MarketDetailContentRouter({
     marketType,
     marketData,
-    isScrolled
+    isScrolled,
+    sheet, // for now most of these are specific to the pred detail but we are working to make the bumisive ot the other one too .
+    setSheet, // for now most of these are specific to the pred detail but we are working to make the bumisive ot the other one too .
+    tradeSheetAcitvated, // for now most of these are specific to the pred detail but we are working to make the bumisive ot the other one too .
 }: {
     marketType: "fixture" | "group" | "prediction" | ""
     marketData: any
     isScrolled: boolean
+    sheet: { mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null
+    setSheet: (sheet: { mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null) => void
+    tradeSheetAcitvated: boolean
 }) {
     if (!marketData) return (
         <div className="flex items-center justify-center py-24">
@@ -814,7 +804,14 @@ function MarketDetailContentRouter({
     switch (marketType) {
         case 'fixture': return <FixtureMarketDetail marketData={marketData} />
         case 'group': return <GroupMarketDetail marketData={marketData} />
-        case 'prediction': return <PredictionMarketDetail marketData={marketData} isScrolled={isScrolled} />
+        case 'prediction': return (
+        <PredictionMarketDetail 
+            marketData={marketData}
+            isScrolled={isScrolled} 
+            sheet={sheet} 
+            setSheet={setSheet}
+            tradeSheetAcitvated
+            />)
         default: return <div className="p-4 text-gray-400">Unknown market type</div>
     }
 }
@@ -832,12 +829,10 @@ function MarketDetailPageInner() {
     const [marketData, setMarketData] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [isBodyScrolled, setIsBodyScrolled] = useState(false)
+    const [buySellButtonsClicked ,setBuySellButtonsClicked]= useState<boolean>(false)
 
-    // Filter state
-    const [filterState, setFilterState] = useState<FilterState>({
-        type: 'all',
-        leagueId: null,
-    })
+    // Buy/sell bar state — lives here so the bar can be flex-none in the layout
+    const [sheet, setSheet] = useState<{ mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null>(null)
 
     const filterTabs: FilterTab[] = [
         { id: 'all', label: 'All' },
@@ -850,15 +845,25 @@ function MarketDetailPageInner() {
         { id: 'closing-soon', label: 'Closing soon' },
     ]
 
-    const handleTabClick = (tabId: FilterType) => {
-        setFilterState({ type: tabId, leagueId: null })
-    }
+    const [filterState, setFilterState] = useState<FilterState>({ type: 'all', leagueId: null })
+    const handleTabClick = (tabId: FilterType) => setFilterState({ type: tabId, leagueId: null })
 
     const { logout } = useAuth()
     const dispatch = useDispatch<AppDispatch>()
     const userData = useSelector((state: RootState) => state.userData)
     const currentPage = useSelector((state: RootState) => state.currentPageData.page)
     const matchData = useSelector((state: RootState) => state.allFixturesData)
+
+    // Derived market values for the buy/sell bar
+    const market = marketData?.market as unknown as MarketData | undefined
+    const yesPct = market?.p_yes != null
+        ? market.p_yes * 100
+        : market
+            ? market.q_yes / Math.max(market.q_yes + market.q_no, 1) * 100
+            : 50
+    const noPct = 100 - yesPct
+    const isLocked = market?.locks_at ? new Date(market.locks_at) < new Date() : false
+    const isResolved = !!market?.outcome
 
     useEffect(() => {
         dispatch(updateCurrentPage('markets'))
@@ -878,6 +883,7 @@ function MarketDetailPageInner() {
     }, [marketId, marketType])
 
     return (
+        // ── Outer shell: full screen flex column ──────────────────
         <div className="flex flex-col h-screen overflow-hidden bg-[#1a2633]">
 
             <MenuOverlay
@@ -888,8 +894,8 @@ function MarketDetailPageInner() {
                 accountBalance={userData.account_balance}
             />
 
-            {/* Header */}
-            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none md:px-6 z-20 md:border-none border-b border-gray-700">
+            {/* ── Header (flex-none) ── */}
+            <div className="flex-none bg-[#1a2633] px-4 py-4 md:px-6 z-20 md:border-none border-b border-gray-700">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <button
@@ -923,9 +929,7 @@ function MarketDetailPageInner() {
                                 className={`pb-2 px-1 text-sm font-medium transition-colors relative flex items-center gap-1 whitespace-nowrap ${filterState.type === tab.id ? 'text-[#FED800]' : 'text-gray-400 hover:text-gray-200'}`}
                             >
                                 {tab.label}
-                                {tab.dot && (
-                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
-                                )}
+                                {tab.dot && <div className="w-2 h-2 bg-red-500 rounded-full" />}
                                 {filterState.type === tab.id && (
                                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />
                                 )}
@@ -935,12 +939,11 @@ function MarketDetailPageInner() {
                 </div>
             </div>
 
-            {/* Scrollable body */}
+            {/* ── Scrollable body (flex-1) ── */}
             <div
                 className="flex-1 overflow-y-auto bg-[#1a2633] hide-vertical-scrollbar"
                 onScroll={(e) => setIsBodyScrolled(e.currentTarget.scrollTop > 0)}
             >
-
                 <button
                     onClick={() => router.push('/markets')}
                     className="flex items-center w-full bg-[#1a2633] gap-1.5 px-4 pt-3 pb-0 text-gray-400 hover:text-white text-sm transition-colors group"
@@ -961,15 +964,66 @@ function MarketDetailPageInner() {
                         marketType={marketToRender}
                         marketData={marketData}
                         isScrolled={isBodyScrolled}
+                        sheet={sheet}
+                        setSheet={setSheet}
+                        tradeSheetAcitvated={buySellButtonsClicked}
                     />
                 )}
             </div>
 
-            {/* Footer nav */}
+            {/* ── Buy/sell bar (flex-none) — sits between scroll area and footer ── */}
+            {!loading && marketToRender === 'prediction' && !isResolved && (
+                <div className="flex-none bg-[#1a2633] border-t border-gray-800/60 px-4 py-3 lg:hidden">
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => {
+                                console.log('Buy Yes clicked', { isLocked, marketId: market?.id });
+                                setSheet({ mode: 'buy', side: 'yes' });
+                                setBuySellButtonsClicked(true)
+                            }}
+                            disabled={isLocked}
+                            className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#1DA462] hover:bg-[#22c55e]"
+                        >
+                            Buy Yes {yesPct.toFixed(0)}¢
+                        </button>
+                        <button
+                            onClick={() => {
+                                console.log('Buy No clicked', { isLocked, marketId: market?.id });
+                                setSheet({ mode: 'buy', side: 'no' });
+                                setBuySellButtonsClicked(true)
+                            }}
+                            disabled={isLocked}
+                            className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#ef4444] hover:bg-[#f87171]"
+                        >
+                            Buy No {noPct.toFixed(0)}¢
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Footer nav (flex-none) ── */}
             <div className="flex-none lg:hidden">
                 <FooterComponent currentPage={currentPage} publicStakeNumber={matchData.no_of_public_stakes} />
             </div>
 
+            {/* Trade sheet — rendered at root so it overlays everything */}
+            {/*sheet && market && (
+                <>
+                    {console.log('Rendering TradeSheet', { sheet, marketId: market.id })}
+                    <TradeSheet
+                        mode={sheet.mode}
+                        side={sheet.side}
+                        yesPct={yesPct}
+                        noPct={noPct}
+                        marketId={market.id}
+                        question={market.question}
+                        onClose={() => {
+                            console.log('TradeSheet onClose called');
+                            setSheet(null);
+                        }}
+                    />
+                </>
+            )*/}
         </div>
     )
 }
