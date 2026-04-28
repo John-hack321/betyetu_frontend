@@ -8,8 +8,12 @@ import {
     PredictionMarketDetailReturn,
     MatchPredictionMarketDetailReturn,
     PredictionMarketGroupDetailReturn,
-    fetchPredMktRecentTradeData
+    fetchPredMktRecentTradeData,
+    PredictionMarketGroupReturnType,
+    MatchPredictionMarketReturnType,
+    PredictionMarketReturnType
 } from "@/app/api/predictionMarket"
+
 import { useAuth } from "@/app/context/authContext"
 import FooterComponent from "@/app/components/footer"
 
@@ -148,6 +152,7 @@ function computeTicks(min: number, max: number) {
 
 // ─── Trade bottom sheet — Polymarket style ───────────────────────
 function TradeSheet({
+    type,
     mode,
     side,
     yesPct,
@@ -156,6 +161,7 @@ function TradeSheet({
     question,
     onClose,
 }: {
+    type: "normal" | "match_based"
     mode: 'buy' | 'sell'
     side: 'yes' | 'no'
     yesPct: number
@@ -378,15 +384,9 @@ function TradeSheet({
 function PredictionMarketDetail({
     marketData,
     isScrolled,
-    sheet,
-    setSheet,
-    tradeSheetAcitvated,
 }: {
     marketData: PredictionMarketDetailReturn
     isScrolled: boolean
-    sheet: { mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null
-    setSheet: (sheet: { mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null) => void
-    tradeSheetAcitvated: boolean
 }) {
     const [activeTime, setActiveTime] = useState<TimeFilter>('1W')
     const [chartView, setChartView] = useState<ChartView>('yes')
@@ -742,23 +742,6 @@ function PredictionMarketDetail({
             {/* Bottom spacer so last content isn't hidden behind buy/sell bar */}
             <div className="h-6" />
 
-            {/* TradeSheet portal — rendered here, inside the component */}
-            {tradeSheetAcitvated &&  (
-                sheet ? (
-                    <TradeSheet
-                    mode={sheet?.mode}
-                    side={sheet?.side}
-                    yesPct={yesPct}
-                    noPct={noPct}
-                    marketId={market.id}
-                    question={market.question}
-                    onClose={() => setSheet(null)}
-                />
-                ) : (
-                    <div>sheet data is still loading</div>
-                )
-            )}
-
             {/*
                 IMPORTANT: the buy/sell bar is NOT rendered here.
                 It is rendered in MarketDetailPageInner as a flex-none sibling
@@ -785,16 +768,10 @@ function MarketDetailContentRouter({
     marketType,
     marketData,
     isScrolled,
-    sheet, // for now most of these are specific to the pred detail but we are working to make the bumisive ot the other one too .
-    setSheet, // for now most of these are specific to the pred detail but we are working to make the bumisive ot the other one too .
-    tradeSheetAcitvated, // for now most of these are specific to the pred detail but we are working to make the bumisive ot the other one too .
 }: {
     marketType: "fixture" | "group" | "prediction" | ""
     marketData: any
     isScrolled: boolean
-    sheet: { mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null
-    setSheet: (sheet: { mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null) => void
-    tradeSheetAcitvated: boolean
 }) {
     if (!marketData) return (
         <div className="flex items-center justify-center py-24">
@@ -807,10 +784,7 @@ function MarketDetailContentRouter({
         case 'prediction': return (
         <PredictionMarketDetail 
             marketData={marketData}
-            isScrolled={isScrolled} 
-            sheet={sheet} 
-            setSheet={setSheet}
-            tradeSheetAcitvated
+            isScrolled={isScrolled}
             />)
         default: return <div className="p-4 text-gray-400">Unknown market type</div>
     }
@@ -826,7 +800,7 @@ function MarketDetailPageInner() {
     const marketId = parseInt(params.id as string)
     const marketType = searchParams.get('type')
     const [marketToRender, setMarketToRender] = useState<"fixture" | "group" | "prediction" | "">("")
-    const [marketData, setMarketData] = useState<any>(null)
+    const [marketData, setMarketData] = useState<PredictionMarketDetailReturn | MatchPredictionMarketDetailReturn | PredictionMarketGroupDetailReturn | null>(null)
     const [loading, setLoading] = useState(true)
     const [isBodyScrolled, setIsBodyScrolled] = useState(false)
     const [buySellButtonsClicked ,setBuySellButtonsClicked]= useState<boolean>(false)
@@ -855,15 +829,33 @@ function MarketDetailPageInner() {
     const matchData = useSelector((state: RootState) => state.allFixturesData)
 
     // Derived market values for the buy/sell bar
-    const market = marketData?.market as unknown as MarketData | undefined
-    const yesPct = market?.p_yes != null
-        ? market.p_yes * 100
-        : market
-            ? market.q_yes / Math.max(market.q_yes + market.q_no, 1) * 100
-            : 50
-    const noPct = 100 - yesPct
-    const isLocked = market?.locks_at ? new Date(market.locks_at) < new Date() : false
-    const isResolved = !!market?.outcome
+    // for now we just do it for the prediction market type we will expand the logic later on to handle the other market types.
+    
+    const predMarket = marketData?.market as PredictionMarketReturnType 
+    const predMarketYesPct = predMarket?.p_yes != null
+    ? predMarket.p_yes * 100
+    : predMarket
+        ? predMarket.q_yes / Math.max(predMarket.q_yes + predMarket.q_no, 1) * 100
+        : 50
+    const noPct = 100 - predMarketYesPct
+    const isLocked = false // market?.locks_at ? new Date(market.locks_at) < new Date() : false
+    const isResolved = !!predMarket?.outcome
+
+    const matchPredMarket = marketData?.market as MatchPredictionMarketReturnType
+    const homePct = matchPredMarket?.q_home != null
+    ? matchPredMarket.q_home / Math.max(matchPredMarket.q_home + matchPredMarket.q_draw + matchPredMarket.q_away, 1) * 100
+    : 50
+    const drawPct = matchPredMarket?.q_draw != null
+    ? matchPredMarket.q_draw / Math.max(matchPredMarket.q_home + matchPredMarket.q_draw + matchPredMarket.q_away, 1) * 100
+    : 50
+    const awayPct = matchPredMarket?.q_away != null
+    ? matchPredMarket.q_away / Math.max(matchPredMarket.q_home + matchPredMarket.q_draw + matchPredMarket.q_away, 1) * 100
+    : 50
+    const isMatchPredLocked = false    
+
+    // a new way for handling how the coding buying window is pulled up
+    const [sideChoiece , setSideChoice] = useState<{type:"normal" | "match_based" ,side: "yes" | "no"} | null>(null)
+    const [mode, setMode] = useState<{option: "buy" | "sell"}>({option: "buy"})
 
     useEffect(() => {
         dispatch(updateCurrentPage('markets'))
@@ -964,32 +956,32 @@ function MarketDetailPageInner() {
                         marketType={marketToRender}
                         marketData={marketData}
                         isScrolled={isBodyScrolled}
-                        sheet={sheet}
-                        setSheet={setSheet}
-                        tradeSheetAcitvated={buySellButtonsClicked}
                     />
                 )}
             </div>
 
             {/* ── Buy/sell bar (flex-none) — sits between scroll area and footer ── */}
+            {/* TODO : make these buttons well reusable so that we dont have to code it for each market type from the ground up */}
             {!loading && marketToRender === 'prediction' && !isResolved && (
                 <div className="flex-none bg-[#1a2633] border-t border-gray-800/60 px-4 py-3 lg:hidden">
                     <div className="flex gap-3">
                         <button
                             onClick={() => {
-                                console.log('Buy Yes clicked', { isLocked, marketId: market?.id });
-                                setSheet({ mode: 'buy', side: 'yes' });
+                                console.log('Buy Yes clicked', { isLocked, marketId: predMarket?.id });
+                                // setSheet({ mode: 'buy', side: 'yes' }); we are chaing to the side choice type method for now
+                                setSideChoice({type : "normal" , side : "yes"})
                                 setBuySellButtonsClicked(true)
                             }}
                             disabled={isLocked}
                             className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#1DA462] hover:bg-[#22c55e]"
                         >
-                            Buy Yes {yesPct.toFixed(0)}¢
+                            Buy Yes {predMarketYesPct.toFixed(0)}¢
                         </button>
                         <button
                             onClick={() => {
-                                console.log('Buy No clicked', { isLocked, marketId: market?.id });
-                                setSheet({ mode: 'buy', side: 'no' });
+                                console.log('Buy No clicked', { isLocked, marketId: predMarket?.id });
+                                // setSheet({ mode: 'buy', side: 'no' });
+                                setSideChoice({type: "normal" , side : "no"})
                                 setBuySellButtonsClicked(true)
                             }}
                             disabled={isLocked}
@@ -1007,23 +999,27 @@ function MarketDetailPageInner() {
             </div>
 
             {/* Trade sheet — rendered at root so it overlays everything */}
-            {/*sheet && market && (
+            {buySellButtonsClicked && (
                 <>
-                    {console.log('Rendering TradeSheet', { sheet, marketId: market.id })}
-                    <TradeSheet
-                        mode={sheet.mode}
-                        side={sheet.side}
-                        yesPct={yesPct}
-                        noPct={noPct}
-                        marketId={market.id}
-                        question={market.question}
-                        onClose={() => {
-                            console.log('TradeSheet onClose called');
-                            setSheet(null);
-                        }}
-                    />
+                    {console.log('Rendering TradeSheet', { sheet })}
+                    {
+                        sideChoiece?.type === "normal" ? (
+                            <TradeSheet 
+                                type="normal"
+                                mode="buy"
+                                side={sideChoiece.side}
+                                yesPct={predMarketYesPct}
+                                noPct={noPct}
+                                marketId={marketId}
+                                question={predMarket.question}
+                                onClose={() => setBuySellButtonsClicked(false)} 
+                            />
+                        ) : (
+                            <div>we will buld the trade sheet renderig logc of the fixture type here</div>
+                        )
+                    }
                 </>
-            )*/}
+            )}
         </div>
     )
 }

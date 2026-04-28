@@ -154,7 +154,9 @@ export const fetchActiveMarkets = async (
 };
 
 
+// don't forget to update these returns to only return data that is needed and block off any other that is not.
 export interface PredictionMarketReturnType {
+    type: "prediction";
     id: number;
     question: string;
     description: string;
@@ -186,12 +188,52 @@ export interface PredictionMarketDetailReturn {
     price_history: PredictionMarketPriceHistory[];
 }
 
-export interface MatchPredictionMarketDetailReturn {
 
+export interface MatchPredictionMarketReturnType {
+    type: "fixture";
+    id: number;
+    fixture_id: number;
+    creator_id?: number | null;
+    question: number;  
+    description: string;
+    category: string;
+    q_home: number;
+    q_draw: number;
+    q_away: number;
+    total_collected: number;
+    market_status: string;
+    locks_at: string;
+    resolution_date: string;
+    resolution_source: string;
+    featured: boolean;
+    created_at: string;
+    home_team: string;
+    away_team: string;
 }
 
-export interface PredictionMarketGroupDetailReturn {
+export interface MatchPredictionMarketPriceHistory {
+    created_at: string;
+    home_price_at_trade: number;
+    draw_price_at_trade: number;
+    away_price_at_trade: number;
+    trade_type: string;
+    side: "home" | "draw" | "away"
+}
 
+export interface MatchPredictionMarketDetailReturn {
+    market: MatchPredictionMarketReturnType;
+    price_history: MatchPredictionMarketPriceHistory[];
+}
+
+export interface PredictionMarketGroupReturnType{
+    type: "group";
+}
+
+export interface PredictionMarketGroupPriceHistory {}
+
+export interface PredictionMarketGroupDetailReturn {
+    market: PredictionMarketGroupReturnType
+    price_histoy: PredictionMarketGroupPriceHistory[]
 }
 
 export const fetchMarketDetail = async (marketId: number, market_type: string): Promise<PredictionMarketDetailReturn | MatchPredictionMarketDetailReturn | PredictionMarketGroupDetailReturn> => {
