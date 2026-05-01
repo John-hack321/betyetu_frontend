@@ -119,7 +119,7 @@ function PhoneFrame({
       className="relative mx-auto w-[280px] sm:w-[300px] animate-float motion-reduce:animate-none"
       style={{ animationDelay: `${floatDelay}ms` }}
     >
-      <div className="relative bg-gradient-to-b from-gray-800 to-gray-900 rounded-[3rem] p-3 shadow-2xl border-[6px] border-gray-800 ring-1 ring-white/5">
+      <div className="relative bg-gradient-to-b from-gray-800 to-gray-900 rounded-[3rem] p-3 shadow-2xl border-[1px] border-gray-800 ring-1 ring-white/5">
         {/* Small centred camera notch */}
         <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-black rounded-full z-20 ring-1 ring-gray-700/60 flex items-center justify-center">
           <span className="w-1 h-1 rounded-full bg-gray-600"></span>
@@ -283,7 +283,7 @@ export default function LandingPage() {
       description:
         "Several players put in to the same pool on the same outcome. Winners share the pot — bigger crowd, bigger payout.",
       highlights: ["Group payouts", "Live pool size", "Open or invite-only"],
-      image: "/screen_pic2.png",
+      image: "/pool_image.jpg",
       accent: "from-[#60991A] to-[#7fbe24]",
       accentText: "text-[#60991A]",
       ring: "ring-[#60991A]/30",

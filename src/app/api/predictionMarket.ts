@@ -209,6 +209,8 @@ export interface MatchPredictionMarketReturnType {
     created_at: string;
     home_team: string;
     away_team: string;
+    home_score: number;
+    away_score: number;
 }
 
 export interface MatchPredictionMarketPriceHistory {

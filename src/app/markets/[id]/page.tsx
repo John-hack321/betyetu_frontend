@@ -34,6 +34,8 @@ import { useSelector, useDispatch } from "react-redux"
 import { useRouter } from "next/navigation"
 import { formatMatchDate } from "@/utils/dateUtils"
 import { updateCurrentPage } from "@/app/app_state/slices/pageTracking"
+import { selectSortedDataPoints } from "recharts/types/state/selectors/axisSelectors"
+import { truncateTeamName } from "@/app/components/fixtureCard"
 
 type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon'
 
@@ -754,9 +756,66 @@ function PredictionMarketDetail({
 }
 
 // ─── Stubs ────────────────────────────────────────────────────────
-function FixtureMarketDetail({ marketData }: { marketData: MatchPredictionMarketDetailReturn }) {
-    if (!marketData) return <div className="p-4 text-gray-400">Loading...</div>
-    return <div className="p-4 text-white">Fixture Market</div>
+function FixtureMarketDetail({ 
+    marketData,
+    isScrolled
+    }: {
+        marketData: MatchPredictionMarketDetailReturn,
+        isScrolled: boolean
+    }) {
+        const market = marketData.market
+    return (
+        <div className="flex flex-col bg-[#1a2633]">
+            {/* Category + question */}
+            <div className={`sticky top-0 z-30 px-4 pt-2 pb-3 bg-[#1a2633] border-b ${isScrolled ? 'border-gray-700/70' : 'border-transparent'}`}>
+                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">
+                    {marketData.market.category}
+                </p>
+                <h1 className="text-white font-bold text-xl leading-snug">{marketData.market.question}</h1>
+            </div>
+
+            {/* the team name and score string section */}
+            <div className = "flex flex-col mx-4">
+
+                <div className="flex justify-between">
+                    <span>{truncateTeamName(market.home_team)}</span>
+                    <span>vs</span>
+                    <span>{truncateTeamName(market.away_team)}</span>
+                </div>
+
+                <div className="flex flex-row justify-between">
+                    <div
+                    className="flex items-center rounded-full border-2 border-gray-100 p-2 w-10 h-10 justify-center"
+                    >{market.home_team[0]}</div>
+
+                    <span>{market.home_score} - {market.away_score}</span>
+
+                    <div className="flex items-center rounded-full border-2 border-gray-100 p-2 w-10 h-10 justify-center">{market.away_team[0]}</div>
+                </div>
+            </div>
+
+            {/* key for the fixture outcomes chart */}
+            <div className="px-4 mt-3">
+                {/**
+                 * design nots: 
+                 * try to make the colors that match better so that the chart looks better when drawn on the screen
+                 */}
+                <div className="flex flex-row items-center gap-2 ">
+                    <div className="rounded-full h-2 w-2 bg-yellow-500"></div> {/* a small color fill notch */}
+                    <span className="text-yellow-500 text-sm">{truncateTeamName(market.home_team)}</span>
+                </div>
+                <div className="flex flex-row items-center gap-2 ">
+                    <div className="rounded-full h-2 w-2 bg-gray-500"></div> {/* a small color fill notch */}
+                    <span className="text-gray-500 text-sm">Draw</span>
+                </div>
+                <div className="flex flex-row items-center gap-2 ">
+                    <div className="rounded-full h-2 w-2 bg-blue-500"></div> {/* a small color fill notch */}
+                    <span className="text-blue-500 text-sm">{truncateTeamName(market.away_team)}</span>
+                </div>
+            </div>
+
+        </div>
+    )
 }
 
 function GroupMarketDetail({ marketData }: { marketData: PredictionMarketGroupDetailReturn }) {
@@ -779,7 +838,9 @@ function MarketDetailContentRouter({
         </div>
     )
     switch (marketType) {
-        case 'fixture': return <FixtureMarketDetail marketData={marketData} />
+        case 'fixture': return <FixtureMarketDetail 
+        marketData={marketData}
+        isScrolled={isScrolled} />
         case 'group': return <GroupMarketDetail marketData={marketData} />
         case 'prediction': return (
         <PredictionMarketDetail 
@@ -864,7 +925,11 @@ function MarketDetailPageInner() {
                 setLoading(true)
                 const type = marketType as "fixture" | "group" | "prediction"
                 setMarketToRender(type || "")
-                if (type) setMarketData(await fetchMarketDetail(marketId, type))
+                if (type) {
+                    const data = await fetchMarketDetail(marketId, type)
+                    setMarketData(data)
+                    console.log("the data gotten back is : " , data)
+                }
             } catch (err) {
                 console.error(err)
             } finally {
