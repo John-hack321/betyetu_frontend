@@ -1166,6 +1166,66 @@ function GroupMarketDetail({
                 <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">{marketData.sub_markets[0].market.category}</p>
                 <h1 className="text-white font-bold text-xl leading-snug">{market.question}</h1>
             </div>
+
+            {/* I belive I want my key to go here now */}
+            <div>
+                {sub_market_ranking.slice(0, 4).map((rankedItem, rankIndex) => (
+                    <div key={rankedItem.index} className="flex flex-row gap-2" >
+                        <div className="bg-blue-500 h-2 w-2 my-2 rounded-full"></div> {/* I need the dots and the text to be of different colors but I dont know how to do it for now */}
+                        <span className="text-blue-500" >{rankedItem.market.option} {(rankedItem.market.p_yes * 100).toFixed(0)}%</span> { /** the percentage here needs to show too */}
+                    </div>
+                ))}
+            </div>
+
+            {/**
+             *  we will then render the chart here
+             *  the chart will consist of 4 lines which are made of the top 4 from the 
+             *  sub_market ranking I belive 
+             *  each line will be a different color and will show the probability of the market over time
+             *  the line must match the key taht is above here and the colors must match too.
+             */}
+            <div>
+                
+            </div>
+
+            {/**
+             * the we have the voume info and the timeline tweaking buttons here Tool
+             * just like we did with the other markets
+             */}
+            <div>
+
+            </div>
+
+            {/**
+             * we then render buy and sell buttons for each submarket heres
+             */}
+            <div>
+                {sub_market_ranking.map((rankedItem) => (
+                    <div key={rankedItem.index} className="mb-2" >
+                        <div className="flex flex-row">
+                            {/* option and volume */}
+                            <div className="flex flex-col">
+                                <span>{rankedItem.market.option}</span>
+                                <span>{rankedItem.market.total_collected}</span>
+                            </div>
+
+                            {/* market percentage */}
+                            <div className= "">
+                                <span className= "font-bold text-lg">{(rankedItem.market.p_yes * 100).toFixed(0)}</span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/**
+             * then here we will have the market rules and stuff.
+             */}
+            <div>
+                
+            </div>
+
+
         </div>
     )
 }
