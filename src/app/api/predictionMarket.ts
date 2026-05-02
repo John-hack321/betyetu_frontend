@@ -222,6 +222,7 @@ export interface MatchPredictionMarketPriceHistory {
     side: "home" | "draw" | "away"
 }
 
+
 export interface MatchPredictionMarketDetailReturn {
     market: MatchPredictionMarketReturnType;
     price_history: MatchPredictionMarketPriceHistory[];
@@ -229,13 +230,20 @@ export interface MatchPredictionMarketDetailReturn {
 
 export interface PredictionMarketGroupReturnType{
     type: "group";
+    id: number;
+    question: string;
+    description: string;
+    featured: boolean;
+    resolveed: boolean;
+    total_collected: number;
+    locks_at: string;
+    resolutoin_date: string;
+    resolution_source: string;
 }
-
-export interface PredictionMarketGroupPriceHistory {}
 
 export interface PredictionMarketGroupDetailReturn {
     market: PredictionMarketGroupReturnType
-    price_histoy: PredictionMarketGroupPriceHistory[]
+    sub_markets: PredictionMarketDetailReturn[]
 }
 
 export const fetchMarketDetail = async (marketId: number, market_type: string): Promise<PredictionMarketDetailReturn | MatchPredictionMarketDetailReturn | PredictionMarketGroupDetailReturn> => {

@@ -11,6 +11,7 @@ import {
     fetchPredMktRecentTradeData,
     PredictionMarketGroupReturnType,
     MatchPredictionMarketReturnType,
+    MatchPredictionMarketPriceHistory,
     PredictionMarketReturnType
 } from "@/app/api/predictionMarket"
 
@@ -34,7 +35,6 @@ import { useSelector, useDispatch } from "react-redux"
 import { useRouter } from "next/navigation"
 import { formatMatchDate } from "@/utils/dateUtils"
 import { updateCurrentPage } from "@/app/app_state/slices/pageTracking"
-import { selectSortedDataPoints } from "recharts/types/state/selectors/axisSelectors"
 import { truncateTeamName } from "@/app/components/fixtureCard"
 
 type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon'
@@ -49,6 +49,11 @@ interface FilterTab {
     label: string
     dot?: boolean
 }
+
+// ─── Fixture market line colours ──────────────────────────────────
+const FIXTURE_HOME_COLOR = '#10b981'  // emerald — home advantage
+const FIXTURE_DRAW_COLOR = '#9ca3af'  // neutral grey — draw
+const FIXTURE_AWAY_COLOR = '#f97316'  // orange — away challenger
 
 // ─── Types ────────────────────────────────────────────────────────
 interface PricePoint {
@@ -90,7 +95,7 @@ export interface RecentPredMktTradeActivity {
     yes_price_at_trade: number
 }
 
-// ─── Custom Tooltip ───────────────────────────────────────────────
+// ─── Custom Tooltip (prediction market YES/NO) ────────────────────
 function CustomTooltip({ active, payload }: any) {
     if (!active || !payload?.length) return null
     const full: string = payload[0]?.payload?.fullDate
@@ -117,6 +122,31 @@ function CustomTooltip({ active, payload }: any) {
                     </p>
                 ))}
             </div>
+        </div>
+    )
+}
+
+// ─── Custom Tooltip (fixture market H/D/A) ────────────────────────
+function FixtureChartTooltip({ active, payload }: any) {
+    if (!active || !payload?.length) return null
+    const fullDate: string = payload[0]?.payload?.fullDate
+    const lines = [
+        { dataKey: 'homeValue', label: 'Home', color: FIXTURE_HOME_COLOR },
+        { dataKey: 'drawValue', label: 'Draw', color: FIXTURE_DRAW_COLOR },
+        { dataKey: 'awayValue', label: 'Away', color: FIXTURE_AWAY_COLOR },
+    ]
+    return (
+        <div className="bg-[#0d1520] border border-gray-700/60 rounded-xl px-3 py-2.5 shadow-2xl">
+            <p className="text-gray-400 text-[11px] mb-1.5">{fullDate}</p>
+            {lines.map(({ dataKey, label, color }) => {
+                const entry = payload.find((p: any) => p.dataKey === dataKey)
+                if (!entry || typeof entry.value !== 'number') return null
+                return (
+                    <p key={label} className="text-sm font-bold leading-tight" style={{ color }}>
+                        {label}: {(entry.value * 100).toFixed(0)}%
+                    </p>
+                )
+            })}
         </div>
     )
 }
@@ -152,7 +182,7 @@ function computeTicks(min: number, max: number) {
     return Array.from(ticks).sort((a, b) => a - b)
 }
 
-// ─── Trade bottom sheet — Polymarket style ───────────────────────
+// ─── Prediction market Trade sheet ───────────────────────────────
 function TradeSheet({
     type,
     mode,
@@ -216,15 +246,182 @@ function TradeSheet({
 
     return (
         <>
-            {console.log('TradeSheet render', { visible, currentMode, side, marketId })}
-            {/* Backdrop */}
             <div
                 onClick={handleClose}
                 className="fixed inset-0 z-[9998] bg-black/60 transition-opacity duration-300"
                 style={{ opacity: visible ? 1 : 0 }}
             />
+            <div
+                className="fixed left-0 right-0 z-[9999] rounded-t-2xl overflow-hidden"
+                style={{
+                    bottom: 0,
+                    background: '#16202C',
+                    maxHeight: '92vh',
+                    transform: visible ? 'translateY(0)' : 'translateY(100%)',
+                    transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
+                }}
+            >
+                <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-9 h-1 rounded-full bg-gray-600" />
+                </div>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60">
+                    <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1">
+                        <button
+                            onClick={() => setCurrentMode('buy')}
+                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${currentMode === 'buy' ? 'bg-emerald-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                        >Buy</button>
+                        <button
+                            onClick={() => setCurrentMode('sell')}
+                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${currentMode === 'sell' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                        >Sell</button>
+                    </div>
+                    <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
+                        <X size={17} />
+                    </button>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/40">
+                    <p className="text-gray-300 text-sm leading-snug truncate flex-1 mr-3 max-w-[260px]">
+                        {question.length > 55 ? question.slice(0, 55) + '…' : question}
+                    </p>
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-md shrink-0 ${isYes ? 'text-emerald-300 bg-emerald-500/15 border border-emerald-500/25' : 'text-red-300 bg-red-500/15 border border-red-500/25'}`}>
+                        {side.toUpperCase()}
+                    </span>
+                </div>
+                <div className="overflow-y-auto" style={{ maxHeight: 'calc(92vh - 130px)' }}>
+                    <div className="px-4 py-5 space-y-5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-gray-400 text-sm">Current Price</span>
+                            <span className="text-white font-bold text-lg tabular-nums">{(price * 100).toFixed(0)}¢</span>
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-gray-400 text-sm">Shares</span>
+                                <input
+                                    type="number"
+                                    value={shares || ''}
+                                    onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
+                                    placeholder="0"
+                                    className="bg-transparent text-white font-bold text-xl text-right w-28 focus:outline-none placeholder-gray-700 tabular-nums"
+                                />
+                            </div>
+                            <div className="flex gap-1.5">
+                                {quickDeltas.map((d, i) => (
+                                    <button key={i} onClick={() => setShares(prev => Math.max(0, prev + d))}
+                                        className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors bg-[#23313D] hover:bg-[#2a3d4f] active:scale-95">
+                                        {d > 0 ? `+${d}` : d}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="border-t border-gray-800/70" />
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <span className="text-gray-400 text-sm">Total</span>
+                                <span className={`font-semibold text-sm ${total > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
+                                    {total > 0 ? `KES ${total.toFixed(2)}` : '$0'}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-gray-400 text-sm">{isBuy ? 'To win' : 'To receive'}</span>
+                                <span className={`font-semibold text-sm ${toWin > 0 ? (isBuy ? 'text-emerald-400' : 'text-amber-400') : 'text-gray-500'}`}>
+                                    {toWin > 0 ? `${isBuy ? '💵' : '💰'} KES ${toWin.toFixed(2)}` : '$0'}
+                                </span>
+                            </div>
+                        </div>
+                        {err && (
+                            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 px-3 py-2.5 rounded-lg border border-red-500/20">
+                                <AlertCircle size={14} className="shrink-0" />{err}
+                            </div>
+                        )}
+                        <button
+                            onClick={handleConfirm}
+                            disabled={loading || shares <= 0 || done}
+                            className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                            style={{ background: ctaColor }}
+                        >
+                            {done ? (<><CheckCircle2 size={18} /> Done!</>) : loading ? (<><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Processing…</>) : (`${isBuy ? 'Buy' : 'Sell'} ${side.toUpperCase()}`)}
+                        </button>
+                        <div className="h-2" />
+                    </div>
+                </div>
+            </div>
+        </>
+    )
+}
 
-            {/* Sheet — slides up from bottom */}
+// ─── Fixture market Trade sheet ───────────────────────────────────
+function FixtureTradeSheet({
+    side: initialSide,
+    homePct,
+    drawPct,
+    awayPct,
+    marketId,
+    homeTeam,
+    awayTeam,
+    onClose,
+}: {
+    side: 'home' | 'draw' | 'away'
+    homePct: number
+    drawPct: number
+    awayPct: number
+    marketId: number
+    homeTeam: string
+    awayTeam: string
+    onClose: () => void
+}) {
+    const [shares, setShares] = useState(0)
+    const [loading, setLoading] = useState(false)
+    const [done, setDone] = useState(false)
+    const [err, setErr] = useState<string | null>(null)
+    const [visible, setVisible] = useState(false)
+    const [currentSide, setCurrentSide] = useState<'home' | 'draw' | 'away'>(initialSide)
+
+    useEffect(() => {
+        const t = setTimeout(() => setVisible(true), 10)
+        return () => clearTimeout(t)
+    }, [])
+
+    const handleClose = () => {
+        setVisible(false)
+        setTimeout(onClose, 300)
+    }
+
+    const sideColor = currentSide === 'home' ? FIXTURE_HOME_COLOR : currentSide === 'draw' ? FIXTURE_DRAW_COLOR : FIXTURE_AWAY_COLOR
+    const sideLabel = currentSide === 'home' ? truncateTeamName(homeTeam, 12) : currentSide === 'draw' ? 'Draw' : truncateTeamName(awayTeam, 12)
+    const price = currentSide === 'home' ? homePct / 100 : currentSide === 'draw' ? drawPct / 100 : awayPct / 100
+    const total = shares * price * 100
+    const toWin = shares * 100
+
+    const handleConfirm = async () => {
+        if (shares <= 0) return
+        setLoading(true)
+        setErr(null)
+        try {
+            await executeBuy(marketId, currentSide, shares)
+            setDone(true)
+            setTimeout(() => { setDone(false); handleClose() }, 1400)
+        } catch (e: any) {
+            setErr(e?.message || 'Something went wrong')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const quickDeltas = [-100, -10, +10, +100, +200]
+
+    const sides: { key: 'home' | 'draw' | 'away'; label: string; pct: number; color: string }[] = [
+        { key: 'home', label: truncateTeamName(homeTeam, 10), pct: homePct, color: FIXTURE_HOME_COLOR },
+        { key: 'draw', label: 'Draw', pct: drawPct, color: FIXTURE_DRAW_COLOR },
+        { key: 'away', label: truncateTeamName(awayTeam, 10), pct: awayPct, color: FIXTURE_AWAY_COLOR },
+    ]
+
+    return (
+        <>
+            <div
+                onClick={handleClose}
+                className="fixed inset-0 z-[9998] bg-black/60 transition-opacity duration-300"
+                style={{ opacity: visible ? 1 : 0 }}
+            />
             <div
                 className="fixed left-0 right-0 z-[9999] rounded-t-2xl overflow-hidden"
                 style={{
@@ -240,60 +437,41 @@ function TradeSheet({
                     <div className="w-9 h-1 rounded-full bg-gray-600" />
                 </div>
 
-                {/* Header: buy/sell toggle + close */}
+                {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60">
-                    <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1">
-                        <button
-                            onClick={() => setCurrentMode('buy')}
-                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${
-                                currentMode === 'buy'
-                                    ? 'bg-emerald-500 text-white'
-                                    : 'text-gray-400 hover:text-white'
-                            }`}
-                        >
-                            Buy
-                        </button>
-                        <button
-                            onClick={() => setCurrentMode('sell')}
-                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${
-                                currentMode === 'sell'
-                                    ? 'bg-amber-500 text-white'
-                                    : 'text-gray-400 hover:text-white'
-                            }`}
-                        >
-                            Sell
-                        </button>
-                    </div>
-                    <button
-                        onClick={handleClose}
-                        className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                    >
+                    <p className="text-white text-base font-semibold">Buy</p>
+                    <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
                         <X size={17} />
                     </button>
                 </div>
 
-                {/* Market name + side badge */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/40">
-                    <p className="text-gray-300 text-sm leading-snug truncate flex-1 mr-3 max-w-[260px]">
-                        {question.length > 55 ? question.slice(0, 55) + '…' : question}
-                    </p>
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-md shrink-0 ${
-                        isYes
-                            ? 'text-emerald-300 bg-emerald-500/15 border border-emerald-500/25'
-                            : 'text-red-300 bg-red-500/15 border border-red-500/25'
-                    }`}>
-                        {side.toUpperCase()}
-                    </span>
+                {/* Outcome selector — three pills */}
+                <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-gray-800/40">
+                    {sides.map(s => {
+                        const isSelected = currentSide === s.key
+                        return (
+                            <button
+                                key={s.key}
+                                onClick={() => setCurrentSide(s.key)}
+                                className="py-2.5 rounded-xl text-xs font-bold transition-all border"
+                                style={{
+                                    background: isSelected ? `${s.color}22` : 'transparent',
+                                    borderColor: isSelected ? `${s.color}55` : '#374151',
+                                    color: isSelected ? s.color : '#6b7280',
+                                }}
+                            >
+                                <div className="text-[10px] opacity-80 mb-0.5 truncate px-1">{s.label}</div>
+                                <div className="text-sm font-black">{s.pct.toFixed(0)}¢</div>
+                            </button>
+                        )
+                    })}
                 </div>
 
                 {/* Scrollable body */}
-                <div
-                    className="overflow-y-auto"
-                    style={{ maxHeight: 'calc(92vh - 130px)' }}
-                >
+                <div className="overflow-y-auto" style={{ maxHeight: 'calc(92vh - 165px)' }}>
                     <div className="px-4 py-5 space-y-5">
 
-                        {/* Current Price (LMSR) */}
+                        {/* Current price */}
                         <div className="flex items-center justify-between">
                             <span className="text-gray-400 text-sm">Current Price</span>
                             <span className="text-white font-bold text-lg tabular-nums">
@@ -326,11 +504,9 @@ function TradeSheet({
                             </div>
                         </div>
 
-                        
-                        {/* Divider */}
                         <div className="border-t border-gray-800/70" />
 
-                        {/* Total + To win */}
+                        {/* Summary */}
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-400 text-sm">Total</span>
@@ -339,41 +515,34 @@ function TradeSheet({
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-gray-400 text-sm flex items-center gap-1.5">
-                                    {isBuy ? 'To win' : 'To receive'}
-                                    <span className="w-3.5 h-3.5 rounded-full border border-gray-600 text-[9px] flex items-center justify-center text-gray-500 cursor-help">i</span>
-                                </span>
-                                <span className={`font-semibold text-sm flex items-center gap-1 ${toWin > 0 ? (isBuy ? 'text-emerald-400' : 'text-amber-400') : 'text-gray-500'}`}>
-                                    {toWin > 0 && <span>{isBuy ? '💵' : '💰'}</span>}
-                                    {toWin > 0 ? `KES ${toWin.toFixed(2)}` : '$0'}
+                                <span className="text-gray-400 text-sm">To win</span>
+                                <span className={`font-semibold text-sm ${toWin > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
+                                    {toWin > 0 ? `💵 KES ${toWin.toFixed(2)}` : '$0'}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Error */}
                         {err && (
                             <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 px-3 py-2.5 rounded-lg border border-red-500/20">
-                                <AlertCircle size={14} className="shrink-0" />
-                                {err}
+                                <AlertCircle size={14} className="shrink-0" />{err}
                             </div>
                         )}
 
-                        {/* Trade CTA */}
+                        {/* CTA */}
                         <button
                             onClick={handleConfirm}
                             disabled={loading || shares <= 0 || done}
                             className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
-                            style={{ background: ctaColor }}
+                            style={{ background: done ? '#10b981' : sideColor }}
                         >
                             {done ? (
                                 <><CheckCircle2 size={18} /> Done!</>
                             ) : loading ? (
                                 <><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Processing…</>
                             ) : (
-                                `${isBuy ? 'Buy' : 'Sell'} ${side.toUpperCase()}`
+                                `Buy ${sideLabel}`
                             )}
                         </button>
-
                         <div className="h-2" />
                     </div>
                 </div>
@@ -487,19 +656,12 @@ function PredictionMarketDetail({
     }
 
     return (
-        // NOTE: This component renders inside a scrollable parent.
-        // The buy/sell bar is rendered OUTSIDE this component, in the page layout.
         <div className="flex flex-col bg-[#1a2633]">
-
-            {/* Category + question */}
             <div className={`sticky top-0 z-30 px-4 pt-2 pb-3 bg-[#1a2633] border-b ${isScrolled ? 'border-gray-700/70' : 'border-transparent'}`}>
-                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">
-                    {market.category}
-                </p>
+                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">{market.category}</p>
                 <h1 className="text-white font-bold text-xl leading-snug">{market.question}</h1>
             </div>
 
-            {/* Probability headline */}
             <div className="px-4 mb-3 mt-6 flex items-baseline gap-2 justify-between">
                 <div className="flex items-baseline gap-2">
                     <span className={`text-2xl font-black ${chartView === 'no' ? 'text-red-400' : 'text-[#4ADE80]'}`}>
@@ -512,26 +674,303 @@ function PredictionMarketDetail({
                     )}
                 </div>
                 <div className="flex items-center gap-2 text-gray-500/70 text-xl font-bold">
-                    <Image
-                        src="/icons/favicon-32x32.png"
-                        alt="peerstake"
-                        width={28}
-                        height={28}
-                        className="opacity-60"
-                    />
+                    <Image src="/icons/favicon-32x32.png" alt="peerstake" width={28} height={28} className="opacity-60" />
                     <span>peerstake</span>
                 </div>
             </div>
-
-            {/* Chart */}
             <div className="w-full" style={{ height: 300 }}>
                 {chartData.length > 1 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                            data={chartData}
-                            margin={{ top: 8, right: 1, left: 8, bottom: 8 }}
-                        >
+                        <LineChart data={chartData} margin={{ top: 8, right: 1, left: 8, bottom: 8 }}>
                             <CartesianGrid horizontal={true} vertical={false} stroke="#334155" strokeDasharray="3 3" />
+                            <XAxis dataKey="xIndex" type="number" domain={[0, Math.max(chartData.length - 1, 0)]} ticks={xEdgeTicks} padding={{ left: 24, right: 24 }} allowDecimals={false} tickFormatter={value => chartData[value]?.label ?? ''} tick={{ fill: '#6b7280', fontSize: 14 }} tickLine={false} tickMargin={20} axisLine={false} interval="preserveStartEnd" />
+                            <YAxis orientation="right" domain={[yMin, yMax]} ticks={yTicks} tickFormatter={v => `${(v * 100).toFixed(0)}%`} tick={{ fill: '#6b7280', fontSize: 12 }} tickLine={false} axisLine={false} width={46} />
+                            <Tooltip content={<CustomTooltip />} />
+                            {(chartView === 'yes' || chartView === 'both') && (<Line type="monotone" dataKey="yesValue" name="Yes" stroke="#3b82f6" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#3b82f6', stroke: '#0f1923', strokeWidth: 2 }} />)}
+                            {(chartView === 'no' || chartView === 'both') && (<Line type="monotone" dataKey="noValue" name="No" stroke="#ef4444" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#ef4444', stroke: '#0f1923', strokeWidth: 2 }} />)}
+                        </LineChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="h-full flex items-center justify-center">
+                        <p className="text-gray-600 text-sm">Not enough data for this period</p>
+                    </div>
+                )}
+            </div>
+            <div className="flex items-center justify-between px-4 mb-2 gap-3 mt-4">
+                <span className="text-gray-400 text-sm font-semibold">{volFormatted} Vol.</span>
+                <div className="flex items-center gap-0.5 ml-auto">
+                    {TIME_FILTERS.map(f => (
+                        <button key={f} onClick={() => setActiveTime(f)} className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${activeTime === f ? 'bg-white text-black' : 'text-gray-500 hover:text-gray-300'}`}>{f}</button>
+                    ))}
+                    <button onClick={() => setChartSettingsOpen(true)} aria-label="Open chart settings" className="w-7 h-7 rounded-md border border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500 flex items-center justify-center transition-colors">
+                        <Settings2 size={14} />
+                    </button>
+                </div>
+            </div>
+            {chartSettingsOpen && (
+                <>
+                    <div className="fixed inset-0 z-40 bg-black/55" onClick={() => setChartSettingsOpen(false)} />
+                    <div className="fixed left-1/2 top-1/2 z-50 w-[92%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-700 bg-[#16202C] p-4 shadow-2xl">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-white text-sm font-semibold">Chart display</h3>
+                            <button onClick={() => setChartSettingsOpen(false)} className="text-gray-400 hover:text-gray-200 transition-colors"><X size={16} /></button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                            {(['yes', 'no', 'both'] as ChartView[]).map(v => (
+                                <button key={v} onClick={() => { setChartView(v); setChartSettingsOpen(false) }} className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${chartView === v ? v === 'yes' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40' : v === 'no' ? 'bg-red-500/15 text-red-300 border-red-400/40' : 'bg-sky-500/15 text-sky-300 border-sky-400/40' : 'text-gray-300 border-gray-700 hover:border-gray-500'}`}>
+                                    {v === 'yes' ? 'Yes line only' : v === 'no' ? 'No line only' : 'Show both lines'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
+            <div className="h-px bg-gray-800/70 mx-4" />
+            <div className="flex items-center justify-between px-4 mt-3 mb-2 gap-3 text-sm font-semibold border border-gray-700 rounded-lg p-3 mx-2">
+                <span>Recent activity</span>
+                <button onClick={() => handleRecentActivityButtonClick(market.id)}>
+                    {showRecentActivity ? <X size={16} /> : <ChevronDownIcon size={16} />}
+                </button>
+            </div>
+            {showRecentActivity && (
+                <div className="mx-2 mb-4 border border-gray-700 rounded-lg bg-[#1a2633] h-60 overflow-y-auto p-2">
+                    {activityData?.recent_trades.map((trade) => (
+                        <div key={`${trade.created_at}-${trade.shares}-${trade.kes_amount}`} className={`grid grid-cols-3 gap-2 text-xs px-2 py-2 border-b border-gray-700/60 last:border-b-0 ${trade.side?.toLowerCase() === 'no' ? 'bg-red-500/5 text-gray-100' : 'text-gray-200'}`}>
+                            <span>{new Date(trade.created_at).toLocaleDateString()}</span>
+                            <span>{trade.shares} shares</span>
+                            <span className={trade.side?.toLowerCase() === 'no' ? 'text-red-300 font-semibold' : 'text-emerald-300 font-semibold'}>KES {trade.kes_amount.toLocaleString()}</span>
+                        </div>
+                    ))}
+                    {!activityData?.recent_trades?.length && (<p className="text-gray-400 text-xs px-2 py-3">No recent activity yet.</p>)}
+                </div>
+            )}
+            <div className="px-4 mb-4 mt-4">
+                <div className="flex gap-6 mb-4">
+                    <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">Rules</button>
+                    <button className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">Market Context</button>
+                </div>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                    {showFullRules ? market.description : rulesPreview}
+                </p>
+                {shouldTruncateRules && (
+                    <button onClick={() => setShowFullRules(prev => !prev)} className="mt-2 text-xs font-semibold text-[#FED800] hover:text-[#ffd700] transition-colors">
+                        {showFullRules ? 'Show less' : 'Show more'}
+                    </button>
+                )}
+                {market.resolution_source && (<p className="text-gray-500 text-xs mt-3">Resolution source: <span className="text-gray-300">{market.resolution_source}</span></p>)}
+                {market.locks_at && (<p className="text-gray-500 text-xs mt-1">Closes: <span className="text-gray-300">{formatMatchDate(market.locks_at)}</span>{'  ·  '}Resolves: <span className="text-gray-300">{formatMatchDate(market.resolution_date)}</span></p>)}
+            </div>
+            {market.outcome && (
+                <div className={`mx-4 mb-4 rounded-xl p-4 ${market.outcome === 'yes' ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 size={16} className={market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'} />
+                        <span className={`font-bold text-sm uppercase ${market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'}`}>Resolved {market.outcome}</span>
+                    </div>
+                    {market.outcome_notes && (<p className="text-gray-400 text-xs mt-1">{market.outcome_notes}</p>)}
+                </div>
+            )}
+            <div className="h-6" />
+        </div>
+    )
+}
+
+// ─── Full Fixture Market Detail ────────────────────────────────────
+function FixtureMarketDetail({
+    marketData,
+    isScrolled,
+}: {
+    marketData: MatchPredictionMarketDetailReturn
+    isScrolled: boolean
+}) {
+    const [activeTime, setActiveTime] = useState<TimeFilter>('1W')
+    const [showFullRules, setShowFullRules] = useState(false)
+    const [showRecentActivity, setShowRecentActivity] = useState(false)
+    const [activityData, setActivityData] = useState<RecentPredMktTradeActivityReturnType | null>(null)
+
+    const market = marketData.market
+    const priceHistory: MatchPredictionMarketPriceHistory[] =
+        (marketData.price_history as unknown as MatchPredictionMarketPriceHistory[]) || []
+
+    const totalShares = Math.max(market.q_home + market.q_draw + market.q_away, 1)
+    const homePct = (market.q_home / totalShares) * 100
+    const drawPct = (market.q_draw / totalShares) * 100
+    const awayPct = (market.q_away / totalShares) * 100
+
+    const isLocked = market.locks_at ? new Date(market.locks_at) < new Date() : false
+    const isResolved = !!market.market_status && ['resolved', 'settled'].includes(market.market_status.toLowerCase())
+
+    // Chart data — filtered by selected time window
+    const chartData = useMemo(() => {
+        if (!priceHistory.length) return []
+        let filtered = [...priceHistory]
+        const now = new Date()
+        const cutoffs: Record<TimeFilter, number> = {
+            '6H': 6 * 60 * 60 * 1000,
+            '1D': 24 * 60 * 60 * 1000,
+            '1W': 7 * 24 * 60 * 60 * 1000,
+            '1M': 30 * 24 * 60 * 60 * 1000,
+            'MAX': Infinity,
+        }
+        const cutoff = cutoffs[activeTime]
+        if (cutoff !== Infinity) {
+            filtered = filtered.filter(p => now.getTime() - new Date(p.created_at).getTime() <= cutoff)
+        }
+        if (!filtered.length) filtered = priceHistory
+        return filtered.map((p, index) => {
+            const d = new Date(p.created_at)
+            return {
+                xIndex: index,
+                homeValue: p.home_price_at_trade,
+                drawValue: p.draw_price_at_trade,
+                awayValue: p.away_price_at_trade,
+                side: p.side,
+                label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            }
+        })
+    }, [priceHistory, activeTime])
+
+    // Y-axis range across all three lines
+    const yValues = chartData.flatMap(d => [d.homeValue, d.drawValue, d.awayValue])
+    const dataMin = yValues.length ? Math.min(...yValues) : 0
+    const dataMax = yValues.length ? Math.max(...yValues) : 1
+    const padding = Math.max((dataMax - dataMin) * 0.15, 0.03)
+    const yMin = Math.max(0, dataMin - padding)
+    const yMax = Math.min(1, dataMax + padding)
+    const yTicks = computeTicks(yMin, yMax)
+    const xEdgeTicks = chartData.length > 0 ? [0, chartData.length - 1] : []
+
+    const volFormatted = market.total_collected >= 1_000_000
+        ? `$${(market.total_collected / 1_000_000).toFixed(1)}M`
+        : market.total_collected >= 1_000
+            ? `$${(market.total_collected / 1_000).toFixed(1)}K`
+            : `$${market.total_collected.toFixed(0)}`
+
+    // Which outcome is currently leading?
+    const leadingOutcome = homePct >= drawPct && homePct >= awayPct
+        ? { label: truncateTeamName(market.home_team, 14), pct: homePct, color: FIXTURE_HOME_COLOR }
+        : awayPct >= drawPct
+            ? { label: truncateTeamName(market.away_team, 14), pct: awayPct, color: FIXTURE_AWAY_COLOR }
+            : { label: 'Draw', pct: drawPct, color: FIXTURE_DRAW_COLOR }
+
+    const shouldTruncateRules = (market.description || '').length > 200
+    const rulesPreview = shouldTruncateRules
+        ? `${market.description.slice(0, 200).trimEnd()}...`
+        : market.description
+
+    const handleRecentActivityClick = async () => {
+        if (showRecentActivity) { setShowRecentActivity(false); return }
+        if (!activityData) {
+            try {
+                const data = await fetchPredMktRecentTradeData(market.id)
+                setActivityData(data)
+            } catch {}
+        }
+        setShowRecentActivity(true)
+    }
+
+    const sideColorForActivity = (side: string) =>
+        side === 'home' ? FIXTURE_HOME_COLOR : side === 'away' ? FIXTURE_AWAY_COLOR : FIXTURE_DRAW_COLOR
+
+    return (
+        <div className="flex flex-col bg-[#1a2633]">
+
+            {/* ── Sticky category + question ── */}
+            <div className={`sticky top-0 z-30 px-4 pt-2 pb-3 bg-[#1a2633] border-b ${isScrolled ? 'border-gray-700/70' : 'border-transparent'}`}>
+                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">{market.category}</p>
+                <h1 className="text-white font-bold text-xl leading-snug">{market.question}</h1>
+            </div>
+
+            {/* ── Match header card — teams + score ── */}
+            <div className="px-4 pt-5 pb-3">
+                <div className="bg-[#131e28] rounded-2xl border border-white/5 p-4">
+                    <div className="flex items-center">
+
+                        {/* Home team */}
+                        <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+                            <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-base font-black border"
+                                style={{ background: `${FIXTURE_HOME_COLOR}18`, borderColor: `${FIXTURE_HOME_COLOR}35`, color: FIXTURE_HOME_COLOR }}
+                            >
+                                {market.home_team[0]}
+                            </div>
+                            <span className="text-white font-semibold text-sm text-center leading-tight px-1 truncate w-full text-center">
+                                {truncateTeamName(market.home_team, 13)}
+                            </span>
+                            <span className="text-xs font-black" style={{ color: FIXTURE_HOME_COLOR }}>
+                                {homePct.toFixed(0)}%
+                            </span>
+                        </div>
+
+                        {/* Score / VS */}
+                        <div className="flex flex-col items-center gap-1 px-3 shrink-0">
+                            {market.home_score !== null && market.away_score !== null
+                                && market.home_score !== undefined && market.away_score !== undefined ? (
+                                <>
+                                    <div className="text-2xl font-black text-white tabular-nums tracking-tighter">
+                                        {market.home_score} – {market.away_score}
+                                    </div>
+                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">Score</span>
+                                </>
+                            ) : (
+                                <span className="text-[#FED800] font-black text-2xl">vs</span>
+                            )}
+                        </div>
+
+                        {/* Away team */}
+                        <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+                            <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-base font-black border"
+                                style={{ background: `${FIXTURE_AWAY_COLOR}18`, borderColor: `${FIXTURE_AWAY_COLOR}35`, color: FIXTURE_AWAY_COLOR }}
+                            >
+                                {market.away_team[0]}
+                            </div>
+                            <span className="text-white font-semibold text-sm text-center leading-tight px-1 truncate w-full text-center">
+                                {truncateTeamName(market.away_team, 13)}
+                            </span>
+                            <span className="text-xs font-black" style={{ color: FIXTURE_AWAY_COLOR }}>
+                                {awayPct.toFixed(0)}%
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Draw row */}
+                    <div className="flex items-center justify-center gap-3 mt-3 pt-3 border-t border-white/5">
+                        <div className="w-2 h-2 rounded-full" style={{ background: FIXTURE_DRAW_COLOR }} />
+                        <span className="text-gray-400 text-xs">Draw</span>
+                        <span className="text-xs font-bold" style={{ color: FIXTURE_DRAW_COLOR }}>{drawPct.toFixed(0)}%</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Leading-outcome headline ── */}
+            <div className="px-4 mb-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black" style={{ color: leadingOutcome.color }}>
+                    {(leadingOutcome.pct * 100).toFixed(0)}% chance
+                </span>
+                <span className="text-sm text-gray-400 font-medium">— {leadingOutcome.label}</span>
+            </div>
+
+            {/* ── Three-outcome probability bar ── */}
+            <div className="px-4 mb-5">
+                <div className="flex h-2 rounded-full overflow-hidden gap-px">
+                    <div className="transition-all duration-700 rounded-l-full" style={{ width: `${homePct}%`, background: FIXTURE_HOME_COLOR }} />
+                    <div className="transition-all duration-700" style={{ width: `${drawPct}%`, background: FIXTURE_DRAW_COLOR }} />
+                    <div className="transition-all duration-700 rounded-r-full" style={{ width: `${awayPct}%`, background: FIXTURE_AWAY_COLOR }} />
+                </div>
+                <div className="flex justify-between mt-2 text-[11px] font-semibold">
+                    <span style={{ color: FIXTURE_HOME_COLOR }}>{truncateTeamName(market.home_team, 10)} {homePct.toFixed(0)}%</span>
+                    <span style={{ color: FIXTURE_DRAW_COLOR }}>Draw {drawPct.toFixed(0)}%</span>
+                    <span style={{ color: FIXTURE_AWAY_COLOR }}>{truncateTeamName(market.away_team, 10)} {awayPct.toFixed(0)}%</span>
+                </div>
+            </div>
+
+            {/* ── Chart — three lines ── */}
+            <div className="w-full" style={{ height: 280 }}>
+                {chartData.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ top: 8, right: 1, left: 8, bottom: 8 }}>
+                            <CartesianGrid horizontal vertical={false} stroke="#334155" strokeDasharray="3 3" />
                             <XAxis
                                 dataKey="xIndex"
                                 type="number"
@@ -551,133 +990,102 @@ function PredictionMarketDetail({
                                 domain={[yMin, yMax]}
                                 ticks={yTicks}
                                 tickFormatter={v => `${(v * 100).toFixed(0)}%`}
-                                tick={{ fill: '#6b7280', fontSize: 12 }}
+                                tick={{ fill: '#6b7280', fontSize: 11 }}
                                 tickLine={false}
                                 axisLine={false}
                                 width={46}
                             />
-                            <Tooltip content={<CustomTooltip />} />
-                            {(chartView === 'yes' || chartView === 'both') && (
-                                <Line
-                                    type="monotone"
-                                    dataKey="yesValue"
-                                    name="Yes"
-                                    stroke="#3b82f6"
-                                    strokeWidth={2.5}
-                                    dot={false}
-                                    activeDot={{ r: 5, fill: '#3b82f6', stroke: '#0f1923', strokeWidth: 2 }}
-                                />
-                            )}
-                            {(chartView === 'no' || chartView === 'both') && (
-                                <Line
-                                    type="monotone"
-                                    dataKey="noValue"
-                                    name="No"
-                                    stroke="#ef4444"
-                                    strokeWidth={2.5}
-                                    dot={false}
-                                    activeDot={{ r: 5, fill: '#ef4444', stroke: '#0f1923', strokeWidth: 2 }}
-                                />
-                            )}
+                            <Tooltip content={<FixtureChartTooltip />} />
+                            <Line
+                                type="monotone"
+                                dataKey="homeValue"
+                                name="Home"
+                                stroke={FIXTURE_HOME_COLOR}
+                                strokeWidth={2.5}
+                                dot={false}
+                                activeDot={{ r: 5, fill: FIXTURE_HOME_COLOR, stroke: '#0f1923', strokeWidth: 2 }}
+                            />
+                            <Line
+                                type="monotone"
+                                dataKey="drawValue"
+                                name="Draw"
+                                stroke={FIXTURE_DRAW_COLOR}
+                                strokeWidth={2.5}
+                                dot={false}
+                                activeDot={{ r: 5, fill: FIXTURE_DRAW_COLOR, stroke: '#0f1923', strokeWidth: 2 }}
+                            />
+                            <Line
+                                type="monotone"
+                                dataKey="awayValue"
+                                name="Away"
+                                stroke={FIXTURE_AWAY_COLOR}
+                                strokeWidth={2.5}
+                                dot={false}
+                                activeDot={{ r: 5, fill: FIXTURE_AWAY_COLOR, stroke: '#0f1923', strokeWidth: 2 }}
+                            />
                         </LineChart>
                     </ResponsiveContainer>
                 ) : (
-                    <div className="h-full flex items-center justify-center">
-                        <p className="text-gray-600 text-sm">Not enough data for this period</p>
+                    <div className="h-full flex flex-col items-center justify-center gap-2">
+                        <div className="w-10 h-10 rounded-xl bg-[#131e28] border border-white/5 flex items-center justify-center">
+                            <span className="text-gray-600 text-lg">📊</span>
+                        </div>
+                        <p className="text-gray-600 text-sm">Not enough trade data yet</p>
                     </div>
                 )}
             </div>
 
-            {/* Volume + Time filters */}
-            <div className="flex items-center justify-between px-4 mb-2 gap-3 mt-4">
+            {/* ── Chart legend ── */}
+            <div className="flex items-center justify-center gap-5 px-4 mb-3 mt-3">
+                {[
+                    { color: FIXTURE_HOME_COLOR, label: truncateTeamName(market.home_team, 12) },
+                    { color: FIXTURE_DRAW_COLOR, label: 'Draw' },
+                    { color: FIXTURE_AWAY_COLOR, label: truncateTeamName(market.away_team, 12) },
+                ].map(({ color, label }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                        <div className="w-5 h-0.5 rounded-full" style={{ background: color }} />
+                        <span className="text-xs text-gray-400 font-medium">{label}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* ── Volume + time filters ── */}
+            <div className="flex items-center justify-between px-4 mb-6">
                 <span className="text-gray-400 text-sm font-semibold">{volFormatted} Vol.</span>
-                <div className="flex items-center gap-0.5 ml-auto">
+                <div className="flex items-center gap-0.5">
                     {TIME_FILTERS.map(f => (
                         <button
                             key={f}
                             onClick={() => setActiveTime(f)}
-                            className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                                activeTime === f
-                                    ? 'bg-white text-black'
-                                    : 'text-gray-500 hover:text-gray-300'
-                            }`}
+                            className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${activeTime === f ? 'bg-white text-black' : 'text-gray-500 hover:text-gray-300'}`}
                         >
                             {f}
                         </button>
                     ))}
-                    <button
-                        onClick={() => setChartSettingsOpen(true)}
-                        aria-label="Open chart settings"
-                        className="w-7 h-7 rounded-md border border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500 flex items-center justify-center transition-colors"
-                    >
-                        <Settings2 size={14} />
-                    </button>
                 </div>
             </div>
 
-            {chartSettingsOpen && (
-                <>
-                    <div
-                        className="fixed inset-0 z-40 bg-black/55"
-                        onClick={() => setChartSettingsOpen(false)}
-                    />
-                    <div className="fixed left-1/2 top-1/2 z-50 w-[92%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-700 bg-[#16202C] p-4 shadow-2xl">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-white text-sm font-semibold">Chart display</h3>
-                            <button
-                                onClick={() => setChartSettingsOpen(false)}
-                                className="text-gray-400 hover:text-gray-200 transition-colors"
-                            >
-                                <X size={16} />
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                            {(['yes', 'no', 'both'] as ChartView[]).map(v => (
-                                <button
-                                    key={v}
-                                    onClick={() => { setChartView(v); setChartSettingsOpen(false) }}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
-                                        chartView === v
-                                            ? v === 'yes'
-                                                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
-                                                : v === 'no'
-                                                    ? 'bg-red-500/15 text-red-300 border-red-400/40'
-                                                    : 'bg-sky-500/15 text-sky-300 border-sky-400/40'
-                                            : 'text-gray-300 border-gray-700 hover:border-gray-500'
-                                    }`}
-                                >
-                                    {v === 'yes' ? 'Yes line only' : v === 'no' ? 'No line only' : 'Show both lines'}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </>
-            )}
+            {/* ── Divider ── */}
+            <div className="h-px bg-gray-800/70 mx-4 mb-5" />
 
-            {/* Divider */}
-            <div className="h-px bg-gray-800/70 mx-4" />
-
-            {/* Recent activity */}
-            <div className="flex items-center justify-between px-4 mt-3 mb-2 gap-3 text-sm font-semibold border border-gray-700 rounded-lg p-3 mx-2">
+            {/* ── Recent activity ── */}
+            <div className="flex items-center justify-between text-sm font-semibold border border-gray-700 rounded-lg p-3 mx-2 mb-2">
                 <span>Recent activity</span>
-                <button onClick={() => handleRecentActivityButtonClick(market.id)}>
+                <button onClick={handleRecentActivityClick}>
                     {showRecentActivity ? <X size={16} /> : <ChevronDownIcon size={16} />}
                 </button>
             </div>
-
             {showRecentActivity && (
-                <div className="mx-2 mb-4 border border-gray-700 rounded-lg bg-[#1a2633] h-60 overflow-y-auto p-2">
-                    {activityData?.recent_trades.map((trade) => (
+                <div className="mx-2 mb-4 border border-gray-700 rounded-lg bg-[#131e28] h-56 overflow-y-auto p-2">
+                    {activityData?.recent_trades.map((trade, i) => (
                         <div
-                            key={`${trade.created_at}-${trade.shares}-${trade.kes_amount}`}
-                            className={`grid grid-cols-3 gap-2 text-xs px-2 py-2 border-b border-gray-700/60 last:border-b-0 ${
-                                trade.side?.toLowerCase() === 'no' ? 'bg-red-500/5 text-gray-100' : 'text-gray-200'
-                            }`}
+                            key={`${trade.created_at}-${i}`}
+                            className="grid grid-cols-3 gap-2 text-xs px-2 py-2.5 border-b border-gray-700/50 last:border-b-0"
                         >
-                            <span>{new Date(trade.created_at).toLocaleDateString()}</span>
-                            <span>{trade.shares} shares</span>
-                            <span className={trade.side?.toLowerCase() === 'no' ? 'text-red-300 font-semibold' : 'text-emerald-300 font-semibold'}>
-                                KES {trade.kes_amount.toLocaleString()}
+                            <span className="text-gray-400">{new Date(trade.created_at).toLocaleDateString()}</span>
+                            <span className="text-gray-200">{trade.shares} shares</span>
+                            <span className="font-semibold" style={{ color: sideColorForActivity(trade.side) }}>
+                                {trade.side?.toUpperCase()} · KES {trade.kes_amount.toLocaleString()}
                             </span>
                         </div>
                     ))}
@@ -687,22 +1095,18 @@ function PredictionMarketDetail({
                 </div>
             )}
 
-            {/* Rules */}
-            <div className="px-4 mb-4 mt-4">
+            {/* ── Rules / Description ── */}
+            <div className="px-4 mb-4 mt-2">
                 <div className="flex gap-6 mb-4">
-                    <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">
-                        Rules
-                    </button>
-                    <button className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">
-                        Market Context
-                    </button>
+                    <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">Rules</button>
+                    <button className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">Market Context</button>
                 </div>
                 <p className="text-gray-400 text-sm leading-relaxed">
                     {showFullRules ? market.description : rulesPreview}
                 </p>
                 {shouldTruncateRules && (
                     <button
-                        onClick={() => setShowFullRules(prev => !prev)}
+                        onClick={() => setShowFullRules(p => !p)}
                         className="mt-2 text-xs font-semibold text-[#FED800] hover:text-[#ffd700] transition-colors"
                     >
                         {showFullRules ? 'Show less' : 'Show more'}
@@ -722,105 +1126,48 @@ function PredictionMarketDetail({
                 )}
             </div>
 
-            {/* Resolved */}
-            {market.outcome && (
-                <div className={`mx-4 mb-4 rounded-xl p-4 ${
-                    market.outcome === 'yes'
-                        ? 'bg-emerald-500/10 border border-emerald-500/30'
-                        : 'bg-red-500/10 border border-red-500/30'
-                }`}>
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 size={16} className={market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'} />
-                        <span className={`font-bold text-sm uppercase ${market.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'}`}>
-                            Resolved {market.outcome}
-                        </span>
-                    </div>
-                    {market.outcome_notes && (
-                        <p className="text-gray-400 text-xs mt-1">{market.outcome_notes}</p>
-                    )}
-                </div>
-            )}
-
-            {/* Bottom spacer so last content isn't hidden behind buy/sell bar */}
+            {/* Bottom spacer — buy bar sits above footer */}
             <div className="h-6" />
-
-            {/*
-                IMPORTANT: the buy/sell bar is NOT rendered here.
-                It is rendered in MarketDetailPageInner as a flex-none sibling
-                of the scrollable content area, sitting above the footer.
-                We expose `sheet` state via the `onOpenSheet` prop below.
-                See MarketDetailPageInner for the actual bar rendering.
-            */}
         </div>
     )
 }
 
-// ─── Stubs ────────────────────────────────────────────────────────
-function FixtureMarketDetail({ 
+// ─── Group Market stub ────────────────────────────────────────────
+function GroupMarketDetail({ 
     marketData,
-    isScrolled
-    }: {
-        marketData: MatchPredictionMarketDetailReturn,
-        isScrolled: boolean
-    }) {
-        const market = marketData.market
+    isScrolled }: { 
+    marketData: PredictionMarketGroupDetailReturn,
+    isScrolled: boolean }) {
+
+    const market = marketData.market
+    
+    interface SubMarketRankingItem {
+        index: number;
+        yes_percentage: number;
+        market: PredictionMarketDetailReturn['market'];
+    }
+    
+    const sub_market_ranking: SubMarketRankingItem[] = [] // ranking based on the yes percntage chance
+    marketData.sub_markets.forEach((item , index) => {
+        sub_market_ranking.push({
+            index: index,
+            yes_percentage: item.market.p_yes,
+            market: item.market
+        })
+    })
+    
+    // Sort by yes percentage in descending order (highest first)
+    sub_market_ranking.sort((a, b) => b.yes_percentage - a.yes_percentage)
+
+    console.log("group market data has been set and is : ", market)
     return (
         <div className="flex flex-col bg-[#1a2633]">
-            {/* Category + question */}
             <div className={`sticky top-0 z-30 px-4 pt-2 pb-3 bg-[#1a2633] border-b ${isScrolled ? 'border-gray-700/70' : 'border-transparent'}`}>
-                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">
-                    {marketData.market.category}
-                </p>
-                <h1 className="text-white font-bold text-xl leading-snug">{marketData.market.question}</h1>
+                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">{marketData.sub_markets[0].market.category}</p>
+                <h1 className="text-white font-bold text-xl leading-snug">{market.question}</h1>
             </div>
-
-            {/* the team name and score string section */}
-            <div className = "flex flex-col mx-4">
-
-                <div className="flex justify-between">
-                    <span>{truncateTeamName(market.home_team)}</span>
-                    <span>vs</span>
-                    <span>{truncateTeamName(market.away_team)}</span>
-                </div>
-
-                <div className="flex flex-row justify-between">
-                    <div
-                    className="flex items-center rounded-full border-2 border-gray-100 p-2 w-10 h-10 justify-center"
-                    >{market.home_team[0]}</div>
-
-                    <span>{market.home_score} - {market.away_score}</span>
-
-                    <div className="flex items-center rounded-full border-2 border-gray-100 p-2 w-10 h-10 justify-center">{market.away_team[0]}</div>
-                </div>
-            </div>
-
-            {/* key for the fixture outcomes chart */}
-            <div className="px-4 mt-3">
-                {/**
-                 * design nots: 
-                 * try to make the colors that match better so that the chart looks better when drawn on the screen
-                 */}
-                <div className="flex flex-row items-center gap-2 ">
-                    <div className="rounded-full h-2 w-2 bg-yellow-500"></div> {/* a small color fill notch */}
-                    <span className="text-yellow-500 text-sm">{truncateTeamName(market.home_team)}</span>
-                </div>
-                <div className="flex flex-row items-center gap-2 ">
-                    <div className="rounded-full h-2 w-2 bg-gray-500"></div> {/* a small color fill notch */}
-                    <span className="text-gray-500 text-sm">Draw</span>
-                </div>
-                <div className="flex flex-row items-center gap-2 ">
-                    <div className="rounded-full h-2 w-2 bg-blue-500"></div> {/* a small color fill notch */}
-                    <span className="text-blue-500 text-sm">{truncateTeamName(market.away_team)}</span>
-                </div>
-            </div>
-
         </div>
     )
-}
-
-function GroupMarketDetail({ marketData }: { marketData: PredictionMarketGroupDetailReturn }) {
-    if (!marketData) return <div className="p-4 text-gray-400">Loading...</div>
-    return <div className="p-4 text-white">Group Market</div>
 }
 
 function MarketDetailContentRouter({
@@ -838,15 +1185,9 @@ function MarketDetailContentRouter({
         </div>
     )
     switch (marketType) {
-        case 'fixture': return <FixtureMarketDetail 
-        marketData={marketData}
-        isScrolled={isScrolled} />
-        case 'group': return <GroupMarketDetail marketData={marketData} />
-        case 'prediction': return (
-        <PredictionMarketDetail 
-            marketData={marketData}
-            isScrolled={isScrolled}
-            />)
+        case 'fixture': return <FixtureMarketDetail marketData={marketData} isScrolled={isScrolled} />
+        case 'group': return <GroupMarketDetail marketData={marketData} isScrolled={isScrolled} />
+        case 'prediction': return <PredictionMarketDetail marketData={marketData} isScrolled={isScrolled} />
         default: return <div className="p-4 text-gray-400">Unknown market type</div>
     }
 }
@@ -864,9 +1205,8 @@ function MarketDetailPageInner() {
     const [marketData, setMarketData] = useState<PredictionMarketDetailReturn | MatchPredictionMarketDetailReturn | PredictionMarketGroupDetailReturn | null>(null)
     const [loading, setLoading] = useState(true)
     const [isBodyScrolled, setIsBodyScrolled] = useState(false)
-    const [buySellButtonsClicked ,setBuySellButtonsClicked]= useState<boolean>(false)
+    const [buySellButtonsClicked, setBuySellButtonsClicked] = useState<boolean>(false)
 
-    // Buy/sell bar state — lives here so the bar can be flex-none in the layout
     const [sheet, setSheet] = useState<{ mode: 'buy' | 'sell'; side: 'yes' | 'no' } | null>(null)
 
     const filterTabs: FilterTab[] = [
@@ -889,34 +1229,34 @@ function MarketDetailPageInner() {
     const currentPage = useSelector((state: RootState) => state.currentPageData.page)
     const matchData = useSelector((state: RootState) => state.allFixturesData)
 
-    // Derived market values for the buy/sell bar
-    // for now we just do it for the prediction market type we will expand the logic later on to handle the other market types.
-    
-    const predMarket = marketData?.market as PredictionMarketReturnType 
+    // Prediction market derived values
+    const predMarket = marketData?.market as PredictionMarketReturnType
     const predMarketYesPct = predMarket?.p_yes != null
-    ? predMarket.p_yes * 100
-    : predMarket
-        ? predMarket.q_yes / Math.max(predMarket.q_yes + predMarket.q_no, 1) * 100
-        : 50
+        ? predMarket.p_yes * 100
+        : predMarket
+            ? predMarket.q_yes / Math.max(predMarket.q_yes + predMarket.q_no, 1) * 100
+            : 50
     const noPct = 100 - predMarketYesPct
-    const isLocked = false // market?.locks_at ? new Date(market.locks_at) < new Date() : false
+    const isLocked = false
     const isResolved = !!predMarket?.outcome
 
+    // Fixture market derived values
     const matchPredMarket = marketData?.market as MatchPredictionMarketReturnType
-    const homePct = matchPredMarket?.q_home != null
-    ? matchPredMarket.q_home / Math.max(matchPredMarket.q_home + matchPredMarket.q_draw + matchPredMarket.q_away, 1) * 100
-    : 50
-    const drawPct = matchPredMarket?.q_draw != null
-    ? matchPredMarket.q_draw / Math.max(matchPredMarket.q_home + matchPredMarket.q_draw + matchPredMarket.q_away, 1) * 100
-    : 50
-    const awayPct = matchPredMarket?.q_away != null
-    ? matchPredMarket.q_away / Math.max(matchPredMarket.q_home + matchPredMarket.q_draw + matchPredMarket.q_away, 1) * 100
-    : 50
-    const isMatchPredLocked = false    
+    const fixtureTotal = Math.max(
+        (matchPredMarket?.q_home ?? 0) + (matchPredMarket?.q_draw ?? 0) + (matchPredMarket?.q_away ?? 0),
+        1
+    )
+    const homePct = matchPredMarket?.q_home != null ? (matchPredMarket.q_home / fixtureTotal) * 100 : 33.3
+    const drawPct = matchPredMarket?.q_draw != null ? (matchPredMarket.q_draw / fixtureTotal) * 100 : 33.4
+    const awayPct = matchPredMarket?.q_away != null ? (matchPredMarket.q_away / fixtureTotal) * 100 : 33.3
+    const isMatchPredLocked = false
 
-    // a new way for handling how the coding buying window is pulled up
-    const [sideChoiece , setSideChoice] = useState<{type:"normal" | "match_based" ,side: "yes" | "no"} | null>(null)
-    const [mode, setMode] = useState<{option: "buy" | "sell"}>({option: "buy"})
+    // Side choice state — supports both pred market and fixture market sides
+    const [sideChoiece, setSideChoice] = useState<{
+        type: "normal" | "match_based"
+        side: "yes" | "no" | "home" | "draw" | "away"
+    } | null>(null)
+    const [mode] = useState<{ option: "buy" | "sell" }>({ option: "buy" })
 
     useEffect(() => {
         dispatch(updateCurrentPage('markets'))
@@ -928,7 +1268,7 @@ function MarketDetailPageInner() {
                 if (type) {
                     const data = await fetchMarketDetail(marketId, type)
                     setMarketData(data)
-                    console.log("the data gotten back is : " , data)
+                    console.log("data gotten back is : ", data)
                 }
             } catch (err) {
                 console.error(err)
@@ -940,7 +1280,6 @@ function MarketDetailPageInner() {
     }, [marketId, marketType])
 
     return (
-        // ── Outer shell: full screen flex column ──────────────────
         <div className="flex flex-col h-screen overflow-hidden bg-[#1a2633]">
 
             <MenuOverlay
@@ -951,14 +1290,11 @@ function MarketDetailPageInner() {
                 accountBalance={userData.account_balance}
             />
 
-            {/* ── Header (flex-none) ── */}
+            {/* ── Header ── */}
             <div className="flex-none bg-[#1a2633] px-4 py-4 md:px-6 z-20 md:border-none border-b border-gray-700">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setMenuOpen(true)}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
-                        >
+                        <button onClick={() => setMenuOpen(true)} className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden">
                             <Menu className="text-gray-300" size={24} />
                         </button>
                         <h1 className="text-2xl font-bold md:text-3xl">
@@ -987,16 +1323,14 @@ function MarketDetailPageInner() {
                             >
                                 {tab.label}
                                 {tab.dot && <div className="w-2 h-2 bg-red-500 rounded-full" />}
-                                {filterState.type === tab.id && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />
-                                )}
+                                {filterState.type === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FED800]" />}
                             </button>
                         ))}
                     </div>
                 </div>
             </div>
 
-            {/* ── Scrollable body (flex-1) ── */}
+            {/* ── Scrollable body ── */}
             <div
                 className="flex-1 overflow-y-auto bg-[#1a2633] hide-vertical-scrollbar"
                 onScroll={(e) => setIsBodyScrolled(e.currentTarget.scrollTop > 0)}
@@ -1025,30 +1359,19 @@ function MarketDetailPageInner() {
                 )}
             </div>
 
-            {/* ── Buy/sell bar (flex-none) — sits between scroll area and footer ── */}
-            {/* TODO : make these buttons well reusable so that we dont have to code it for each market type from the ground up */}
+            {/* ── Buy bar — prediction market ── */}
             {!loading && marketToRender === 'prediction' && !isResolved && (
                 <div className="flex-none bg-[#1a2633] border-t border-gray-800/60 px-4 py-3 lg:hidden">
                     <div className="flex gap-3">
                         <button
-                            onClick={() => {
-                                console.log('Buy Yes clicked', { isLocked, marketId: predMarket?.id });
-                                // setSheet({ mode: 'buy', side: 'yes' }); we are chaing to the side choice type method for now
-                                setSideChoice({type : "normal" , side : "yes"})
-                                setBuySellButtonsClicked(true)
-                            }}
+                            onClick={() => { setSideChoice({ type: "normal", side: "yes" }); setBuySellButtonsClicked(true) }}
                             disabled={isLocked}
                             className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#1DA462] hover:bg-[#22c55e]"
                         >
                             Buy Yes {predMarketYesPct.toFixed(0)}¢
                         </button>
                         <button
-                            onClick={() => {
-                                console.log('Buy No clicked', { isLocked, marketId: predMarket?.id });
-                                // setSheet({ mode: 'buy', side: 'no' });
-                                setSideChoice({type: "normal" , side : "no"})
-                                setBuySellButtonsClicked(true)
-                            }}
+                            onClick={() => { setSideChoice({ type: "normal", side: "no" }); setBuySellButtonsClicked(true) }}
                             disabled={isLocked}
                             className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#ef4444] hover:bg-[#f87171]"
                         >
@@ -1058,32 +1381,68 @@ function MarketDetailPageInner() {
                 </div>
             )}
 
-            {/* ── Footer nav (flex-none) ── */}
+            {/* ── Buy bar — fixture market (Home / Draw / Away) ── */}
+            {!loading && marketToRender === 'fixture' && !isMatchPredLocked && (
+                <div className="flex-none bg-[#1a2633] border-t border-gray-800/60 px-4 py-3 lg:hidden">
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => { setSideChoice({ type: "match_based", side: "home" }); setBuySellButtonsClicked(true) }}
+                            className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97]"
+                            style={{ background: FIXTURE_HOME_COLOR }}
+                        >
+                            <div className="text-[10px] opacity-80 mb-0.5">{truncateTeamName(matchPredMarket?.home_team || 'Home', 8)}</div>
+                            <div>{homePct.toFixed(0)}¢</div>
+                        </button>
+                        <button
+                            onClick={() => { setSideChoice({ type: "match_based", side: "draw" }); setBuySellButtonsClicked(true) }}
+                            className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97]"
+                            style={{ background: '#4b5563' }}
+                        >
+                            <div className="text-[10px] opacity-80 mb-0.5">Draw</div>
+                            <div>{drawPct.toFixed(0)}¢</div>
+                        </button>
+                        <button
+                            onClick={() => { setSideChoice({ type: "match_based", side: "away" }); setBuySellButtonsClicked(true) }}
+                            className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97]"
+                            style={{ background: FIXTURE_AWAY_COLOR }}
+                        >
+                            <div className="text-[10px] opacity-80 mb-0.5">{truncateTeamName(matchPredMarket?.away_team || 'Away', 8)}</div>
+                            <div>{awayPct.toFixed(0)}¢</div>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Footer nav ── */}
             <div className="flex-none lg:hidden">
                 <FooterComponent currentPage={currentPage} publicStakeNumber={matchData.no_of_public_stakes} />
             </div>
 
-            {/* Trade sheet — rendered at root so it overlays everything */}
-            {buySellButtonsClicked && (
-                <>
-                    {console.log('Rendering TradeSheet', { sheet })}
-                    {
-                        sideChoiece?.type === "normal" ? (
-                            <TradeSheet 
-                                type="normal"
-                                mode="buy"
-                                side={sideChoiece.side}
-                                yesPct={predMarketYesPct}
-                                noPct={noPct}
-                                marketId={marketId}
-                                question={predMarket.question}
-                                onClose={() => setBuySellButtonsClicked(false)} 
-                            />
-                        ) : (
-                            <div>we will buld the trade sheet renderig logc of the fixture type here</div>
-                        )
-                    }
-                </>
+            {/* ── Trade sheets ── */}
+            {buySellButtonsClicked && sideChoiece && (
+                sideChoiece.type === "normal" ? (
+                    <TradeSheet
+                        type="normal"
+                        mode="buy"
+                        side={sideChoiece.side as 'yes' | 'no'}
+                        yesPct={predMarketYesPct}
+                        noPct={noPct}
+                        marketId={marketId}
+                        question={predMarket?.question || ''}
+                        onClose={() => setBuySellButtonsClicked(false)}
+                    />
+                ) : (
+                    <FixtureTradeSheet
+                        side={sideChoiece.side as 'home' | 'draw' | 'away'}
+                        homePct={homePct}
+                        drawPct={drawPct}
+                        awayPct={awayPct}
+                        marketId={marketId}
+                        homeTeam={matchPredMarket?.home_team || ''}
+                        awayTeam={matchPredMarket?.away_team || ''}
+                        onClose={() => setBuySellButtonsClicked(false)}
+                    />
+                )
             )}
         </div>
     )
