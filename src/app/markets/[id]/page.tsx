@@ -19,7 +19,7 @@ import { useAuth } from "@/app/context/authContext"
 import FooterComponent from "@/app/components/footer"
 
 import { useParams, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import {
     Menu, Search, ArrowLeft,
     ChevronDown, CheckCircle2, AlertCircle, Minus, Plus, X, Settings2, ChevronDownIcon
@@ -1133,99 +1133,661 @@ function FixtureMarketDetail({
 }
 
 // ─── Group Market stub ────────────────────────────────────────────
-function GroupMarketDetail({ 
-    marketData,
-    isScrolled }: { 
-    marketData: PredictionMarketGroupDetailReturn,
-    isScrolled: boolean }) {
 
-    const market = marketData.market
-    
-    interface SubMarketRankingItem {
-        index: number;
-        yes_percentage: number;
-        market: PredictionMarketDetailReturn['market'];
+/**
+ * GroupMarketDetail — drop-in replacement for the stub in
+ * src/app/markets/[id]/page.tsx
+ *
+ * Paste this component into that file, replacing the existing GroupMarketDetail.
+ * All imports it needs (executeBuy, executeSell, PredictionMarketGroupDetailReturn,
+ * fetchPredMktRecentTradeData, RecentPredMktTradeActivityReturnType, formatMatchDate,
+ * TradeSheet, computeTicks, TIME_FILTERS, TimeFilter) are already present in
+ * that file.
+ */
+
+
+// ─── Palette — 4 distinct colours that read well on dark bg ──────
+const GROUP_COLORS = ['#3b82f6', '#f59e0b', '#a78bfa', '#34d399'] as const
+type GroupColor = typeof GROUP_COLORS[number]
+
+// ─── Helpers ─────────────────────────────────────────────────────
+
+function formatVolumeTiny(n: number): string {
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000)     return `$${(n / 1_000).toFixed(1)}K`
+    return `$${n.toFixed(0)}`
+}
+
+function computeGroupTicks(min: number, max: number): number[] {
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+        return [parseFloat(min.toFixed(2)), parseFloat(max.toFixed(2))].filter((v, i, a) => a.indexOf(v) === i)
     }
-    
-    const sub_market_ranking: SubMarketRankingItem[] = [] // ranking based on the yes percntage chance
-    marketData.sub_markets.forEach((item , index) => {
-        sub_market_ranking.push({
-            index: index,
-            yes_percentage: item.market.p_yes,
-            market: item.market
-        })
-    })
-    
-    // Sort by yes percentage in descending order (highest first)
-    sub_market_ranking.sort((a, b) => b.yes_percentage - a.yes_percentage)
+    const range  = max - min
+    let step: number
+    if      (range <= 0.08) step = 0.02
+    else if (range <= 0.20) step = 0.05
+    else if (range <= 0.40) step = 0.10
+    else if (range <= 0.60) step = 0.15
+    else                    step = 0.20
 
-    console.log("group market data has been set and is : ", market)
+    const toF2 = (n: number) => parseFloat(n.toFixed(2))
+    const ticks = new Set<number>()
+    ticks.add(toF2(min)); ticks.add(toF2(max))
+    let cur = Math.ceil(min / step) * step
+    while (cur < max) { if (cur > min) ticks.add(toF2(cur)); cur += step }
+    return Array.from(ticks).sort((a, b) => a - b)
+}
+
+// ─── Mini group chart tooltip ─────────────────────────────────────
+function GroupChartTooltip({ active, payload }: any) {
+    if (!active || !payload?.length) return null
+    const full: string = payload[0]?.payload?.fullDate
+    return (
+        <div className="bg-[#0d1520] border border-gray-700/60 rounded-xl px-3 py-2.5 shadow-2xl">
+            <p className="text-gray-400 text-[11px] mb-1.5">{full}</p>
+            {payload.map((entry: any) => (
+                <p key={entry.dataKey} className="text-sm font-bold leading-tight" style={{ color: entry.color }}>
+                    {entry.name}: {typeof entry.value === 'number' ? `${(entry.value * 100).toFixed(0)}%` : '—'}
+                </p>
+            ))}
+        </div>
+    )
+}
+
+// ─── Sub-market detail slide-over ────────────────────────────────
+interface SubMarketSlideOverProps {
+    subMarket: any          // PredictionMarketDetailReturn['market'] + option
+    color: GroupColor
+    onClose: () => void
+}
+
+function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverProps) {
+    const [visible, setVisible] = useState(false)
+    const [sheet, setSheet] = useState<{ side: 'yes' | 'no' } | null>(null)
+
+    useEffect(() => {
+        const t = setTimeout(() => setVisible(true), 10)
+        return () => clearTimeout(t)
+    }, [])
+
+    const handleClose = () => {
+        setVisible(false)
+        setTimeout(onClose, 300)
+    }
+
+    const yesPct  = (subMarket.p_yes ?? 0.5) * 100
+    const noPct   = 100 - yesPct
+    const isLocked = subMarket.locks_at ? new Date(subMarket.locks_at) < new Date() : false
+    const isResolved = !!subMarket.outcome
+
+    // Inline TradeSheet-like component (no external dependency needed)
+    const [tradeShares, setTradeShares] = useState(0)
+    const [tradeLoading, setTradeLoading] = useState(false)
+    const [tradeDone, setTradeDone] = useState(false)
+    const [tradeErr, setTradeErr] = useState<string | null>(null)
+    const [showTrade, setShowTrade] = useState(false)
+    const [tradeSide, setTradeSide] = useState<'yes' | 'no'>('yes')
+
+    const price   = tradeSide === 'yes' ? yesPct / 100 : noPct / 100
+    const cost    = tradeShares * price * 100
+    const toWin   = tradeShares * 100
+
+    const handleTrade = async () => {
+        if (tradeShares <= 0) return
+        setTradeLoading(true); setTradeErr(null)
+        try {
+            // dynamic import avoids circular-dep issues
+            const { executeBuy } = await import('@/app/api/predictionMarket')
+            await executeBuy(subMarket.id, tradeSide, tradeShares)
+            setTradeDone(true)
+            setTimeout(() => { setTradeDone(false); setShowTrade(false) }, 1400)
+        } catch (e: any) {
+            setTradeErr(e?.message || 'Something went wrong')
+        } finally {
+            setTradeLoading(false)
+        }
+    }
+
+    return (
+        <>
+            {/* backdrop */}
+            <div
+                onClick={handleClose}
+                className="fixed inset-0 z-[9990] bg-black/50 transition-opacity duration-300"
+                style={{ opacity: visible ? 1 : 0 }}
+            />
+
+            {/* slide-over panel (slides from right) */}
+            <div
+                className="fixed top-0 right-0 bottom-0 z-[9995] w-full max-w-md bg-[#0f1923] overflow-hidden flex flex-col shadow-2xl"
+                style={{
+                    transform: visible ? 'translateX(0)' : 'translateX(100%)',
+                    transition: 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
+                }}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 pt-5 pb-3 border-b border-gray-800/60 bg-[#0f1923]">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+                        <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">
+                            {subMarket.option ?? 'Sub-market'}
+                        </span>
+                    </div>
+                    <button
+                        onClick={handleClose}
+                        className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Scrollable body */}
+                <div className="flex-1 overflow-y-auto hide-vertical-scrollbar">
+                    <div className="px-4 pt-5 pb-32">
+                        {/* Category + question */}
+                        <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">
+                            {subMarket.category}
+                        </p>
+                        <h2 className="text-white font-bold text-lg leading-snug mb-5">
+                            {subMarket.question}
+                        </h2>
+
+                        {/* Big probability */}
+                        <div className="flex items-baseline gap-2 mb-4">
+                            <span className="text-3xl font-black" style={{ color }}>
+                                {yesPct.toFixed(0)}% chance
+                            </span>
+                        </div>
+
+                        {/* YES / NO bar */}
+                        <div className="mb-6">
+                            <div className="flex h-2.5 rounded-full overflow-hidden gap-px">
+                                <div className="bg-emerald-500 transition-all duration-700 rounded-l-full" style={{ width: `${yesPct}%` }} />
+                                <div className="bg-red-500 transition-all duration-700 rounded-r-full"   style={{ width: `${noPct}%` }} />
+                            </div>
+                            <div className="flex justify-between mt-1.5 text-xs font-semibold">
+                                <span className="text-emerald-400">YES {yesPct.toFixed(0)}%</span>
+                                <span className="text-red-400">NO {noPct.toFixed(0)}%</span>
+                            </div>
+                        </div>
+
+                        {/* Stats row */}
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <div className="bg-[#131e28] rounded-xl p-3 border border-white/5">
+                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Volume</p>
+                                <p className="text-white font-black text-base">
+                                    {formatVolumeTiny(subMarket.total_collected ?? 0)}
+                                </p>
+                            </div>
+                            <div className="bg-[#131e28] rounded-xl p-3 border border-white/5">
+                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Status</p>
+                                <p className="text-white font-bold text-sm leading-tight capitalize">
+                                    {isResolved ? 'Resolved' : isLocked ? 'Locked' : 'Open'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="mb-4">
+                            <div className="flex items-center gap-2 text-gray-300 font-semibold text-sm mb-2">
+                                <BookOpen size={14} />
+                                Rules
+                            </div>
+                            <p className="text-gray-400 text-sm leading-relaxed">
+                                {subMarket.description || 'No description available.'}
+                            </p>
+                        </div>
+
+                        {/* Resolved banner */}
+                        {isResolved && (
+                            <div className={`rounded-xl p-4 border mb-4 ${subMarket.outcome === 'yes' ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle2 size={16} className={subMarket.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'} />
+                                    <span className={`font-bold text-sm uppercase ${subMarket.outcome === 'yes' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        Resolved {subMarket.outcome}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Sticky buy bar */}
+                {!isResolved && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-[#0f1923] border-t border-gray-800/60 px-4 py-3">
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => { setTradeSide('yes'); setShowTrade(true) }}
+                                disabled={isLocked}
+                                className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#1DA462] hover:bg-[#22c55e]"
+                            >
+                                Buy Yes {yesPct.toFixed(0)}¢
+                            </button>
+                            <button
+                                onClick={() => { setTradeSide('no'); setShowTrade(true) }}
+                                disabled={isLocked}
+                                className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#ef4444] hover:bg-[#f87171]"
+                            >
+                                Buy No {noPct.toFixed(0)}¢
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Inline trade bottom-sheet (inside the slide-over) */}
+                {showTrade && (
+                    <>
+                        <div
+                            onClick={() => setShowTrade(false)}
+                            className="absolute inset-0 z-[9999] bg-black/60"
+                        />
+                        <div className="absolute left-0 right-0 bottom-0 z-[10000] rounded-t-2xl bg-[#16202C] overflow-hidden">
+                            <div className="flex justify-center pt-3 pb-1">
+                                <div className="w-9 h-1 rounded-full bg-gray-600" />
+                            </div>
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60">
+                                <p className="text-white text-base font-semibold">
+                                    Buy <span className={tradeSide === 'yes' ? 'text-emerald-400' : 'text-red-400'}>{tradeSide.toUpperCase()}</span>
+                                </p>
+                                <button onClick={() => setShowTrade(false)} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white">
+                                    <X size={17} />
+                                </button>
+                            </div>
+                            <div className="px-4 py-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-400 text-sm">Current Price</span>
+                                    <span className="text-white font-bold text-lg">{(price * 100).toFixed(0)}¢</span>
+                                </div>
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-gray-400 text-sm">Shares</span>
+                                        <input
+                                            type="number"
+                                            value={tradeShares || ''}
+                                            onChange={e => setTradeShares(Math.max(0, parseInt(e.target.value) || 0))}
+                                            placeholder="0"
+                                            className="bg-transparent text-white font-bold text-xl text-right w-24 focus:outline-none placeholder-gray-700 tabular-nums"
+                                        />
+                                    </div>
+                                    <div className="flex gap-1.5">
+                                        {[-100, -10, +10, +100, +200].map((d, i) => (
+                                            <button key={i} onClick={() => setTradeShares(p => Math.max(0, p + d))}
+                                                className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white bg-[#23313D]">
+                                                {d > 0 ? `+${d}` : d}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="border-t border-gray-800/60" />
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400 text-sm">Total</span>
+                                    <span className="text-emerald-400 font-semibold text-sm">{cost > 0 ? `KES ${cost.toFixed(2)}` : '$0'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400 text-sm">To win</span>
+                                    <span className="text-emerald-400 font-semibold text-sm">{toWin > 0 ? `💵 KES ${toWin.toFixed(2)}` : '$0'}</span>
+                                </div>
+                                {tradeErr && <p className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded-lg">{tradeErr}</p>}
+                                <button
+                                    onClick={handleTrade}
+                                    disabled={tradeLoading || tradeShares <= 0 || tradeDone}
+                                    className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                                    style={{ background: tradeDone ? '#10b981' : tradeSide === 'yes' ? '#1DA462' : '#ef4444' }}
+                                >
+                                    {tradeDone ? (<><CheckCircle2 size={18} /> Done!</>)
+                                      : tradeLoading ? (<><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Processing…</>)
+                                      : `Buy ${tradeSide.toUpperCase()}`}
+                                </button>
+                                <div className="h-2" />
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+        </>
+    )
+}
+
+// ─── Main GroupMarketDetail ───────────────────────────────────────
+
+interface GroupMarketDetailProps {
+    marketData: PredictionMarketGroupDetailReturn
+    isScrolled: boolean
+}
+
+export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailProps) {
+    const market     = marketData.market
+    const subMarkets: PredictionMarketDetailReturn[] = marketData.sub_markets ?? []
+
+    // ── Sort sub-markets by yes_price desc ──────────────────────
+    const ranked = useMemo(() => {
+        return [...subMarkets]
+            .map((sm, i) => ({ ...sm, originalIndex: i }))
+            .sort((a, b) => (b.market?.p_yes ?? 0) - (a.market?.p_yes ?? 0))
+    }, [subMarkets])
+
+    const top4 = ranked.slice(0, 4)
+
+    // ── Time filter state ────────────────────────────────────────
+    const TIME_FILTERS_LOCAL = ['6H', '1D', '1W', '1M', 'MAX'] as const
+    type TF = typeof TIME_FILTERS_LOCAL[number]
+    const [activeTime, setActiveTime] = useState<TF>('1W')
+
+    // ── Build multi-line chart data ──────────────────────────────
+    // Each sub-market carries price_history; we overlay top-4 lines.
+    // We merge by timestamp bucket (group by minute).
+    const chartData = useMemo(() => {
+        if (!top4.length) return []
+
+        // Collect all timestamps across top-4, filter by time window
+        const now = new Date()
+        const cutoffs: Record<TF, number> = {
+            '6H': 6 * 3600_000, '1D': 86_400_000,
+            '1W': 7 * 86_400_000, '1M': 30 * 86_400_000, 'MAX': Infinity,
+        }
+        const cutoff = cutoffs[activeTime]
+
+        // Use the first sub-market with price_history as the X-axis backbone
+        const backbone: any[] = top4
+            .map(sm => sm.price_history ?? [])
+            .reduce((longest, ph) => ph.length > longest.length ? ph : longest, [])
+
+        if (!backbone.length) return []
+
+        return backbone
+            .filter(p => cutoff === Infinity || now.getTime() - new Date(p.created_at).getTime() <= cutoff)
+            .map((p, i) => {
+                const d = new Date(p.created_at)
+                const point: Record<string, any> = {
+                    xIndex: i,
+                    label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                }
+                // For each top-4, find the closest price point by created_at
+                top4.forEach((sm, si) => {
+                    const ph: any[] = sm.price_history ?? []
+                    if (ph.length) {
+                        // find closest
+                        const target = d.getTime()
+                        let closest = ph[0]
+                        let diff = Math.abs(new Date(ph[0].created_at).getTime() - target)
+                        for (const pt of ph) {
+                            const d2 = Math.abs(new Date(pt.created_at).getTime() - target)
+                            if (d2 < diff) { diff = d2; closest = pt }
+                        }
+                        point[`line${si}`] = closest.yes_price_at_trade
+                    } else {
+                        // Fallback: flat line at current p_yes
+                        point[`line${si}`] = sm.market?.p_yes ?? 0.5
+                    }
+                })
+                return point
+            })
+    }, [top4, activeTime])
+
+    const yValues = chartData.flatMap(d => top4.map((_, si) => d[`line${si}`] as number).filter(Boolean))
+    const dataMin = yValues.length ? Math.min(...yValues) : 0
+    const dataMax = yValues.length ? Math.max(...yValues) : 1
+    const pad     = Math.max((dataMax - dataMin) * 0.15, 0.03)
+    const yMin    = Math.max(0, dataMin - pad)
+    const yMax    = Math.min(1, dataMax + pad)
+    const yTicks  = computeGroupTicks(yMin, yMax)
+    const xEdgeTicks = chartData.length > 0 ? [0, chartData.length - 1] : []
+
+    const totalVol = subMarkets.reduce((s, sm) => s + (sm.market?.total_collected ?? 0), 0)
+    const volLabel  = formatVolumeTiny(totalVol)
+
+    // ── Slide-over state ─────────────────────────────────────────
+    const [openSubMarket, setOpenSubMarket] = useState<{ sm: any; color: GroupColor } | null>(null)
+
+    // ── Global buy buttons ────────────────────────────────────────
+    // (for sub-market rows: opens the slide-over directly to trade)
+
     return (
         <div className="flex flex-col bg-[#1a2633]">
+
+            {/* ── Sticky header ── */}
             <div className={`sticky top-0 z-30 px-4 pt-2 pb-3 bg-[#1a2633] border-b ${isScrolled ? 'border-gray-700/70' : 'border-transparent'}`}>
-                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">{marketData.sub_markets[0].market.category}</p>
+                <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">
+                    {subMarkets[0].market.category ?? 'Group Market'}
+                </p>
                 <h1 className="text-white font-bold text-xl leading-snug">{market.question}</h1>
             </div>
 
-            {/* I belive I want my key to go here now */}
-            <div>
-                {sub_market_ranking.slice(0, 4).map((rankedItem, rankIndex) => (
-                    <div key={rankedItem.index} className="flex flex-row gap-2" >
-                        <div className="bg-blue-500 h-2 w-2 my-2 rounded-full"></div> {/* I need the dots and the text to be of different colors but I dont know how to do it for now */}
-                        <span className="text-blue-500" >{rankedItem.market.option} {(rankedItem.market.p_yes * 100).toFixed(0)}%</span> { /** the percentage here needs to show too */}
-                    </div>
-                ))}
-            </div>
-
-            {/**
-             *  we will then render the chart here
-             *  the chart will consist of 4 lines which are made of the top 4 from the 
-             *  sub_market ranking I belive 
-             *  each line will be a different color and will show the probability of the market over time
-             *  the line must match the key taht is above here and the colors must match too.
-             */}
-            <div>
-                
-            </div>
-
-            {/**
-             * the we have the voume info and the timeline tweaking buttons here Tool
-             * just like we did with the other markets
-             */}
-            <div>
-
-            </div>
-
-            {/**
-             * we then render buy and sell buttons for each submarket heres
-             */}
-            <div>
-                {sub_market_ranking.map((rankedItem) => (
-                    <div key={rankedItem.index} className="mb-2" >
-                        <div className="flex flex-row">
-                            {/* option and volume */}
-                            <div className="flex flex-col">
-                                <span>{rankedItem.market.option}</span>
-                                <span>{rankedItem.market.total_collected}</span>
+            {/* ── Summary probability bars (top-4 coloured) ── */}
+            <div className="px-4 pt-5 pb-4">
+                <div className="space-y-2.5">
+                    {top4.map((sm, i) => {
+                        const pct = (sm.market?.p_yes ?? 0) * 100
+                        const color = GROUP_COLORS[i]
+                        return (
+                            <div key={sm.market?.id ?? i} className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 w-32 shrink-0">
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                                    <span className="text-white text-sm font-semibold truncate">
+                                        {sm.market?.option ?? `Option ${i + 1}`}
+                                    </span>
+                                </div>
+                                {/**
+                                 * <div className="flex-1 h-2.5 bg-[#131e28] rounded-full overflow-hidden">
+                                 *<div
+                                 *      className="h-full rounded-full transition-all duration-700"
+                                 *      style={{ width: `${pct}%`, background: color }}
+                                 *  />
+                                 *  </div>
+                                 * 
+                                 */}
+                                
+                                <span className="text-sm font-black w-12  tabular-nums" style={{ color }}>
+                                    {pct.toFixed(0)}%
+                                </span>
                             </div>
+                        )
+                    })}
+                    {ranked.length > 4 && (
+                        <p className="text-gray-600 text-xs pl-4">
+                            +{ranked.length - 4} more options
+                        </p>
+                    )}
+                </div>
+            </div>
 
-                            {/* market percentage */}
-                            <div className= "">
-                                <span className= "font-bold text-lg">{(rankedItem.market.p_yes * 100).toFixed(0)}</span>
-                            </div>
+            {/* ── Chart — 4 coloured lines ── */}
+            <div className="w-full" style={{ height: 280 }}>
+                {chartData.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ top: 8, right: 1, left: 8, bottom: 8 }}>
+                            <CartesianGrid horizontal vertical={false} stroke="#334155" strokeDasharray="3 3" />
+                            <XAxis
+                                dataKey="xIndex" type="number"
+                                domain={[0, Math.max(chartData.length - 1, 0)]}
+                                ticks={xEdgeTicks}
+                                padding={{ left: 24, right: 24 }}
+                                allowDecimals={false}
+                                tickFormatter={value => chartData[value]?.label ?? ''}
+                                tick={{ fill: '#6b7280', fontSize: 14 }}
+                                tickLine={false} tickMargin={20} axisLine={false}
+                                interval="preserveStartEnd"
+                            />
+                            <YAxis
+                                orientation="right"
+                                domain={[yMin, yMax]}
+                                ticks={yTicks}
+                                tickFormatter={v => `${(v * 100).toFixed(0)}%`}
+                                tick={{ fill: '#6b7280', fontSize: 11 }}
+                                tickLine={false} axisLine={false} width={46}
+                            />
+                            <Tooltip content={<GroupChartTooltip />} />
+                            {top4.map((sm, i) => (
+                                <Line
+                                    key={i}
+                                    type="monotone"
+                                    dataKey={`line${i}`}
+                                    name={sm.market?.option ?? `Option ${i + 1}`}
+                                    stroke={GROUP_COLORS[i]}
+                                    strokeWidth={2.5}
+                                    dot={false}
+                                    activeDot={{ r: 5, fill: GROUP_COLORS[i], stroke: '#0f1923', strokeWidth: 2 }}
+                                />
+                            ))}
+                        </LineChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center gap-2">
+                        <div className="w-10 h-10 rounded-xl bg-[#131e28] border border-white/5 flex items-center justify-center">
+                            <span className="text-gray-600 text-lg">📊</span>
                         </div>
+                        <p className="text-gray-600 text-sm">Not enough trade data yet</p>
                     </div>
-                ))}
+                )}
             </div>
 
-            {/**
-             * then here we will have the market rules and stuff.
-             */}
-            <div>
-                
+            {/* ── Legend + vol + time filters ── */}
+            <div className="px-4 mt-2 mb-2">
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
+                    {top4.map((sm, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                            <div className="w-5 h-0.5 rounded-full" style={{ background: GROUP_COLORS[i] }} />
+                            <span className="text-xs text-gray-400 font-medium">
+                                {sm.market?.option ?? `Option ${i + 1}`}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Vol + time */}
+                <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-sm font-semibold">{volLabel} Vol.</span>
+                    <div className="flex items-center gap-0.5">
+                        {TIME_FILTERS_LOCAL.map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setActiveTime(f)}
+                                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${activeTime === f ? 'bg-white text-black' : 'text-gray-500 hover:text-gray-300'}`}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
+            {/* ── Divider ── */}
+            <div className="h-px bg-gray-800/70 mx-4 mb-5" />
 
+            {/* ── Sub-market list (all ranked) ── */}
+            <div className="px-4 mb-4">
+                <p className="text-gray-300 text-sm font-bold mb-3 uppercase tracking-wider text-[11px]">
+                    All Outcomes
+                </p>
+                <div className="space-y-2">
+                    {ranked.map((sm, i) => {
+                        const pct    = (sm.market?.p_yes ?? 0) * 100
+                        const color  = (GROUP_COLORS[i] ?? '#6b7280') as GroupColor
+                        const isTop4 = i < 4
+                        return (
+                            <div
+                                key={sm.market?.id ?? i}
+                                className=" transition-all overflow-hidden border-b border-gray-700/50 pb-2"
+                            >
+                                {/* Main row */}
+                                <div className="flex items-center gap-3  py-3">
+                                    
+
+                                    {/* Option label + progress bar */}
+                                    <div
+                                        className="flex-1 min-w-0 max-w-1/3 cursor-pointer"
+                                        onClick={() => setOpenSubMarket({ sm: sm.market, color: isTop4 ? color : '#6b7280' as GroupColor })}
+                                    >
+                                        <div className="flex items-baseline justify-between mb-1.5">
+                                            <span className="text-white font-semibold text-base leading-snug truncate pr-2">
+                                                {sm.market?.option ?? `Option ${i + 1}`}
+                                            </span>
+
+                                            <span
+                                                className="text-xs font-black tabular-nums shrink-0"
+                                                style={{ color: isTop4 ? color : '#9ca3af' }}
+                                            >
+                                                {pct.toFixed(0)}%
+                                            </span>
+                                        </div>
+
+                                        {/* progress bar : for now we dont need this part
+                                        *
+                                        *<div className="h-1.5 bg-[#1a2633] rounded-full overflow-hidden">
+                                        *    <div
+                                        *        className="h-full rounded-full transition-all duration-700"
+                                        *        style={{
+                                        *            width: `${pct}%`,
+                                        *            background: isTop4 ? color : '#4b5563'
+                                        *        }}
+                                        *    />
+                                        *</div>
+                                        */}
+
+                                        <div className="flex items-center gap-3 mt-1.5">
+                                            <span className="text-custom-white-text-color text-sm">
+                                                {formatVolumeTiny(sm.market?.total_collected ?? 0)} Vol.
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Buy Yes / Buy No inline buttons */}
+                                    <div className="flex justify-between w-2/3 shrink-0 gap-2">
+                                        <button
+                                            onClick={() => setOpenSubMarket({ sm: sm.market, color: isTop4 ? color : '#6b7280' as GroupColor })}
+                                            className="flex-1 px-2.5 py-3 rounded-lg text-xs font-bold transition-all active:scale-95 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/30"
+                                        >
+                                            {pct.toFixed(0)}¢
+                                        </button>
+                                        <button
+                                            onClick={() => setOpenSubMarket({ sm: sm.market, color: isTop4 ? color : '#6b7280' as GroupColor })}
+                                            className="flex-1 px-2.5 py-3 rounded-lg text-xs font-bold transition-all active:scale-95 bg-red-500/20 border border-red-400/30 text-red-300 hover:bg-red-500/30"
+                                        >
+                                            {(100 - pct).toFixed(0)}¢
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* ── Rules ── */}
+            <div className="px-4 mb-4">
+                <div className="flex gap-6 mb-4">
+                    <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">Rules</button>
+                    <button className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">Market Context</button>
+                </div>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                    {market.description || 'No description provided.'}
+                </p>
+                {market.resolution_source && (
+                    <p className="text-gray-500 text-xs mt-3">
+                        Resolution source: <span className="text-gray-300">{market.resolution_source}</span>
+                    </p>
+                )}
+                {market.locks_at && (
+                    <p className="text-gray-500 text-xs mt-1">
+                        Closes: <span className="text-gray-300">{new Date(market.locks_at).toLocaleDateString()}</span>
+                        {'  ·  '}
+                        Resolves: <span className="text-gray-300">{new Date(market.resolutoin_date ?? market.resolution_date ?? market.locks_at).toLocaleDateString()}</span>
+                    </p>
+                )}
+            </div>
+
+            <div className="h-8" />
+
+            {/* ── Sub-market slide-over ── */}
+            {openSubMarket && (
+                <SubMarketSlideOver
+                    subMarket={openSubMarket.sm}
+                    color={openSubMarket.color}
+                    onClose={() => setOpenSubMarket(null)}
+                />
+            )}
         </div>
     )
 }
