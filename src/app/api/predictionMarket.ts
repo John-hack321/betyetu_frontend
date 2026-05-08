@@ -175,6 +175,7 @@ export interface PredictionMarketReturnType {
     created_at: string;
     updated_at: string;
     option?: string;
+    resolution_criteria: string;
 }
 
 export interface PredictionMarketPriceHistory {

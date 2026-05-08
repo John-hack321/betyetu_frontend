@@ -135,6 +135,11 @@ function GroupMarketCard ({ market }: { market: GroupMarket }) {
 
     const router= useRouter()
 
+    var total_collected = 0
+    market.sub_markets.forEach((item , index) => {
+        total_collected += item.total_collected
+    })
+
     return (
         <div 
         onClick={()=> router.push(`/markets/${market.id}?type=${market.market_type}`)}
@@ -176,7 +181,7 @@ function GroupMarketCard ({ market }: { market: GroupMarket }) {
             {/* footer info (divider line intentionally removed) */}
             <div className="flex flex-row items-center justify-between pt-1.5">
                 <div className="flex items-center gap-2 text-[12px] leading-none text-slate-400">
-                    <span className="font-medium text-slate-300">Ksh {formatVolumeTiny(market.total_collected)} Vol.</span>
+                    <span className="font-medium text-slate-300">Ksh {formatVolumeTiny(total_collected)} Vol.</span>
                     <span className="text-slate-600">·</span>
                     <span className="tracking-wide lowercase">{marketCategory}</span>
                 </div>
@@ -332,6 +337,7 @@ function MarketsPage () {
                     fetchMarkets()
                 ]) 
                 if (PredictionMarkets) dispatch(setMarkets(PredictionMarkets))
+                console.log('prediction market data comming back is : ', PredictionMarkets)
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load data')
             } finally {

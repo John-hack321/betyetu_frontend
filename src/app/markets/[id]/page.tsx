@@ -63,7 +63,7 @@ interface PricePoint {
     side: string
 }
 
-interface MarketData {
+interface MarketData { // why are we recreating this interface yet we have a PredictionMarketData type in the pred market api file ?
     id: number
     question: string
     description: string
@@ -78,6 +78,7 @@ interface MarketData {
     outcome: string | null
     outcome_notes: string | null
     created_at?: string
+    resolution_criteria: string
 }
 
 export interface RecentPredMktTradeActivityReturnType {
@@ -619,9 +620,11 @@ function PredictionMarketDetail({
         ? `${Math.round(latestYesVal * 100)}% chance`
         : `${Math.round(activeLatestVal * 100)}% chance`
     const shouldTruncateRules = (market.description || '').length > 200
+
+    const [activeDescriptionTab , setActiveDescriptionTab] = useState<"rules" | "context">("rules") // defaults to rules
     const rulesPreview = shouldTruncateRules
-        ? `${market.description.slice(0, 200).trimEnd()}...`
-        : market.description
+        ? `${market.resolution_criteria.slice(0, 200).trimEnd()}...`
+        : market.resolution_criteria
 
     const volFormatted = market.total_collected >= 1_000_000
         ? `$${(market.total_collected / 1_000_000).toFixed(1)}M`
@@ -744,22 +747,43 @@ function PredictionMarketDetail({
                     {!activityData?.recent_trades?.length && (<p className="text-gray-400 text-xs px-2 py-3">No recent activity yet.</p>)}
                 </div>
             )}
+            
+            {/* market rules and description */}
             <div className="px-4 mb-4 mt-4">
                 <div className="flex gap-6 mb-4">
-                    <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">Rules</button>
-                    <button className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">Market Context</button>
+                    <button 
+                    onClick={() => setActiveDescriptionTab('rules')}
+                    className="text-white text-sm font-semibold pb-1 border-b-2 border-white">Rules</button>
+                    
+                    <button 
+                    onClick={()=> setActiveDescriptionTab("context")}
+                    className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">Market Context</button>
                 </div>
-                <p className="text-gray-400 text-sm leading-relaxed">
-                    {showFullRules ? market.description : rulesPreview}
-                </p>
-                {shouldTruncateRules && (
-                    <button onClick={() => setShowFullRules(prev => !prev)} className="mt-2 text-xs font-semibold text-[#FED800] hover:text-[#ffd700] transition-colors">
-                        {showFullRules ? 'Show less' : 'Show more'}
-                    </button>
-                )}
+                {
+                    activeDescriptionTab === 'rules' ? ( // I named tihs activeRD to mean Rules and Description for the lack of a better word.
+                        <>
+                            <p className="text-gray-400 text-sm leading-relaxed">
+                                {showFullRules ? market.resolution_criteria : rulesPreview}
+                            </p>
+                            {shouldTruncateRules && (
+                                <button onClick={() => setShowFullRules(prev => !prev)} className="mt-2 text-xs font-semibold text-[#FED800] hover:text-[#ffd700] transition-colors">
+                                    {showFullRules ? 'Show less' : 'Show more'}
+                                </button>
+                            )}
+                        </>
+                        
+                    ) : (
+                        <p className="text-gray-400 text-sm leading-relaxed">
+                            {market.description}
+                        </p>
+                    )
+                }
+                
+
                 {market.resolution_source && (<p className="text-gray-500 text-xs mt-3">Resolution source: <span className="text-gray-300">{market.resolution_source}</span></p>)}
                 {market.locks_at && (<p className="text-gray-500 text-xs mt-1">Closes: <span className="text-gray-300">{formatMatchDate(market.locks_at)}</span>{'  ·  '}Resolves: <span className="text-gray-300">{formatMatchDate(market.resolution_date)}</span></p>)}
             </div>
+
             {market.outcome && (
                 <div className={`mx-4 mb-4 rounded-xl p-4 ${market.outcome === 'yes' ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
                     <div className="flex items-center gap-2">
@@ -1455,11 +1479,11 @@ interface GroupMarketDetailProps {
     isScrolled: boolean
 }
 
+
 export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailProps) {
     const market     = marketData.market
     const subMarkets: PredictionMarketDetailReturn[] = marketData.sub_markets ?? []
 
-    // ── Sort sub-markets by yes_price desc ──────────────────────
     const ranked = useMemo(() => {
         return [...subMarkets]
             .map((sm, i) => ({ ...sm, originalIndex: i }))
@@ -1468,32 +1492,22 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
 
     const top4 = ranked.slice(0, 4)
 
-    // ── Time filter state ────────────────────────────────────────
     const TIME_FILTERS_LOCAL = ['6H', '1D', '1W', '1M', 'MAX'] as const
     type TF = typeof TIME_FILTERS_LOCAL[number]
     const [activeTime, setActiveTime] = useState<TF>('1W')
 
-    // ── Build multi-line chart data ──────────────────────────────
-    // Each sub-market carries price_history; we overlay top-4 lines.
-    // We merge by timestamp bucket (group by minute).
     const chartData = useMemo(() => {
         if (!top4.length) return []
-
-        // Collect all timestamps across top-4, filter by time window
         const now = new Date()
         const cutoffs: Record<TF, number> = {
             '6H': 6 * 3600_000, '1D': 86_400_000,
             '1W': 7 * 86_400_000, '1M': 30 * 86_400_000, 'MAX': Infinity,
         }
         const cutoff = cutoffs[activeTime]
-
-        // Use the first sub-market with price_history as the X-axis backbone
         const backbone: any[] = top4
             .map(sm => sm.price_history ?? [])
             .reduce((longest, ph) => ph.length > longest.length ? ph : longest, [])
-
         if (!backbone.length) return []
-
         return backbone
             .filter(p => cutoff === Infinity || now.getTime() - new Date(p.created_at).getTime() <= cutoff)
             .map((p, i) => {
@@ -1503,11 +1517,9 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                     label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                     fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
                 }
-                // For each top-4, find the closest price point by created_at
                 top4.forEach((sm, si) => {
                     const ph: any[] = sm.price_history ?? []
                     if (ph.length) {
-                        // find closest
                         const target = d.getTime()
                         let closest = ph[0]
                         let diff = Math.abs(new Date(ph[0].created_at).getTime() - target)
@@ -1517,7 +1529,6 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                         }
                         point[`line${si}`] = closest.yes_price_at_trade
                     } else {
-                        // Fallback: flat line at current p_yes
                         point[`line${si}`] = sm.market?.p_yes ?? 0.5
                     }
                 })
@@ -1537,11 +1548,11 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
     const totalVol = subMarkets.reduce((s, sm) => s + (sm.market?.total_collected ?? 0), 0)
     const volLabel  = formatVolumeTiny(totalVol)
 
-    // ── Slide-over state ─────────────────────────────────────────
+    // ── Slide-over: opens when the sub-market label/row is clicked ──
     const [openSubMarket, setOpenSubMarket] = useState<{ sm: any; color: GroupColor } | null>(null)
 
-    // ── Global buy buttons ────────────────────────────────────────
-    // (for sub-market rows: opens the slide-over directly to trade)
+    // ── Trade sheet: opens when Yes / No button is clicked ──────────
+    const [tradeSheet, setTradeSheet] = useState<{ sm: any; side: 'yes' | 'no'; color: GroupColor } | null>(null)
 
     return (
         <div className="flex flex-col bg-[#1a2633]">
@@ -1568,16 +1579,6 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                                         {sm.market?.option ?? `Option ${i + 1}`}
                                     </span>
                                 </div>
-                                {/**
-                                 * <div className="flex-1 h-2.5 bg-[#131e28] rounded-full overflow-hidden">
-                                 *<div
-                                 *      className="h-full rounded-full transition-all duration-700"
-                                 *      style={{ width: `${pct}%`, background: color }}
-                                 *  />
-                                 *  </div>
-                                 * 
-                                 */}
-                                
                                 <span className="text-sm font-black w-12  tabular-nums" style={{ color }}>
                                     {pct.toFixed(0)}%
                                 </span>
@@ -1644,7 +1645,6 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
 
             {/* ── Legend + vol + time filters ── */}
             <div className="px-4 mt-2 mb-2">
-                {/* Legend */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
                     {top4.map((sm, i) => (
                         <div key={i} className="flex items-center gap-1.5">
@@ -1655,8 +1655,6 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                         </div>
                     ))}
                 </div>
-
-                {/* Vol + time */}
                 <div className="flex items-center justify-between">
                     <span className="text-gray-400 text-sm font-semibold">{volLabel} Vol.</span>
                     <div className="flex items-center gap-0.5">
@@ -1689,13 +1687,11 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                         return (
                             <div
                                 key={sm.market?.id ?? i}
-                                className=" transition-all overflow-hidden border-b border-gray-700/50 pb-2"
+                                className="transition-all overflow-hidden border-b border-gray-700/50 pb-2"
                             >
-                                {/* Main row */}
-                                <div className="flex items-center gap-3  py-3">
-                                    
+                                <div className="flex items-center gap-3 py-3">
 
-                                    {/* Option label + progress bar */}
+                                    {/* Option label — click opens the slide-over */}
                                     <div
                                         className="flex-1 min-w-0 max-w-1/3 cursor-pointer"
                                         onClick={() => setOpenSubMarket({ sm: sm.market, color: isTop4 ? color : '#6b7280' as GroupColor })}
@@ -1704,7 +1700,6 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                                             <span className="text-white font-semibold text-base leading-snug truncate pr-2">
                                                 {sm.market?.option ?? `Option ${i + 1}`}
                                             </span>
-
                                             <span
                                                 className="text-xs font-black tabular-nums shrink-0"
                                                 style={{ color: isTop4 ? color : '#9ca3af' }}
@@ -1712,20 +1707,6 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                                                 {pct.toFixed(0)}%
                                             </span>
                                         </div>
-
-                                        {/* progress bar : for now we dont need this part
-                                        *
-                                        *<div className="h-1.5 bg-[#1a2633] rounded-full overflow-hidden">
-                                        *    <div
-                                        *        className="h-full rounded-full transition-all duration-700"
-                                        *        style={{
-                                        *            width: `${pct}%`,
-                                        *            background: isTop4 ? color : '#4b5563'
-                                        *        }}
-                                        *    />
-                                        *</div>
-                                        */}
-
                                         <div className="flex items-center gap-3 mt-1.5">
                                             <span className="text-custom-white-text-color text-sm">
                                                 {formatVolumeTiny(sm.market?.total_collected ?? 0)} Vol.
@@ -1733,16 +1714,22 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                                         </div>
                                     </div>
 
-                                    {/* Buy Yes / Buy No inline buttons */}
+                                    {/* Buy Yes / Buy No — click opens the TradeSheet directly */}
                                     <div className="flex justify-between w-2/3 shrink-0 gap-2">
                                         <button
-                                            onClick={() => setOpenSubMarket({ sm: sm.market, color: isTop4 ? color : '#6b7280' as GroupColor })}
+                                            onClick={e => {
+                                                e.stopPropagation()
+                                                setTradeSheet({ sm: sm.market, side: 'yes', color: isTop4 ? color : '#6b7280' as GroupColor })
+                                            }}
                                             className="flex-1 px-2.5 py-3 rounded-lg text-xs font-bold transition-all active:scale-95 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/30"
                                         >
                                             {pct.toFixed(0)}¢
                                         </button>
                                         <button
-                                            onClick={() => setOpenSubMarket({ sm: sm.market, color: isTop4 ? color : '#6b7280' as GroupColor })}
+                                            onClick={e => {
+                                                e.stopPropagation()
+                                                setTradeSheet({ sm: sm.market, side: 'no', color: isTop4 ? color : '#6b7280' as GroupColor })
+                                            }}
                                             className="flex-1 px-2.5 py-3 rounded-lg text-xs font-bold transition-all active:scale-95 bg-red-500/20 border border-red-400/30 text-red-300 hover:bg-red-500/30"
                                         >
                                             {(100 - pct).toFixed(0)}¢
@@ -1780,12 +1767,26 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
 
             <div className="h-8" />
 
-            {/* ── Sub-market slide-over ── */}
+            {/* ── Sub-market slide-over (opens when label/row is clicked) ── */}
             {openSubMarket && (
                 <SubMarketSlideOver
                     subMarket={openSubMarket.sm}
                     color={openSubMarket.color}
                     onClose={() => setOpenSubMarket(null)}
+                />
+            )}
+
+            {/* ── Trade sheet (opens when Yes / No button is clicked) ── */}
+            {tradeSheet && (
+                <TradeSheet
+                    type="normal"
+                    mode="buy"
+                    side={tradeSheet.side}
+                    yesPct={(tradeSheet.sm?.p_yes ?? 0.5) * 100}
+                    noPct={100 - (tradeSheet.sm?.p_yes ?? 0.5) * 100}
+                    marketId={tradeSheet.sm?.id ?? 0}
+                    question={tradeSheet.sm?.question ?? ''}
+                    onClose={() => setTradeSheet(null)}
                 />
             )}
         </div>
