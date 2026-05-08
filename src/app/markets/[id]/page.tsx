@@ -560,7 +560,7 @@ function PredictionMarketDetail({
     marketData: PredictionMarketDetailReturn
     isScrolled: boolean
 }) {
-    const [activeTime, setActiveTime] = useState<TimeFilter>('1W')
+    const [activeTime, setActiveTime] = useState<TimeFilter>('1M')
     const [chartView, setChartView] = useState<ChartView>('yes')
     const [chartSettingsOpen, setChartSettingsOpen] = useState(false)
     const [showRecentActivity, setShowRecentActivity] = useState(false)
@@ -753,11 +753,13 @@ function PredictionMarketDetail({
                 <div className="flex gap-6 mb-4">
                     <button 
                     onClick={() => setActiveDescriptionTab('rules')}
-                    className="text-white text-sm font-semibold pb-1 border-b-2 border-white">Rules</button>
+                    className={`text-white text-sm font-semibold pb-1 
+                    ${activeDescriptionTab === 'rules' ? 'border-b-2 border-white' : 'border-b-2 border-transparent'}`}>Rules</button>
                     
                     <button 
                     onClick={()=> setActiveDescriptionTab("context")}
-                    className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">Market Context</button>
+                    className={`text-gray-500 text-sm font-semibold pb-1 
+                    ${activeDescriptionTab === 'context' ? 'border-b-2 border-white' : 'border-b-2 border-transparent'}`}>Market Context</button>
                 </div>
                 {
                     activeDescriptionTab === 'rules' ? ( // I named tihs activeRD to mean Rules and Description for the lack of a better word.
@@ -778,7 +780,6 @@ function PredictionMarketDetail({
                         </p>
                     )
                 }
-                
 
                 {market.resolution_source && (<p className="text-gray-500 text-xs mt-3">Resolution source: <span className="text-gray-300">{market.resolution_source}</span></p>)}
                 {market.locks_at && (<p className="text-gray-500 text-xs mt-1">Closes: <span className="text-gray-300">{formatMatchDate(market.locks_at)}</span>{'  ·  '}Resolves: <span className="text-gray-300">{formatMatchDate(market.resolution_date)}</span></p>)}
@@ -806,7 +807,7 @@ function FixtureMarketDetail({
     marketData: MatchPredictionMarketDetailReturn
     isScrolled: boolean
 }) {
-    const [activeTime, setActiveTime] = useState<TimeFilter>('1W')
+    const [activeTime, setActiveTime] = useState<TimeFilter>('1M')
     const [showFullRules, setShowFullRules] = useState(false)
     const [showRecentActivity, setShowRecentActivity] = useState(false)
     const [activityData, setActivityData] = useState<RecentPredMktTradeActivityReturnType | null>(null)
@@ -1494,7 +1495,7 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
 
     const TIME_FILTERS_LOCAL = ['6H', '1D', '1W', '1M', 'MAX'] as const
     type TF = typeof TIME_FILTERS_LOCAL[number]
-    const [activeTime, setActiveTime] = useState<TF>('1W')
+    const [activeTime, setActiveTime] = useState<TF>('1M')
 
     const chartData = useMemo(() => {
         if (!top4.length) return []
