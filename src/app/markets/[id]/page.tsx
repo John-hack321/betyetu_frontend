@@ -753,13 +753,13 @@ function PredictionMarketDetail({
                 <div className="flex gap-6 mb-4">
                     <button 
                     onClick={() => setActiveDescriptionTab('rules')}
-                    className={`text-white text-sm font-semibold pb-1 
-                    ${activeDescriptionTab === 'rules' ? 'border-b-2 border-white' : 'border-b-2 border-transparent'}`}>Rules</button>
+                    className={`text-gray-500 text-sm font-semibold pb-1 
+                    ${activeDescriptionTab === 'rules' ? 'border-b-2 text-white border-white' : 'border-b-2 border-transparent'}`}>Rules</button>
                     
                     <button 
                     onClick={()=> setActiveDescriptionTab("context")}
                     className={`text-gray-500 text-sm font-semibold pb-1 
-                    ${activeDescriptionTab === 'context' ? 'border-b-2 border-white' : 'border-b-2 border-transparent'}`}>Market Context</button>
+                    ${activeDescriptionTab === 'context' ? 'border-b-2 text-white border-white' : 'border-b-2 border-transparent'}`}>Market Context</button>
                 </div>
                 {
                     activeDescriptionTab === 'rules' ? ( // I named tihs activeRD to mean Rules and Description for the lack of a better word.

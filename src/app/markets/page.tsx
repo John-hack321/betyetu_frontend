@@ -20,7 +20,7 @@ import { setMarkets } from "../app_state/slices/predictionMarketData"
 import { truncateTeamName } from "../components/fixtureCard"
 import { formatMatchDate } from "@/utils/dateUtils"
 
-type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon'
+type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon' | 'politics'
 
 interface FilterState {
     type: FilterType
@@ -129,7 +129,7 @@ function PredictionMarketCard ({ market }: { market: PredictionMarket }) {
 }
 
 function GroupMarketCard ({ market }: { market: GroupMarket }) {
-    const marketCategory = getCategoryLabel(market.category)
+    const marketCategory = getCategoryLabel(market.sub_markets[0].category)
     const yesButtonStyle = 'bg-emerald-500/20 text-emerald-200'
     const noButtonStyle = 'bg-rose-500/20 text-rose-100'
 
@@ -366,8 +366,9 @@ function MarketsPage () {
         { id: 'afcon', label: 'AFCON' },
         { id: 'live', label: 'Live', dot: true },
         { id: 'closing-soon', label: 'Closing soon' },
+        { id: 'politics', label: 'Politics' },
     ]
-
+    
     const filteredMarkets = useMemo(() => {
         if (!predictionMarketData.data || predictionMarketData.data.length === 0) return []
         let predictionMarketDataCopy = [...predictionMarketData.data]
@@ -377,8 +378,19 @@ function MarketsPage () {
             || (market.market_type === 'fixture' && (normalizeForSearch(truncateTeamName(market.home_team)).includes(userSearch) || normalizeForSearch(truncateTeamName(market.away_team)).includes(userSearch)))
             || (market.market_type === 'group' && market.sub_markets.some(sub_market => normalizeForSearch(sub_market.option).includes(userSearch)))
         })
-        return filtered
-    }, [predictionMarketData.data, search])
+
+        switch (filterState.type) {
+            case "all":
+                return filtered
+            case  "football":
+                return [...filtered.filter((m) => m.category == "football"), ...filtered.filter((m) => m.category == "sports")]
+            case "politics":
+                return [...filtered.filter((m) => m.category == "politics"), ...filtered.filter((m) => m.market_type == "group" && m.sub_markets[0].category == "politics")]
+            default:
+                return filtered
+        }
+
+    }, [predictionMarketData.data, search, filterState.type])
 
     const handleTabClick = (tabId: FilterType) => {
         setFilterState({ type: tabId, leagueId: null })
@@ -495,8 +507,8 @@ function MarketsPage () {
 
                     {/** rendering the markets now */}
                     <div className=" lg:px-0 lg:grid lg:grid-cols-2 px-3 flex flex-col  lg:gap-4 staggered-grid">
-                        {filteredMarkets.length > 0 ? (
-                            filteredMarkets.map((market) => (
+                        {filteredMarkets!.length > 0 ? (
+                            filteredMarkets!.map((market) => (
                                 <MarketCard key={market.created_at} market={market} /> // I dont think created_at is a good way for assigning market we will fix this later on 
                             ))
                         ) : (

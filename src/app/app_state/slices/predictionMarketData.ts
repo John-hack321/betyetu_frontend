@@ -27,6 +27,7 @@ export interface GroupSubMarket {
     total_collected: number;
     locks_at: string;
     option: string;
+    category: string;
 }
 
 export interface PredictionMarket {
