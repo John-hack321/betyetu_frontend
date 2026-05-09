@@ -210,6 +210,30 @@ function TradeSheet({
     const [visible, setVisible] = useState(false)
     const [currentMode, setCurrentMode] = useState<'buy' | 'sell'>(mode)
 
+    // trade sheet toggle amount / shares logic toggle helpers logic
+    const [inputMode, setInputMode] = useState<'shares' | 'amount'>('shares')
+    const [kesInput, setKesInput] = useState(0)
+
+    // this API call helper is for the buy amount for shares logic 
+    const buyByAmount = async (marketId: number, amount: number, side: string) => {
+        const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
+        const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/prediction_markets/buy_shares_of_x_amount?market_id=${marketId}&amount=${amount}&side=${side}`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        )
+        if (!response.ok) {
+            const err = await response.json()
+            throw new Error(err.detail || "Trade failed")
+        }
+        return response.json()
+    }
+
     useEffect(() => {
         const t = setTimeout(() => setVisible(true), 10)
         return () => clearTimeout(t)
@@ -225,12 +249,20 @@ function TradeSheet({
     const toWin = shares * 100
 
     const handleConfirm = async () => {
-        if (shares <= 0) return
+        if (inputMode === 'shares' && shares <= 0) return
+        if (inputMode === 'amount' && kesInput <= 0) return
         setLoading(true)
         setErr(null)
         try {
-            if (currentMode === 'buy') await executeBuy(marketId, side, shares)
-            else await executeSell(marketId, side, shares)
+            if (currentMode === 'buy') {
+                if (inputMode === 'amount') {
+                    await buyByAmount(marketId, kesInput, side)
+                } else {
+                    await executeBuy(marketId, side, shares)
+                }
+            } else {
+                await executeSell(marketId, side, shares)
+            }
             setDone(true)
             setTimeout(() => { setDone(false); handleClose() }, 1400)
         } catch (e: any) {
@@ -294,38 +326,107 @@ function TradeSheet({
                             <span className="text-gray-400 text-sm">Current Price</span>
                             <span className="text-white font-bold text-lg tabular-nums">{(price * 100).toFixed(0)}¢</span>
                         </div>
-                        <div>
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-gray-400 text-sm">Shares</span>
-                                <input
-                                    type="number"
-                                    value={shares || ''}
-                                    onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
-                                    placeholder="0"
-                                    className="bg-transparent text-white font-bold text-xl text-right w-28 focus:outline-none placeholder-gray-700 tabular-nums"
-                                />
-                            </div>
-                            <div className="flex gap-1.5">
-                                {quickDeltas.map((d, i) => (
-                                    <button key={i} onClick={() => setShares(prev => Math.max(0, prev + d))}
-                                        className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors bg-[#23313D] hover:bg-[#2a3d4f] active:scale-95">
-                                        {d > 0 ? `+${d}` : d}
-                                    </button>
-                                ))}
-                            </div>
+                        {/* Mode toggle */}
+                        <div className="flex items-center gap-1 bg-[#0d1520] rounded-lg p-1 mb-1">
+                            <button
+                                onClick={() => setInputMode('shares')}
+                                className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                    inputMode === 'shares'
+                                        ? 'bg-[#23313D] text-white'
+                                        : 'text-gray-500 hover:text-gray-300'
+                                }`}
+                            >
+                                By Shares
+                            </button>
+                            <button
+                                onClick={() => setInputMode('amount')}
+                                className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                    inputMode === 'amount'
+                                        ? 'bg-[#23313D] text-white'
+                                        : 'text-gray-500 hover:text-gray-300'
+                                }`}
+                            >
+                                By Amount (KES)
+                            </button>
                         </div>
+
+                        {inputMode === 'shares' ? (
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-gray-400 text-sm">Shares</span>
+                                    <input
+                                        type="number"
+                                        value={shares || ''}
+                                        onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
+                                        placeholder="0"
+                                        className="bg-transparent text-white font-bold text-xl text-right w-28 focus:outline-none placeholder-gray-700 tabular-nums"
+                                    />
+                                </div>
+                                <div className="flex gap-1.5">
+                                    {[-100, -10, +10, +100, +200].map((d, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setShares(prev => Math.max(0, prev + d))}
+                                            className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors bg-[#23313D] hover:bg-[#2a3d4f] active:scale-95"
+                                        >
+                                            {d > 0 ? `+${d}` : d}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-gray-400 text-sm">KES Amount</span>
+                                    <input
+                                        type="number"
+                                        value={kesInput || ''}
+                                        onChange={e => setKesInput(Math.max(0, parseFloat(e.target.value) || 0))}
+                                        placeholder="0"
+                                        className="bg-transparent text-white font-bold text-xl text-right w-28 focus:outline-none placeholder-gray-700 tabular-nums"
+                                    />
+                                </div>
+                                <div className="flex gap-1.5">
+                                    {[50, 100, 200, 500, 1000].map((amt) => (
+                                        <button
+                                            key={amt}
+                                            onClick={() => setKesInput(amt)}
+                                            className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors bg-[#23313D] hover:bg-[#2a3d4f] active:scale-95"
+                                        >
+                                            {amt}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-gray-600 text-xs mt-2">
+                                    You'll get approximately {Math.floor(kesInput / (price * 100) || 0)} shares
+                                </p>
+                            </div>
+                        )}
                         <div className="border-t border-gray-800/70" />
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-400 text-sm">Total</span>
-                                <span className={`font-semibold text-sm ${total > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
-                                    {total > 0 ? `KES ${total.toFixed(2)}` : '$0'}
+                                <span className={`font-semibold text-sm ${
+                                    (inputMode === 'amount' ? kesInput : (shares * price * 100)) > 0
+                                        ? 'text-emerald-400' : 'text-gray-500'
+                                }`}>
+                                    {inputMode === 'amount'
+                                        ? kesInput > 0 ? `KES ${kesInput.toFixed(2)}` : '$0'
+                                        : (shares * price * 100) > 0 ? `KES ${(shares * price * 100).toFixed(2)}` : '$0'
+                                    }
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-gray-400 text-sm">{isBuy ? 'To win' : 'To receive'}</span>
-                                <span className={`font-semibold text-sm ${toWin > 0 ? (isBuy ? 'text-emerald-400' : 'text-amber-400') : 'text-gray-500'}`}>
-                                    {toWin > 0 ? `${isBuy ? '💵' : '💰'} KES ${toWin.toFixed(2)}` : '$0'}
+                                <span className="text-gray-400 text-sm">{isBuy ? 'To win (approx)' : 'To receive'}</span>
+                                <span className={`font-semibold text-sm ${
+                                    (inputMode === 'amount' ? kesInput : (shares * price * 100)) > 0
+                                        ? (isBuy ? 'text-emerald-400' : 'text-amber-400')
+                                        : 'text-gray-500'
+                                }`}>
+                                    {inputMode === 'amount'
+                                        ? kesInput > 0 ? `${isBuy ? '💵' : '💰'} KES ${(kesInput / price / 100 * 100).toFixed(2)}` : '$0'
+                                        : (shares * price * 100) > 0 ? `${isBuy ? '💵' : '💰'} KES ${(shares * 100).toFixed(2)}` : '$0'
+                                    }
                                 </span>
                             </div>
                         </div>
@@ -336,7 +437,7 @@ function TradeSheet({
                         )}
                         <button
                             onClick={handleConfirm}
-                            disabled={loading || shares <= 0 || done}
+                            disabled={loading || done || (inputMode === 'shares' ? shares <= 0 : kesInput <= 0)}
                             className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
                             style={{ background: ctaColor }}
                         >
