@@ -245,8 +245,8 @@ function TradeSheet({
     }
 
     const price = side === 'yes' ? yesPct / 100 : noPct / 100
-    const total = shares * price * 100
-    const toWin = shares * 100
+    const total = shares * price
+    const toWin = shares
 
     const handleConfirm = async () => {
         if (inputMode === 'shares' && shares <= 0) return
@@ -324,33 +324,35 @@ function TradeSheet({
                     <div className="px-4 py-5 space-y-5">
                         <div className="flex items-center justify-between">
                             <span className="text-gray-400 text-sm">Current Price</span>
-                            <span className="text-white font-bold text-lg tabular-nums">{(price * 100).toFixed(0)}¢</span>
+                            <span className="text-white font-bold text-lg tabular-nums">KES {price.toFixed(2)}</span>
                         </div>
-                        {/* Mode toggle */}
-                        <div className="flex items-center gap-1 bg-[#0d1520] rounded-lg p-1 mb-1">
-                            <button
-                                onClick={() => setInputMode('shares')}
-                                className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                                    inputMode === 'shares'
-                                        ? 'bg-[#23313D] text-white'
-                                        : 'text-gray-500 hover:text-gray-300'
-                                }`}
-                            >
-                                By Shares
-                            </button>
-                            <button
-                                onClick={() => setInputMode('amount')}
-                                className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                                    inputMode === 'amount'
-                                        ? 'bg-[#23313D] text-white'
-                                        : 'text-gray-500 hover:text-gray-300'
-                                }`}
-                            >
-                                By Amount (KES)
-                            </button>
-                        </div>
+                        {/* Mode toggle - only show for buy mode */}
+                        {currentMode === 'buy' && (
+                            <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1 mb-1">
+                                <button
+                                    onClick={() => setInputMode('shares')}
+                                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                        inputMode === 'shares'
+                                            ? 'bg-emerald-500 text-white'
+                                            : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    By Shares
+                                </button>
+                                <button
+                                    onClick={() => setInputMode('amount')}
+                                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                        inputMode === 'amount'
+                                            ? 'bg-emerald-500 text-white'
+                                            : 'text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    By Amount (KES)
+                                </button>
+                            </div>
+                        )}
 
-                        {inputMode === 'shares' ? (
+                        {currentMode === 'sell' || inputMode === 'shares' ? (
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-gray-400 text-sm">Shares</span>
@@ -359,7 +361,7 @@ function TradeSheet({
                                         value={shares || ''}
                                         onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
                                         placeholder="0"
-                                        className="bg-transparent text-white font-bold text-xl text-right w-28 focus:outline-none placeholder-gray-700 tabular-nums"
+                                        className="bg-gray-800/50 text-white font-bold text-xl text-right w-28 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-gray-800/70 placeholder-gray-500 tabular-nums rounded-lg px-3 py-1.5 border border-gray-700/50"
                                     />
                                 </div>
                                 <div className="flex gap-1.5">
@@ -383,7 +385,7 @@ function TradeSheet({
                                         value={kesInput || ''}
                                         onChange={e => setKesInput(Math.max(0, parseFloat(e.target.value) || 0))}
                                         placeholder="0"
-                                        className="bg-transparent text-white font-bold text-xl text-right w-28 focus:outline-none placeholder-gray-700 tabular-nums"
+                                        className="bg-gray-800/50 text-white font-bold text-xl text-right w-28 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-gray-800/70 placeholder-gray-500 tabular-nums rounded-lg px-3 py-1.5 border border-gray-700/50"
                                     />
                                 </div>
                                 <div className="flex gap-1.5">
@@ -398,7 +400,7 @@ function TradeSheet({
                                     ))}
                                 </div>
                                 <p className="text-gray-600 text-xs mt-2">
-                                    You'll get approximately {Math.floor(kesInput / (price * 100) || 0)} shares
+                                    You'll get approximately {Math.floor(kesInput / price || 0)} shares
                                 </p>
                             </div>
                         )}
@@ -407,25 +409,25 @@ function TradeSheet({
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-400 text-sm">Total</span>
                                 <span className={`font-semibold text-sm ${
-                                    (inputMode === 'amount' ? kesInput : (shares * price * 100)) > 0
+                                    (inputMode === 'amount' ? kesInput : (shares * price)) > 0
                                         ? 'text-emerald-400' : 'text-gray-500'
                                 }`}>
                                     {inputMode === 'amount'
-                                        ? kesInput > 0 ? `KES ${kesInput.toFixed(2)}` : '$0'
-                                        : (shares * price * 100) > 0 ? `KES ${(shares * price * 100).toFixed(2)}` : '$0'
+                                        ? kesInput > 0 ? `KES ${kesInput.toFixed(2)}` : 'KES 0'
+                                        : (shares * price) > 0 ? `KES ${(shares * price).toFixed(2)}` : 'KES 0'
                                     }
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-400 text-sm">{isBuy ? 'To win (approx)' : 'To receive'}</span>
                                 <span className={`font-semibold text-sm ${
-                                    (inputMode === 'amount' ? kesInput : (shares * price * 100)) > 0
+                                    (inputMode === 'amount' ? kesInput : (shares * price)) > 0
                                         ? (isBuy ? 'text-emerald-400' : 'text-amber-400')
                                         : 'text-gray-500'
                                 }`}>
                                     {inputMode === 'amount'
-                                        ? kesInput > 0 ? `${isBuy ? '💵' : '💰'} KES ${(kesInput / price / 100 * 100).toFixed(2)}` : '$0'
-                                        : (shares * price * 100) > 0 ? `${isBuy ? '💵' : '💰'} KES ${(shares * 100).toFixed(2)}` : '$0'
+                                        ? kesInput > 0 ? `${isBuy ? '💵' : '💰'} KES ${(kesInput / price).toFixed(2)}` : 'KES 0'
+                                        : (shares * price) > 0 ? `${isBuy ? '💵' : '💰'} KES ${shares.toFixed(2)}` : 'KES 0'
                                     }
                                 </span>
                             </div>
@@ -590,7 +592,7 @@ function FixtureTradeSheet({
                                     value={shares || ''}
                                     onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
                                     placeholder="0"
-                                    className="bg-transparent text-white font-bold text-xl text-right w-28 focus:outline-none placeholder-gray-700 tabular-nums"
+                                    className="bg-gray-800/50 text-white font-bold text-xl text-right w-28 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-gray-800/70 placeholder-gray-500 tabular-nums rounded-lg px-3 py-2 border border-gray-700/50"
                                 />
                             </div>
                             <div className="flex gap-1.5">
@@ -1532,7 +1534,7 @@ function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverPro
                                             value={tradeShares || ''}
                                             onChange={e => setTradeShares(Math.max(0, parseInt(e.target.value) || 0))}
                                             placeholder="0"
-                                            className="bg-transparent text-white font-bold text-xl text-right w-24 focus:outline-none placeholder-gray-700 tabular-nums"
+                                            className="bg-gray-800/50 text-white font-bold text-xl text-right w-24 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-gray-800/70 placeholder-gray-500 tabular-nums rounded-lg px-3 py-1.5 border border-gray-700/50"
                                         />
                                     </div>
                                     <div className="flex gap-1.5">
