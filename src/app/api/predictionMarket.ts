@@ -95,6 +95,19 @@ export interface UserPosition {
     settled_payout: number | null;
 }
 
+// Interface for single market position from backend endpoint
+export interface UserMarketPosition {
+    id: number;
+    market_id: number;
+    user_id: number;
+    side: "yes" | "no";
+    shares_held: number;
+    total_cost: number;
+    average_cost_per_share: number;
+    position_status: "open" | "closed";
+    settled_payout: number | null;
+}
+
 // this one is self written
 // do extensive error handing for this model
 export const fetchMarkets = async (
@@ -334,5 +347,26 @@ export const fetchMyPositions = async (): Promise<UserPosition[]> => {
         headers: getAuthHeaders(),
     });
     return response.data;
+};
+
+export const fetchUserPositionForMarket = async (
+    marketId: number,
+    side: "yes" | "no"
+): Promise<UserMarketPosition | null> => {
+    try {
+        const response = await axios.get(
+            `${BASE_URL}/prediction_markets/user_position_for_market?market_id=${marketId}&side=${side}`,
+            {
+                headers: getAuthHeaders(),
+            }
+        );
+        return response.data;
+    } catch (error: any) {
+        if (error.response?.status === 404) {
+            // No position found for this market/side
+            return null;
+        }
+        throw error;
+    }
 };
 

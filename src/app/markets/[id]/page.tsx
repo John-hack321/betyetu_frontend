@@ -12,7 +12,9 @@ import {
     PredictionMarketGroupReturnType,
     MatchPredictionMarketReturnType,
     MatchPredictionMarketPriceHistory,
-    PredictionMarketReturnType
+    PredictionMarketReturnType,
+    fetchUserPositionForMarket,
+    UserMarketPosition
 } from "@/app/api/predictionMarket"
 
 import { useAuth } from "@/app/context/authContext"
@@ -209,6 +211,8 @@ function TradeSheet({
     const [err, setErr] = useState<string | null>(null)
     const [visible, setVisible] = useState(false)
     const [currentMode, setCurrentMode] = useState<'buy' | 'sell'>(mode)
+    const [userPosition, setUserPosition] = useState<UserMarketPosition | null>(null)
+    const [positionLoading, setPositionLoading] = useState(false)
 
     // trade sheet toggle amount / shares logic toggle helpers logic
     const [inputMode, setInputMode] = useState<'shares' | 'amount'>('shares')
@@ -238,6 +242,26 @@ function TradeSheet({
         const t = setTimeout(() => setVisible(true), 10)
         return () => clearTimeout(t)
     }, [])
+
+    // Fetch user position when component mounts or side changes
+    useEffect(() => {
+        const fetchPosition = async () => {
+            if (currentMode === 'sell') {
+                setPositionLoading(true)
+                try {
+                    const position = await fetchUserPositionForMarket(marketId, side)
+                    setUserPosition(position)
+                } catch (error: any) {
+                    console.error('Failed to fetch position:', error)
+                    setUserPosition(null)
+                } finally {
+                    setPositionLoading(false)
+                }
+            }
+        }
+
+        fetchPosition()
+    }, [marketId, side, currentMode])
 
     const handleClose = () => {
         setVisible(false)
@@ -354,27 +378,90 @@ function TradeSheet({
 
                         {currentMode === 'sell' || inputMode === 'shares' ? (
                             <div>
+                                {currentMode === 'sell' && (
+                                    <div className="mb-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-400 text-xs">Your Position</span>
+                                            {positionLoading ? (
+                                                <div className="w-4 h-4 rounded-full border-2 border-gray-500 border-t-gray-300 animate-spin" />
+                                            ) : userPosition ? (
+                                                <span className="text-white font-bold text-sm">
+                                                    {userPosition.shares_held.toFixed(2)} shares
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-500 text-xs">No position</span>
+                                            )}
+                                        </div>
+                                        {userPosition && (
+                                            <div className="mt-2 pt-2 border-t border-gray-700/50">
+                                                <div className="flex justify-between text-xs">
+                                                    <span className="text-gray-500">Avg Cost:</span>
+                                                    <span className="text-gray-300">KES {userPosition.average_cost_per_share.toFixed(2)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-xs mt-1">
+                                                    <span className="text-gray-500">Total Cost:</span>
+                                                    <span className="text-gray-300">KES {userPosition.total_cost.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-gray-400 text-sm">Shares</span>
                                     <input
                                         type="number"
                                         value={shares || ''}
-                                        onChange={e => setShares(Math.max(0, parseInt(e.target.value) || 0))}
+                                        onChange={e => {
+                                            const val = Math.max(0, parseInt(e.target.value) || 0)
+                                            // Prevent overselling for sell mode
+                                            if (currentMode === 'sell' && userPosition) {
+                                                setShares(Math.min(val, userPosition.shares_held))
+                                            } else {
+                                                setShares(val)
+                                            }
+                                        }}
                                         placeholder="0"
-                                        className="bg-gray-800/50 text-white font-bold text-xl text-right w-28 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-gray-800/70 placeholder-gray-500 tabular-nums rounded-lg px-3 py-1.5 border border-gray-700/50"
+                                        max={currentMode === 'sell' && userPosition ? userPosition.shares_held : undefined}
+                                        className={`bg-gray-800/50 text-white font-bold text-xl text-right w-28 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-gray-800/70 placeholder-gray-500 tabular-nums rounded-lg px-3 py-1.5 border ${
+                                            currentMode === 'sell' && userPosition && shares > userPosition.shares_held
+                                                ? 'border-red-500/50 bg-red-500/10'
+                                                : 'border-gray-700/50'
+                                        }`}
                                     />
                                 </div>
+                                {currentMode === 'sell' && userPosition && shares > userPosition.shares_held && (
+                                    <div className="mb-3 text-red-400 text-xs flex items-center gap-1">
+                                        <AlertCircle size={12} />
+                                        Cannot sell more than {userPosition.shares_held.toFixed(2)} shares
+                                    </div>
+                                )}
                                 <div className="flex gap-1.5">
                                     {[-100, -10, +10, +100, +200].map((d, i) => (
                                         <button
                                             key={i}
-                                            onClick={() => setShares(prev => Math.max(0, prev + d))}
+                                            onClick={() => {
+                                                const newShares = Math.max(0, shares + d)
+                                                // Prevent overselling for sell mode
+                                                if (currentMode === 'sell' && userPosition) {
+                                                    setShares(Math.min(newShares, userPosition.shares_held))
+                                                } else {
+                                                    setShares(newShares)
+                                                }
+                                            }}
                                             className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-colors bg-[#23313D] hover:bg-[#2a3d4f] active:scale-95"
                                         >
                                             {d > 0 ? `+${d}` : d}
                                         </button>
                                     ))}
                                 </div>
+                                {currentMode === 'sell' && userPosition && (
+                                    <button
+                                        onClick={() => setShares(userPosition.shares_held)}
+                                        className="w-full mt-2 py-2 rounded-lg text-xs font-semibold text-amber-300 hover:text-amber-200 transition-colors bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30"
+                                    >
+                                        Sell All ({userPosition.shares_held.toFixed(2)} shares)
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div>
@@ -439,11 +526,20 @@ function TradeSheet({
                         )}
                         <button
                             onClick={handleConfirm}
-                            disabled={loading || done || (inputMode === 'shares' ? shares <= 0 : kesInput <= 0)}
+                            disabled={
+                                loading || 
+                                done || 
+                                (inputMode === 'shares' ? shares <= 0 : kesInput <= 0) ||
+                                (currentMode === 'sell' && (!userPosition || shares > userPosition.shares_held))
+                            }
                             className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
                             style={{ background: ctaColor }}
                         >
-                            {done ? (<><CheckCircle2 size={18} /> Done!</>) : loading ? (<><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Processing…</>) : (`${isBuy ? 'Buy' : 'Sell'} ${side.toUpperCase()}`)}
+                            {done ? (<><CheckCircle2 size={18} /> Done!</>) : loading ? (<><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Processing…</>) : (
+                                currentMode === 'sell' && !userPosition ? 
+                                    `No ${side.toUpperCase()} position to sell` :
+                                    `${isBuy ? 'Buy' : 'Sell'} ${side.toUpperCase()}`
+                            )}
                         </button>
                         <div className="h-2" />
                     </div>
