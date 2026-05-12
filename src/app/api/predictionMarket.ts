@@ -355,7 +355,7 @@ export const fetchUserPositionForMarket = async (
 ): Promise<UserMarketPosition | null> => {
     try {
         const response = await axios.get(
-            `${BASE_URL}/prediction_markets/user_position_for_market?market_id=${marketId}&side=${side}`,
+            `${BASE_URL}/prediction_markets/user_position_for_market/${marketId}/${side}`,  // path params
             {
                 headers: getAuthHeaders(),
             }
@@ -363,10 +363,8 @@ export const fetchUserPositionForMarket = async (
         return response.data;
     } catch (error: any) {
         if (error.response?.status === 404) {
-            // No position found for this market/side
             return null;
         }
         throw error;
     }
 };
-
