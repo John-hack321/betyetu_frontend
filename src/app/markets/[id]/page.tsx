@@ -322,6 +322,8 @@ function TradeSheet({
                     <div className="w-9 h-1 rounded-full bg-gray-600" />
                 </div>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60">
+
+                    {/* buy sell toggle at the top left corner of the sheet dialog box */}
                     <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1">
                         <button
                             onClick={() => setCurrentMode('buy')}
@@ -332,10 +334,15 @@ function TradeSheet({
                             className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all ${currentMode === 'sell' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:text-white'}`}
                         >Sell</button>
                     </div>
+
+                    {/* close button at the top right corner of the sheet dialog box */}
                     <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
                         <X size={17} />
                     </button>
+                    
                 </div>
+
+                {/* market question and side at the top of the sheet dialog box */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/40">
                     <p className="text-gray-300 text-sm leading-snug truncate flex-1 mr-3 max-w-[260px]">
                         {question.length > 55 ? question.slice(0, 55) + '…' : question}
@@ -344,13 +351,16 @@ function TradeSheet({
                         {side.toUpperCase()}
                     </span>
                 </div>
+
+                {/* main content of the sheet dialog box - current price, mode toggle => shares vs amount, your position, shares input, quick deltas, sell all button, kes amount input, quick deltas, potential profit */}
                 <div className="overflow-y-auto" style={{ maxHeight: 'calc(92vh - 130px)' }}>
                     <div className="px-4 py-5 space-y-5">
                         <div className="flex items-center justify-between">
                             <span className="text-gray-400 text-sm">Current Price</span>
                             <span className="text-white font-bold text-lg tabular-nums">KES {price.toFixed(2)}</span>
                         </div>
-                        {/* Mode toggle - only show for buy mode */}
+                        
+                        {/* Mode toggle - only show for buy mode (shares vs amount) */}
                         {currentMode === 'buy' && (
                             <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1 mb-1">
                                 <button
@@ -378,6 +388,8 @@ function TradeSheet({
 
                         {currentMode === 'sell' || inputMode === 'shares' ? (
                             <div>
+
+                                {/* your position at the top of the sheet dialog box : dedicated for showing the user's position when selling : to give context for what shares to sell*/}
                                 {currentMode === 'sell' && (
                                     <div className="mb-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
                                         <div className="flex items-center justify-between">
@@ -432,6 +444,8 @@ function TradeSheet({
                                         )}
                                     </div>
                                 )}
+
+                                {/* shares input : NOTE : This is still under the sell side logic : to give context for what shares to sell */}
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-gray-400 text-sm">Shares</span>
                                     <input
@@ -455,12 +469,16 @@ function TradeSheet({
                                         }`}
                                     />
                                 </div>
+
+                                {/* error message for overselling : to give context for what shares to sell */}
                                 {currentMode === 'sell' && userPosition && shares > userPosition.shares_held && (
                                     <div className="mb-3 text-red-400 text-xs flex items-center gap-1">
                                         <AlertCircle size={12} />
                                         Cannot sell more than {userPosition.shares_held.toFixed(2)} shares
                                     </div>
                                 )}
+
+                                {/* quick deltas for shares input : to give context for what shares to sell */}
                                 <div className="flex gap-1.5">
                                     {[-100, -10, +10, +100, +200].map((d, i) => (
                                         <button
@@ -480,6 +498,8 @@ function TradeSheet({
                                         </button>
                                     ))}
                                 </div>
+
+                                {/* sell all button : to give context for what shares to sell */}
                                 {currentMode === 'sell' && userPosition && (
                                     <button
                                         onClick={() => setShares(userPosition.shares_held)}
@@ -490,7 +510,9 @@ function TradeSheet({
                                 )}
                             </div>
                         ) : (
+                            /* kes amount input : NOTE : This is still under the buy side logic : to give context for what amount to buy */
                             <div>
+                                {/* kes amount input : NOTE : This is still under the buy side logic : to give context for what amount to buy */}
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-gray-400 text-sm">KES Amount</span>
                                     <input
@@ -517,6 +539,9 @@ function TradeSheet({
                                 </p>
                             </div>
                         )}
+                        {/* the buy side input dialog box ends here now */}
+
+                        {/* the total and to win section of the sheet dialog box : to give context for what total and to win */}
                         <div className="border-t border-gray-800/70" />
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between">
@@ -558,11 +583,15 @@ function TradeSheet({
                                 </div>
                             )}
                         </div>
+
+                        {/* error message for buy or sell : to give context for what to buy or sell */}
                         {err && (
                             <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 px-3 py-2.5 rounded-lg border border-red-500/20">
                                 <AlertCircle size={14} className="shrink-0" />{err}
                             </div>
                         )}
+
+                        {/* buy or sell button : to buy or sell the shares or amount */}
                         <button
                             onClick={handleConfirm}
                             disabled={
@@ -2317,8 +2346,3 @@ export default function MarketDetailPage() {
         </ProtectedRoute>
     )
 }
-
-
-
-
-
