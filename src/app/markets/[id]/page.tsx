@@ -24,8 +24,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useMemo, useRef } from "react"
 import {
     Menu, Search, ArrowLeft,
-    ChevronDown, CheckCircle2, AlertCircle, Minus, Plus, X, Settings2, ChevronDownIcon,
-    BookOpen
+    ChevronDown, CheckCircle2, AlertCircle, Minus, Plus, X, Settings2, ChevronDownIcon
 } from "lucide-react"
 import {
     LineChart, Line, XAxis, YAxis,
@@ -158,6 +157,98 @@ function FixtureChartTooltip({ active, payload }: any) {
 const TIME_FILTERS = ['6H', '1D', '1W', '1M', 'MAX'] as const
 type TimeFilter = typeof TIME_FILTERS[number]
 type ChartView = 'yes' | 'no' | 'both'
+type DescriptionTab = 'rules' | 'context'
+
+function MarketRulesAndContext({
+    rules,
+    context,
+    resolutionSource,
+    locksAt,
+    resolutionDate,
+    className = '',
+}: {
+    rules: string
+    context: string
+    resolutionSource?: string | null
+    locksAt?: string | null
+    resolutionDate?: string | null
+    className?: string
+}) {
+    const [activeTab, setActiveTab] = useState<DescriptionTab>('rules')
+    const [showFullRules, setShowFullRules] = useState(false)
+
+    const rulesText = rules?.trim() || 'No rules provided.'
+    const contextText = context?.trim() || 'No market context provided.'
+    const shouldTruncateRules = rulesText.length > 200
+    const rulesPreview = shouldTruncateRules
+        ? `${rulesText.slice(0, 200).trimEnd()}...`
+        : rulesText
+
+    return (
+        <div className={className ? className : 'px-4 mb-4'}>
+            <div className="flex gap-6 mb-4">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('rules')}
+                    className={`text-sm font-semibold pb-1 border-b-2 transition-colors ${
+                        activeTab === 'rules'
+                            ? 'text-white border-white'
+                            : 'text-gray-500 border-transparent hover:text-gray-300'
+                    }`}
+                >
+                    Rules
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('context')}
+                    className={`text-sm font-semibold pb-1 border-b-2 transition-colors ${
+                        activeTab === 'context'
+                            ? 'text-white border-white'
+                            : 'text-gray-500 border-transparent hover:text-gray-300'
+                    }`}
+                >
+                    Market Context
+                </button>
+            </div>
+
+            {activeTab === 'rules' ? (
+                <>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                        {showFullRules ? rulesText : rulesPreview}
+                    </p>
+                    {shouldTruncateRules && (
+                        <button
+                            type="button"
+                            onClick={() => setShowFullRules(prev => !prev)}
+                            className="mt-2 text-xs font-semibold text-[#FED800] hover:text-[#ffd700] transition-colors"
+                        >
+                            {showFullRules ? 'Show less' : 'Show more'}
+                        </button>
+                    )}
+                </>
+            ) : (
+                <p className="text-gray-400 text-sm leading-relaxed">{contextText}</p>
+            )}
+
+            {resolutionSource && (
+                <p className="text-gray-500 text-xs mt-3">
+                    Resolution source: <span className="text-gray-300">{resolutionSource}</span>
+                </p>
+            )}
+            {locksAt && (
+                <p className="text-gray-500 text-xs mt-1">
+                    Closes: <span className="text-gray-300">{formatMatchDate(locksAt)}</span>
+                    {resolutionDate && (
+                        <>
+                            {'  ·  '}
+                            Resolves: <span className="text-gray-300">{formatMatchDate(resolutionDate)}</span>
+                        </>
+                    )}
+                </p>
+            )}
+        </div>
+    )
+}
 
 function computeTicks(min: number, max: number) {
     if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1]
@@ -835,7 +926,6 @@ function PredictionMarketDetail({
     const [chartView, setChartView] = useState<ChartView>('yes')
     const [chartSettingsOpen, setChartSettingsOpen] = useState(false)
     const [showRecentActivity, setShowRecentActivity] = useState(false)
-    const [showFullRules, setShowFullRules] = useState(false)
 
     if (!marketData) return null
 
@@ -890,13 +980,6 @@ function PredictionMarketDetail({
     const chanceLabel = chartView === 'both'
         ? `${Math.round(latestYesVal * 100)}% chance`
         : `${Math.round(activeLatestVal * 100)}% chance`
-    const shouldTruncateRules = (market.description || '').length > 200
-
-    const [activeDescriptionTab , setActiveDescriptionTab] = useState<"rules" | "context">("rules") // defaults to rules
-    const rulesPreview = shouldTruncateRules
-        ? `${market.resolution_criteria.slice(0, 200).trimEnd()}...`
-        : market.resolution_criteria
-
     const volFormatted = market.total_collected >= 1_000_000
         ? `$${(market.total_collected / 1_000_000).toFixed(1)}M`
         : market.total_collected >= 1_000
@@ -1019,42 +1102,14 @@ function PredictionMarketDetail({
                 </div>
             )}
             
-            {/* market rules and description */}
-            <div className="px-4 mb-4 mt-4">
-                <div className="flex gap-6 mb-4">
-                    <button 
-                    onClick={() => setActiveDescriptionTab('rules')}
-                    className={`text-gray-500 text-sm font-semibold pb-1 
-                    ${activeDescriptionTab === 'rules' ? 'border-b-2 text-white border-white' : 'border-b-2 border-transparent'}`}>Rules</button>
-                    
-                    <button 
-                    onClick={()=> setActiveDescriptionTab("context")}
-                    className={`text-gray-500 text-sm font-semibold pb-1 
-                    ${activeDescriptionTab === 'context' ? 'border-b-2 text-white border-white' : 'border-b-2 border-transparent'}`}>Market Context</button>
-                </div>
-                {
-                    activeDescriptionTab === 'rules' ? ( // I named tihs activeRD to mean Rules and Description for the lack of a better word.
-                        <>
-                            <p className="text-gray-400 text-sm leading-relaxed">
-                                {showFullRules ? market.resolution_criteria : rulesPreview}
-                            </p>
-                            {shouldTruncateRules && (
-                                <button onClick={() => setShowFullRules(prev => !prev)} className="mt-2 text-xs font-semibold text-[#FED800] hover:text-[#ffd700] transition-colors">
-                                    {showFullRules ? 'Show less' : 'Show more'}
-                                </button>
-                            )}
-                        </>
-                        
-                    ) : (
-                        <p className="text-gray-400 text-sm leading-relaxed">
-                            {market.description}
-                        </p>
-                    )
-                }
-
-                {market.resolution_source && (<p className="text-gray-500 text-xs mt-3">Resolution source: <span className="text-gray-300">{market.resolution_source}</span></p>)}
-                {market.locks_at && (<p className="text-gray-500 text-xs mt-1">Closes: <span className="text-gray-300">{formatMatchDate(market.locks_at)}</span>{'  ·  '}Resolves: <span className="text-gray-300">{formatMatchDate(market.resolution_date)}</span></p>)}
-            </div>
+            <MarketRulesAndContext
+                className="px-4 mb-4 mt-4"
+                rules={market.resolution_criteria}
+                context={market.description}
+                resolutionSource={market.resolution_source}
+                locksAt={market.locks_at}
+                resolutionDate={market.resolution_date}
+            />
 
             {market.outcome && (
                 <div className={`mx-4 mb-4 rounded-xl p-4 ${market.outcome === 'yes' ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
@@ -1079,7 +1134,6 @@ function FixtureMarketDetail({
     isScrolled: boolean
 }) {
     const [activeTime, setActiveTime] = useState<TimeFilter>('1M')
-    const [showFullRules, setShowFullRules] = useState(false)
     const [showRecentActivity, setShowRecentActivity] = useState(false)
     const [activityData, setActivityData] = useState<RecentPredMktTradeActivityReturnType | null>(null)
 
@@ -1149,10 +1203,9 @@ function FixtureMarketDetail({
             ? { label: truncateTeamName(market.away_team, 14), pct: awayPct, color: FIXTURE_AWAY_COLOR }
             : { label: 'Draw', pct: drawPct, color: FIXTURE_DRAW_COLOR }
 
-    const shouldTruncateRules = (market.description || '').length > 200
-    const rulesPreview = shouldTruncateRules
-        ? `${market.description.slice(0, 200).trimEnd()}...`
-        : market.description
+    const fixtureRules =
+        (market as MatchPredictionMarketReturnType & { resolution_criteria?: string }).resolution_criteria
+        ?? market.description
 
     const handleRecentActivityClick = async () => {
         if (showRecentActivity) { setShowRecentActivity(false); return }
@@ -1391,36 +1444,14 @@ function FixtureMarketDetail({
                 </div>
             )}
 
-            {/* ── Rules / Description ── */}
-            <div className="px-4 mb-4 mt-2">
-                <div className="flex gap-6 mb-4">
-                    <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">Rules</button>
-                    <button className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">Market Context</button>
-                </div>
-                <p className="text-gray-400 text-sm leading-relaxed">
-                    {showFullRules ? market.description : rulesPreview}
-                </p>
-                {shouldTruncateRules && (
-                    <button
-                        onClick={() => setShowFullRules(p => !p)}
-                        className="mt-2 text-xs font-semibold text-[#FED800] hover:text-[#ffd700] transition-colors"
-                    >
-                        {showFullRules ? 'Show less' : 'Show more'}
-                    </button>
-                )}
-                {market.resolution_source && (
-                    <p className="text-gray-500 text-xs mt-3">
-                        Resolution source: <span className="text-gray-300">{market.resolution_source}</span>
-                    </p>
-                )}
-                {market.locks_at && (
-                    <p className="text-gray-500 text-xs mt-1">
-                        Closes: <span className="text-gray-300">{formatMatchDate(market.locks_at)}</span>
-                        {'  ·  '}
-                        Resolves: <span className="text-gray-300">{formatMatchDate(market.resolution_date)}</span>
-                    </p>
-                )}
-            </div>
+            <MarketRulesAndContext
+                className="px-4 mb-4 mt-2"
+                rules={fixtureRules}
+                context={market.description}
+                resolutionSource={market.resolution_source}
+                locksAt={market.locks_at}
+                resolutionDate={market.resolution_date}
+            />
 
             {/* Bottom spacer — buy bar sits above footer */}
             <div className="h-6" />
@@ -1820,16 +1851,14 @@ function SubMarketSlideOver({ subMarket, priceHistory, color, onClose, onRefresh
                             </div>
                         </div>
 
-                        {/* Description */}
-                        <div className="mb-4">
-                            <div className="flex items-center gap-2 text-gray-300 font-semibold text-sm mb-2">
-                                <BookOpen size={14} />
-                                Rules
-                            </div>
-                            <p className="text-gray-400 text-sm leading-relaxed">
-                                {subMarket.description || 'No description available.'}
-                            </p>
-                        </div>
+                        <MarketRulesAndContext
+                            className="mb-4"
+                            rules={subMarket.resolution_criteria ?? subMarket.description ?? ''}
+                            context={subMarket.description ?? ''}
+                            resolutionSource={subMarket.resolution_source}
+                            locksAt={subMarket.locks_at}
+                            resolutionDate={subMarket.resolution_date}
+                        />
 
                         {/* Resolved banner */}
                         {isResolved && (
@@ -2144,28 +2173,14 @@ export function GroupMarketDetail({ marketData, isScrolled, onRefreshMarket }: G
                 </div>
             </div>
 
-            {/* ── Rules ── */}
-            <div className="px-4 mb-4">
-                <div className="flex gap-6 mb-4">
-                    <button className="text-white text-sm font-semibold pb-1 border-b-2 border-white">Rules</button>
-                    <button className="text-gray-500 text-sm font-semibold pb-1 border-b-2 border-transparent">Market Context</button>
-                </div>
-                <p className="text-gray-400 text-sm leading-relaxed">
-                    {market.description || 'No description provided.'}
-                </p>
-                {market.resolution_source && (
-                    <p className="text-gray-500 text-xs mt-3">
-                        Resolution source: <span className="text-gray-300">{market.resolution_source}</span>
-                    </p>
-                )}
-                {market.locks_at && (
-                    <p className="text-gray-500 text-xs mt-1">
-                        Closes: <span className="text-gray-300">{new Date(market.locks_at).toLocaleDateString()}</span>
-                        {'  ·  '}
-                        Resolves: <span className="text-gray-300">{new Date(market.resolutoin_date ?? market.resolution_date ?? market.locks_at).toLocaleDateString()}</span>
-                    </p>
-                )}
-            </div>
+            <MarketRulesAndContext
+                className="px-4 mb-4"
+                rules={(market as PredictionMarketGroupReturnType & { resolution_criteria?: string }).resolution_criteria ?? market.description ?? ''}
+                context={market.description ?? ''}
+                resolutionSource={market.resolution_source}
+                locksAt={market.locks_at}
+                resolutionDate={market.resolutoin_date ?? (market as PredictionMarketGroupReturnType & { resolution_date?: string }).resolution_date}
+            />
 
             <div className="h-8" />
 
