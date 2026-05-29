@@ -24,7 +24,8 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useMemo, useRef } from "react"
 import {
     Menu, Search, ArrowLeft,
-    ChevronDown, CheckCircle2, AlertCircle, Minus, Plus, X, Settings2, ChevronDownIcon
+    ChevronDown, CheckCircle2, AlertCircle, Minus, Plus, X, Settings2, ChevronDownIcon,
+    BookOpen
 } from "lucide-react"
 import {
     LineChart, Line, XAxis, YAxis,
@@ -1495,7 +1496,7 @@ interface SubMarketSlideOverProps {
 
 function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverProps) {
     const [visible, setVisible] = useState(false)
-    const [sheet, setSheet] = useState<{ side: 'yes' | 'no' } | null>(null)
+    const [tradeSheet, setTradeSheet] = useState<{ side: 'yes' | 'no' } | null>(null)
 
     useEffect(() => {
         const t = setTimeout(() => setVisible(true), 10)
@@ -1511,34 +1512,6 @@ function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverPro
     const noPct   = 100 - yesPct
     const isLocked = subMarket.locks_at ? new Date(subMarket.locks_at) < new Date() : false
     const isResolved = !!subMarket.outcome
-
-    // Inline TradeSheet-like component (no external dependency needed)
-    const [tradeShares, setTradeShares] = useState(0)
-    const [tradeLoading, setTradeLoading] = useState(false)
-    const [tradeDone, setTradeDone] = useState(false)
-    const [tradeErr, setTradeErr] = useState<string | null>(null)
-    const [showTrade, setShowTrade] = useState(false)
-    const [tradeSide, setTradeSide] = useState<'yes' | 'no'>('yes')
-
-    const price   = tradeSide === 'yes' ? yesPct / 100 : noPct / 100
-    const cost    = tradeShares * price * 100
-    const toWin   = tradeShares * 100
-
-    const handleTrade = async () => {
-        if (tradeShares <= 0) return
-        setTradeLoading(true); setTradeErr(null)
-        try {
-            // dynamic import avoids circular-dep issues
-            const { executeBuy } = await import('@/app/api/predictionMarket')
-            await executeBuy(subMarket.id, tradeSide, tradeShares)
-            setTradeDone(true)
-            setTimeout(() => { setTradeDone(false); setShowTrade(false) }, 1400)
-        } catch (e: any) {
-            setTradeErr(e?.message || 'Something went wrong')
-        } finally {
-            setTradeLoading(false)
-        }
-    }
 
     return (
         <>
@@ -1649,14 +1622,14 @@ function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverPro
                     <div className="absolute bottom-0 left-0 right-0 bg-[#0f1923] border-t border-gray-800/60 px-4 py-3">
                         <div className="flex gap-3">
                             <button
-                                onClick={() => { setTradeSide('yes'); setShowTrade(true) }}
+                                onClick={() => setTradeSheet({ side: 'yes' })}
                                 disabled={isLocked}
                                 className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#1DA462] hover:bg-[#22c55e]"
                             >
                                 Buy Yes {yesPct.toFixed(0)}¢
                             </button>
                             <button
-                                onClick={() => { setTradeSide('no'); setShowTrade(true) }}
+                                onClick={() => setTradeSheet({ side: 'no' })}
                                 disabled={isLocked}
                                 className="flex-1 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50 bg-[#ef4444] hover:bg-[#f87171]"
                             >
@@ -1665,77 +1638,20 @@ function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverPro
                         </div>
                     </div>
                 )}
-
-                {/* Inline trade bottom-sheet (inside the slide-over) */}
-                {showTrade && (
-                    <>
-                        <div
-                            onClick={() => setShowTrade(false)}
-                            className="absolute inset-0 z-[9999] bg-black/60"
-                        />
-                        <div className="absolute left-0 right-0 bottom-0 z-[10000] rounded-t-2xl bg-[#16202C] overflow-hidden">
-                            <div className="flex justify-center pt-3 pb-1">
-                                <div className="w-9 h-1 rounded-full bg-gray-600" />
-                            </div>
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60">
-                                <p className="text-white text-base font-semibold">
-                                    Buy <span className={tradeSide === 'yes' ? 'text-emerald-400' : 'text-red-400'}>{tradeSide.toUpperCase()}</span>
-                                </p>
-                                <button onClick={() => setShowTrade(false)} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white">
-                                    <X size={17} />
-                                </button>
-                            </div>
-                            <div className="px-4 py-4 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-gray-400 text-sm">Current Price</span>
-                                    <span className="text-white font-bold text-lg">{(price * 100).toFixed(0)}¢</span>
-                                </div>
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-gray-400 text-sm">Shares</span>
-                                        <input
-                                            type="number"
-                                            value={tradeShares || ''}
-                                            onChange={e => setTradeShares(Math.max(0, parseInt(e.target.value) || 0))}
-                                            placeholder="0"
-                                            className="bg-gray-800/50 text-white font-bold text-xl text-right w-24 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-gray-800/70 placeholder-gray-500 tabular-nums rounded-lg px-3 py-1.5 border border-gray-700/50"
-                                        />
-                                    </div>
-                                    <div className="flex gap-1.5">
-                                        {[-100, -10, +10, +100, +200].map((d, i) => (
-                                            <button key={i} onClick={() => setTradeShares(p => Math.max(0, p + d))}
-                                                className="flex-1 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white bg-[#23313D]">
-                                                {d > 0 ? `+${d}` : d}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="border-t border-gray-800/60" />
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400 text-sm">Total</span>
-                                    <span className="text-emerald-400 font-semibold text-sm">{cost > 0 ? `KES ${cost.toFixed(2)}` : '$0'}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400 text-sm">To win</span>
-                                    <span className="text-emerald-400 font-semibold text-sm">{toWin > 0 ? `💵 KES ${toWin.toFixed(2)}` : '$0'}</span>
-                                </div>
-                                {tradeErr && <p className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded-lg">{tradeErr}</p>}
-                                <button
-                                    onClick={handleTrade}
-                                    disabled={tradeLoading || tradeShares <= 0 || tradeDone}
-                                    className="w-full py-4 rounded-xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
-                                    style={{ background: tradeDone ? '#10b981' : tradeSide === 'yes' ? '#1DA462' : '#ef4444' }}
-                                >
-                                    {tradeDone ? (<><CheckCircle2 size={18} /> Done!</>)
-                                      : tradeLoading ? (<><div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Processing…</>)
-                                      : `Buy ${tradeSide.toUpperCase()}`}
-                                </button>
-                                <div className="h-2" />
-                            </div>
-                        </div>
-                    </>
-                )}
             </div>
+
+            {tradeSheet && (
+                <TradeSheet
+                    type="normal"
+                    mode="buy"
+                    side={tradeSheet.side}
+                    yesPct={yesPct}
+                    noPct={noPct}
+                    marketId={subMarket.id ?? 0}
+                    question={subMarket.question ?? ''}
+                    onClose={() => setTradeSheet(null)}
+                />
+            )}
         </>
     )
 }
