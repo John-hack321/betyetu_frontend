@@ -196,6 +196,7 @@ function TradeSheet({
     marketId,
     question,
     onClose,
+    onTradeComplete,
 }: {
     type: "normal" | "match_based"
     mode: 'buy' | 'sell'
@@ -205,6 +206,7 @@ function TradeSheet({
     marketId: number
     question: string
     onClose: () => void
+    onTradeComplete?: () => void | Promise<void>
 }) {
     const [shares, setShares] = useState(0)
     const [loading, setLoading] = useState(false)
@@ -289,6 +291,7 @@ function TradeSheet({
                 await executeSell(marketId, side, shares)
             }
             setDone(true)
+            await onTradeComplete?.()
             setTimeout(() => { setDone(false); handleClose() }, 1400)
         } catch (e: any) {
             setErr(e?.message || 'Something went wrong')
@@ -1451,6 +1454,59 @@ function formatVolumeTiny(n: number): string {
     return `$${n.toFixed(0)}`
 }
 
+const GROUP_TIME_CUTOFFS = {
+    '6H': 6 * 3600_000,
+    '1D': 86_400_000,
+    '1W': 7 * 86_400_000,
+    '1M': 30 * 86_400_000,
+    'MAX': Infinity,
+} as const
+type GroupTimeFilter = keyof typeof GROUP_TIME_CUTOFFS
+
+/** Build multi-line group chart from every sub-market trade (buy + sell). */
+function buildGroupChartData(
+    top4: PredictionMarketDetailReturn[],
+    activeTime: GroupTimeFilter,
+): Record<string, unknown>[] {
+    const now = Date.now()
+    const cutoff = GROUP_TIME_CUTOFFS[activeTime]
+
+    const histories = top4.map(sm => ({
+        defaultPrice: sm.market?.p_yes ?? 0.5,
+        ph: [...(sm.price_history ?? [])]
+            .filter(p => cutoff === Infinity || now - new Date(p.created_at).getTime() <= cutoff)
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    }))
+
+    const timeSet = new Set<number>()
+    histories.forEach(({ ph }) => {
+        ph.forEach(p => timeSet.add(new Date(p.created_at).getTime()))
+    })
+    const sortedTimes = [...timeSet].sort((a, b) => a - b)
+    if (!sortedTimes.length) return []
+
+    return sortedTimes.map((t, i) => {
+        const d = new Date(t)
+        const point: Record<string, unknown> = {
+            xIndex: i,
+            label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        }
+        histories.forEach(({ defaultPrice, ph }, si) => {
+            let price = defaultPrice
+            for (const pt of ph) {
+                if (new Date(pt.created_at).getTime() <= t) {
+                    price = pt.yes_price_at_trade
+                } else {
+                    break
+                }
+            }
+            point[`line${si}`] = price
+        })
+        return point
+    })
+}
+
 function computeGroupTicks(min: number, max: number): number[] {
     if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
         return [parseFloat(min.toFixed(2)), parseFloat(max.toFixed(2))].filter((v, i, a) => a.indexOf(v) === i)
@@ -1493,9 +1549,10 @@ interface SubMarketSlideOverProps {
     priceHistory: PricePoint[]
     color: GroupColor
     onClose: () => void
+    onRefreshMarket?: () => void | Promise<void>
 }
 
-function SubMarketSlideOver({ subMarket, priceHistory, color, onClose }: SubMarketSlideOverProps) {
+function SubMarketSlideOver({ subMarket, priceHistory, color, onClose, onRefreshMarket }: SubMarketSlideOverProps) {
     const [visible, setVisible] = useState(false)
     const [tradeSheet, setTradeSheet] = useState<{ side: 'yes' | 'no' } | null>(null)
     const [activeTime, setActiveTime] = useState<TimeFilter>('1M')
@@ -1821,6 +1878,7 @@ function SubMarketSlideOver({ subMarket, priceHistory, color, onClose }: SubMark
                     marketId={subMarket.id ?? 0}
                     question={subMarket.question ?? ''}
                     onClose={() => setTradeSheet(null)}
+                    onTradeComplete={onRefreshMarket}
                 />
             )}
         </>
@@ -1832,10 +1890,11 @@ function SubMarketSlideOver({ subMarket, priceHistory, color, onClose }: SubMark
 interface GroupMarketDetailProps {
     marketData: PredictionMarketGroupDetailReturn
     isScrolled: boolean
+    onRefreshMarket?: () => void | Promise<void>
 }
 
 
-export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailProps) {
+export function GroupMarketDetail({ marketData, isScrolled, onRefreshMarket }: GroupMarketDetailProps) {
     const market     = marketData.market
     const subMarkets: PredictionMarketDetailReturn[] = marketData.sub_markets ?? []
 
@@ -1848,48 +1907,12 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
     const top4 = ranked.slice(0, 4)
 
     const TIME_FILTERS_LOCAL = ['6H', '1D', '1W', '1M', 'MAX'] as const
-    type TF = typeof TIME_FILTERS_LOCAL[number]
-    const [activeTime, setActiveTime] = useState<TF>('1M')
+    const [activeTime, setActiveTime] = useState<GroupTimeFilter>('1M')
 
-    const chartData = useMemo(() => {
-        if (!top4.length) return []
-        const now = new Date()
-        const cutoffs: Record<TF, number> = {
-            '6H': 6 * 3600_000, '1D': 86_400_000,
-            '1W': 7 * 86_400_000, '1M': 30 * 86_400_000, 'MAX': Infinity,
-        }
-        const cutoff = cutoffs[activeTime]
-        const backbone: any[] = top4
-            .map(sm => sm.price_history ?? [])
-            .reduce((longest, ph) => ph.length > longest.length ? ph : longest, [])
-        if (!backbone.length) return []
-        return backbone
-            .filter(p => cutoff === Infinity || now.getTime() - new Date(p.created_at).getTime() <= cutoff)
-            .map((p, i) => {
-                const d = new Date(p.created_at)
-                const point: Record<string, any> = {
-                    xIndex: i,
-                    label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                    fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-                }
-                top4.forEach((sm, si) => {
-                    const ph: any[] = sm.price_history ?? []
-                    if (ph.length) {
-                        const target = d.getTime()
-                        let closest = ph[0]
-                        let diff = Math.abs(new Date(ph[0].created_at).getTime() - target)
-                        for (const pt of ph) {
-                            const d2 = Math.abs(new Date(pt.created_at).getTime() - target)
-                            if (d2 < diff) { diff = d2; closest = pt }
-                        }
-                        point[`line${si}`] = closest.yes_price_at_trade
-                    } else {
-                        point[`line${si}`] = sm.market?.p_yes ?? 0.5
-                    }
-                })
-                return point
-            })
-    }, [top4, activeTime])
+    const chartData = useMemo(
+        () => buildGroupChartData(top4, activeTime),
+        [top4, activeTime],
+    )
 
     const yValues = chartData.flatMap(d => top4.map((_, si) => d[`line${si}`] as number).filter(Boolean))
     const dataMin = yValues.length ? Math.min(...yValues) : 0
@@ -1908,6 +1931,26 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
 
     // ── Trade sheet: opens when Yes / No button is clicked ──────────
     const [tradeSheet, setTradeSheet] = useState<{ sm: any; side: 'yes' | 'no'; color: GroupColor } | null>(null)
+
+    // Keep slide-over / list trade sheet in sync after a refetch (e.g. post sell)
+    useEffect(() => {
+        if (openSubMarket?.sm?.id != null) {
+            const updated = subMarkets.find(s => s.market?.id === openSubMarket.sm.id)
+            if (updated) {
+                setOpenSubMarket(prev => prev ? {
+                    ...prev,
+                    sm: updated.market,
+                    priceHistory: (updated.price_history ?? []) as PricePoint[],
+                } : null)
+            }
+        }
+        if (tradeSheet?.sm?.id != null) {
+            const updated = subMarkets.find(s => s.market?.id === tradeSheet.sm.id)
+            if (updated?.market) {
+                setTradeSheet(prev => prev ? { ...prev, sm: updated.market } : null)
+            }
+        }
+    }, [subMarkets])
 
     return (
         <div className="flex flex-col bg-[#1a2633]">
@@ -1960,7 +2003,7 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                                 ticks={xEdgeTicks}
                                 padding={{ left: 24, right: 24 }}
                                 allowDecimals={false}
-                                tickFormatter={value => chartData[value]?.label ?? ''}
+                                tickFormatter={value => String(chartData[value]?.label ?? '')}
                                 tick={{ fill: '#6b7280', fontSize: 14 }}
                                 tickLine={false} tickMargin={20} axisLine={false}
                                 interval="preserveStartEnd"
@@ -2133,6 +2176,7 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                     priceHistory={openSubMarket.priceHistory}
                     color={openSubMarket.color}
                     onClose={() => setOpenSubMarket(null)}
+                    onRefreshMarket={onRefreshMarket}
                 />
             )}
 
@@ -2147,6 +2191,7 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                     marketId={tradeSheet.sm?.id ?? 0}
                     question={tradeSheet.sm?.question ?? ''}
                     onClose={() => setTradeSheet(null)}
+                    onTradeComplete={onRefreshMarket}
                 />
             )}
         </div>
@@ -2157,10 +2202,12 @@ function MarketDetailContentRouter({
     marketType,
     marketData,
     isScrolled,
+    onRefreshMarket,
 }: {
     marketType: "fixture" | "group" | "prediction" | ""
     marketData: any
     isScrolled: boolean
+    onRefreshMarket?: () => void | Promise<void>
 }) {
     if (!marketData) return (
         <div className="flex items-center justify-center py-24">
@@ -2169,7 +2216,7 @@ function MarketDetailContentRouter({
     )
     switch (marketType) {
         case 'fixture': return <FixtureMarketDetail marketData={marketData} isScrolled={isScrolled} />
-        case 'group': return <GroupMarketDetail marketData={marketData} isScrolled={isScrolled} />
+        case 'group': return <GroupMarketDetail marketData={marketData} isScrolled={isScrolled} onRefreshMarket={onRefreshMarket} />
         case 'prediction': return <PredictionMarketDetail marketData={marketData} isScrolled={isScrolled} />
         default: return <div className="p-4 text-gray-400">Unknown market type</div>
     }
@@ -2241,18 +2288,21 @@ function MarketDetailPageInner() {
     } | null>(null)
     const [mode] = useState<{ option: "buy" | "sell" }>({ option: "buy" })
 
+    const loadMarketDetail = async () => {
+        const type = marketType as "fixture" | "group" | "prediction"
+        setMarketToRender(type || "")
+        if (type) {
+            const data = await fetchMarketDetail(marketId, type)
+            setMarketData(data)
+        }
+    }
+
     useEffect(() => {
         dispatch(updateCurrentPage('markets'))
         const init = async () => {
             try {
                 setLoading(true)
-                const type = marketType as "fixture" | "group" | "prediction"
-                setMarketToRender(type || "")
-                if (type) {
-                    const data = await fetchMarketDetail(marketId, type)
-                    setMarketData(data)
-                    console.log("data gotten back is : ", data)
-                }
+                await loadMarketDetail()
             } catch (err) {
                 console.error(err)
             } finally {
@@ -2338,6 +2388,7 @@ function MarketDetailPageInner() {
                         marketType={marketToRender}
                         marketData={marketData}
                         isScrolled={isBodyScrolled}
+                        onRefreshMarket={loadMarketDetail}
                     />
                 )}
             </div>
