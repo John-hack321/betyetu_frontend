@@ -1490,13 +1490,17 @@ function GroupChartTooltip({ active, payload }: any) {
 // ─── Sub-market detail slide-over ────────────────────────────────
 interface SubMarketSlideOverProps {
     subMarket: any          // PredictionMarketDetailReturn['market'] + option
+    priceHistory: PricePoint[]
     color: GroupColor
     onClose: () => void
 }
 
-function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverProps) {
+function SubMarketSlideOver({ subMarket, priceHistory, color, onClose }: SubMarketSlideOverProps) {
     const [visible, setVisible] = useState(false)
     const [tradeSheet, setTradeSheet] = useState<{ side: 'yes' | 'no' } | null>(null)
+    const [activeTime, setActiveTime] = useState<TimeFilter>('1M')
+    const [chartView, setChartView] = useState<ChartView>('yes')
+    const [chartSettingsOpen, setChartSettingsOpen] = useState(false)
 
     useEffect(() => {
         const t = setTimeout(() => setVisible(true), 10)
@@ -1512,6 +1516,65 @@ function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverPro
     const noPct   = 100 - yesPct
     const isLocked = subMarket.locks_at ? new Date(subMarket.locks_at) < new Date() : false
     const isResolved = !!subMarket.outcome
+
+    const chartData = useMemo(() => {
+        if (!priceHistory.length) return []
+        let filtered = [...priceHistory]
+        const now = new Date()
+        const cutoffs: Record<TimeFilter, number> = {
+            '6H': 6 * 60 * 60 * 1000,
+            '1D': 24 * 60 * 60 * 1000,
+            '1W': 7 * 24 * 60 * 60 * 1000,
+            '1M': 30 * 24 * 60 * 60 * 1000,
+            'MAX': Infinity,
+        }
+        const cutoff = cutoffs[activeTime]
+        if (cutoff !== Infinity) {
+            filtered = filtered.filter(p => now.getTime() - new Date(p.created_at).getTime() <= cutoff)
+        }
+        if (!filtered.length) filtered = priceHistory
+        return filtered.map((p, index) => {
+            const d = new Date(p.created_at)
+            const yesValue = p.yes_price_at_trade
+            return {
+                xIndex: index,
+                yesValue,
+                noValue: 1 - yesValue,
+                label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                fullDate: d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+            }
+        })
+    }, [priceHistory, activeTime])
+
+    const latestYesVal = chartData.length ? chartData[chartData.length - 1].yesValue : yesPct / 100
+    const firstYesVal = chartData.length ? chartData[0].yesValue : yesPct / 100
+    const latestNoVal = chartData.length ? chartData[chartData.length - 1].noValue : noPct / 100
+    const firstNoVal = chartData.length ? chartData[0].noValue : noPct / 100
+    const activeLatestVal = chartView === 'no' ? latestNoVal : latestYesVal
+    const activeFirstVal = chartView === 'no' ? firstNoVal : firstYesVal
+    const activeDelta = activeLatestVal - activeFirstVal
+    const trending = activeDelta >= 0
+    const chanceLabel = chartView === 'both'
+        ? `${Math.round(latestYesVal * 100)}% chance`
+        : `${Math.round(activeLatestVal * 100)}% chance`
+
+    const volFormatted = (subMarket.total_collected ?? 0) >= 1_000_000
+        ? `$${((subMarket.total_collected ?? 0) / 1_000_000).toFixed(1)}M`
+        : (subMarket.total_collected ?? 0) >= 1_000
+            ? `$${((subMarket.total_collected ?? 0) / 1_000).toFixed(1)}K`
+            : `$${(subMarket.total_collected ?? 0).toFixed(0)}`
+
+    const yValues = chartData.flatMap(d => {
+        if (chartView === 'both') return [d.yesValue, d.noValue]
+        return [chartView === 'no' ? d.noValue : d.yesValue]
+    })
+    const dataMin = yValues.length ? Math.min(...yValues) : 0
+    const dataMax = yValues.length ? Math.max(...yValues) : 1
+    const padding = Math.max((dataMax - dataMin) * 0.15, 0.03)
+    const yMin = Math.max(0, dataMin - padding)
+    const yMax = Math.min(1, dataMax + padding)
+    const yTicks = computeTicks(yMin, yMax)
+    const xEdgeTicks = chartData.length > 0 ? [0, chartData.length - 1] : []
 
     return (
         <>
@@ -1553,16 +1616,124 @@ function SubMarketSlideOver({ subMarket, color, onClose }: SubMarketSlideOverPro
                         <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-semibold">
                             {subMarket.category}
                         </p>
-                        <h2 className="text-white font-bold text-lg leading-snug mb-5">
+                        <h2 className="text-white font-bold text-lg leading-snug mb-4">
                             {subMarket.question}
                         </h2>
 
-                        {/* Big probability */}
-                        <div className="flex items-baseline gap-2 mb-4">
-                            <span className="text-3xl font-black" style={{ color }}>
-                                {yesPct.toFixed(0)}% chance
+                        {/* Chance + trend (matches individual prediction market) */}
+                        <div className="flex items-baseline gap-2 mb-3">
+                            <span className={`text-2xl font-black ${chartView === 'no' ? 'text-red-400' : ''}`} style={chartView !== 'no' ? { color } : undefined}>
+                                {chanceLabel}
                             </span>
+                            {chartView !== 'both' && chartData.length > 1 && (
+                                <span className={`text-sm font-semibold ${trending ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    {trending ? '▾' : '▴'} {Math.abs(activeDelta * 100).toFixed(0)}%
+                                </span>
+                            )}
                         </div>
+
+                        {/* Price history chart */}
+                        <div className="w-full -mx-1 mb-2" style={{ height: 240 }}>
+                            {chartData.length > 1 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData} margin={{ top: 8, right: 1, left: 8, bottom: 8 }}>
+                                        <CartesianGrid horizontal={true} vertical={false} stroke="#334155" strokeDasharray="3 3" />
+                                        <XAxis
+                                            dataKey="xIndex"
+                                            type="number"
+                                            domain={[0, Math.max(chartData.length - 1, 0)]}
+                                            ticks={xEdgeTicks}
+                                            padding={{ left: 24, right: 24 }}
+                                            allowDecimals={false}
+                                            tickFormatter={value => chartData[value]?.label ?? ''}
+                                            tick={{ fill: '#6b7280', fontSize: 12 }}
+                                            tickLine={false}
+                                            tickMargin={16}
+                                            axisLine={false}
+                                            interval="preserveStartEnd"
+                                        />
+                                        <YAxis
+                                            orientation="right"
+                                            domain={[yMin, yMax]}
+                                            ticks={yTicks}
+                                            tickFormatter={v => `${(v * 100).toFixed(0)}%`}
+                                            tick={{ fill: '#6b7280', fontSize: 11 }}
+                                            tickLine={false}
+                                            axisLine={false}
+                                            width={42}
+                                        />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        {(chartView === 'yes' || chartView === 'both') && (
+                                            <Line type="monotone" dataKey="yesValue" name="Yes" stroke="#3b82f6" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#3b82f6', stroke: '#0f1923', strokeWidth: 2 }} />
+                                        )}
+                                        {(chartView === 'no' || chartView === 'both') && (
+                                            <Line type="monotone" dataKey="noValue" name="No" stroke="#ef4444" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#ef4444', stroke: '#0f1923', strokeWidth: 2 }} />
+                                        )}
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex items-center justify-center rounded-lg bg-[#131e28]/50 border border-white/5">
+                                    <p className="text-gray-600 text-sm">Not enough data for this period</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex items-center justify-between mb-4 gap-2">
+                            <span className="text-gray-400 text-xs font-semibold">{volFormatted} Vol.</span>
+                            <div className="flex items-center gap-0.5">
+                                {TIME_FILTERS.map(f => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setActiveTime(f)}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${activeTime === f ? 'bg-white text-black' : 'text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={() => setChartSettingsOpen(true)}
+                                    aria-label="Open chart settings"
+                                    className="w-6 h-6 rounded-md border border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500 flex items-center justify-center transition-colors"
+                                >
+                                    <Settings2 size={12} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {chartSettingsOpen && (
+                            <>
+                                <div className="fixed inset-0 z-[10010] bg-black/55" onClick={() => setChartSettingsOpen(false)} />
+                                <div className="fixed left-1/2 top-1/2 z-[10011] w-[88%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-700 bg-[#16202C] p-4 shadow-2xl">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-white text-sm font-semibold">Chart display</h3>
+                                        <button onClick={() => setChartSettingsOpen(false)} className="text-gray-400 hover:text-gray-200 transition-colors">
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {(['yes', 'no', 'both'] as ChartView[]).map(v => (
+                                            <button
+                                                key={v}
+                                                onClick={() => { setChartView(v); setChartSettingsOpen(false) }}
+                                                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+                                                    chartView === v
+                                                        ? v === 'yes'
+                                                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
+                                                            : v === 'no'
+                                                                ? 'bg-red-500/15 text-red-300 border-red-400/40'
+                                                                : 'bg-sky-500/15 text-sky-300 border-sky-400/40'
+                                                        : 'text-gray-300 border-gray-700 hover:border-gray-500'
+                                                }`}
+                                            >
+                                                {v === 'yes' ? 'Yes line only' : v === 'no' ? 'No line only' : 'Show both lines'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        <div className="h-px bg-gray-800/70 mb-4" />
 
                         {/* YES / NO bar */}
                         <div className="mb-6">
@@ -1733,7 +1904,7 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
     const volLabel  = formatVolumeTiny(totalVol)
 
     // ── Slide-over: opens when the sub-market label/row is clicked ──
-    const [openSubMarket, setOpenSubMarket] = useState<{ sm: any; color: GroupColor } | null>(null)
+    const [openSubMarket, setOpenSubMarket] = useState<{ sm: any; priceHistory: PricePoint[]; color: GroupColor } | null>(null)
 
     // ── Trade sheet: opens when Yes / No button is clicked ──────────
     const [tradeSheet, setTradeSheet] = useState<{ sm: any; side: 'yes' | 'no'; color: GroupColor } | null>(null)
@@ -1878,7 +2049,11 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
                                     {/* Option label — click opens the slide-over */}
                                     <div
                                         className="flex-1 min-w-0 max-w-1/3 cursor-pointer"
-                                        onClick={() => setOpenSubMarket({ sm: sm.market, color: isTop4 ? color : '#6b7280' as GroupColor })}
+                                        onClick={() => setOpenSubMarket({
+                                            sm: sm.market,
+                                            priceHistory: (sm.price_history ?? []) as PricePoint[],
+                                            color: isTop4 ? color : '#6b7280' as GroupColor,
+                                        })}
                                     >
                                         <div className="flex items-baseline justify-between mb-1.5">
                                             <span className="text-white font-semibold text-base leading-snug truncate pr-2">
@@ -1955,6 +2130,7 @@ export function GroupMarketDetail({ marketData, isScrolled }: GroupMarketDetailP
             {openSubMarket && (
                 <SubMarketSlideOver
                     subMarket={openSubMarket.sm}
+                    priceHistory={openSubMarket.priceHistory}
                     color={openSubMarket.color}
                     onClose={() => setOpenSubMarket(null)}
                 />
