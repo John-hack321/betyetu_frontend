@@ -49,7 +49,7 @@ function Home() {
     const [search, setSearch]= useState("")
 
     // pool stake handlers
-    const [showPoolMarkets, setShowPoolMarkets]= useState(false)
+    // const [showPoolMarkets, setShowPoolMarkets]= useState(false)
     const [selectedStakeId, setSelectedStakeId] = useState<number | null>(null)
 
     // Menu state — local, not Redux
@@ -71,6 +71,7 @@ function Home() {
     const [error, setError] = useState<string | null>(null)
 
     // pool logic functions: 
+    {/**
     const handlePoolButtonClick = (stakeId: number, option: 'home' | 'away' | 'draw', matchId: number, homeTeam: string, awayTeam: string) => {
         if (selectedStakeId === stakeId && selectedOption === option) {
             setSelectedStakeId(null)
@@ -101,10 +102,13 @@ function Home() {
             console.log("the pool staking data has been updated succesfuly based on option")
         }
     }
-
+         */}
+    
+    {/** pool stake logic is being eliminated for now 
     const handlePoolStakeButtonClick = () => {
         router.push('/poolStakingPage')
     }
+     */}
 
     // Filter state
     const [filterState, setFilterState] = useState<FilterState>({
@@ -119,34 +123,34 @@ function Home() {
         { id: 'top', name: 'Top' },
     ]
 
-    const filteredPoolStakes = useMemo(() => {
-        if (!poolStakesData.data || poolStakesData.data.length === 0) return []
-        let poolSakesCopy = [...poolStakesData.data]
-
-        let searchFilteredPoolStakes = poolSakesCopy.filter(poolStake => {
-            const userSearch = search.toLowerCase()
-            return leagueListData.find((league) => league.id === poolStake.league_id)?.name.toLowerCase().includes(userSearch) // since we alrady haev league data here
-            || poolStake.home_team.toLowerCase().includes(userSearch) 
-            || poolStake.away_team.toLowerCase().includes(userSearch)
-        })
-
-        switch (filterState.type) {
-            case 'all':
-                return searchFilteredPoolStakes
-            case 'leagues':
-                if (filterState.leagueId !== null) {
-                    return searchFilteredPoolStakes.filter((m) => m.league_id === filterState.leagueId)
-                }
-                return searchFilteredPoolStakes
-            // case 'live':
-            //     return searchFilteredPoolStakes.filter((m) => m.status === 'live')
-            case 'top':
-                return searchFilteredPoolStakes.filter((m) => (m.away_pool_count + m.home_pool_count + m.draw_pool_count) > 100)
-            default:
-                return searchFilteredPoolStakes
-        }
-
-    }, [poolStakesData.data, selectedMatchId, filterState, leagueListData, search])
+    //const filteredPoolStakes = useMemo(() => {
+    //    if (!poolStakesData.data || poolStakesData.data.length === 0) return []
+    //    let poolSakesCopy = [...poolStakesData.data]
+    //
+    //    let searchFilteredPoolStakes = poolSakesCopy.filter(poolStake => {
+    //        const userSearch = search.toLowerCase()
+    //        return leagueListData.find((league) => league.id === poolStake.league_id)?.name.toLowerCase().includes(userSearch) // since we alrady haev league data here
+    //        || poolStake.home_team.toLowerCase().includes(userSearch) 
+    //        || poolStake.away_team.toLowerCase().includes(userSearch)
+    //    })
+    //
+    //    switch (filterState.type) {
+    //        case 'all':
+    //            return searchFilteredPoolStakes
+    //        case 'leagues':
+    //            if (filterState.leagueId !== null) {
+    //                return searchFilteredPoolStakes.filter((m) => m.league_id === filterState.leagueId)
+    //            }
+    //            return searchFilteredPoolStakes
+    //        // case 'live':
+    //        //     return searchFilteredPoolStakes.filter((m) => m.status === 'live')
+    //        case 'top':
+    //            return searchFilteredPoolStakes.filter((m) => (m.away_pool_count + m.home_pool_count + m.draw_pool_count) > 100)
+    //        default:
+    //            return searchFilteredPoolStakes
+    //    }
+    //
+    // }, [poolStakesData.data, selectedMatchId, filterState, leagueListData, search])
 
     const filteredFixtures = useMemo(() => {
         if (!matchData.data || matchData.data.length === 0) return []
@@ -245,14 +249,14 @@ function Home() {
     useEffect(() => {
         const init = async () => {
             try {
-                const [leagues, fixtures, poolMarkets] = await Promise.all([
+                const [leagues, fixtures] = await Promise.all([
                     getAvailableLeagues(),
                     fetchAllFixtures(100, 1),
-                    fetchPoolStakes(1, 100),
+                    // fetchPoolStakes(1, 100), we have done away with pool markets
                 ])
                 if (leagues) dispatch(updateLeagueData(leagues))
                 if (fixtures) dispatch(updateAllFixturesData(fixtures))
-                if (poolMarkets) dispatch(updatePoolMarketData(poolMarkets))
+                // if (poolMarkets) dispatch(updatePoolMarketData(poolMarkets))
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load data')
             } finally {
@@ -306,7 +310,7 @@ function Home() {
             />
 
             {/* Header */}
-            <div className="flex-none bg-[#1a2633] px-4 py-4 md:shadow-none shadow-lg md:px-6 z-20 border-b md:border-none border-gray-800">
+            <div className="flex-none bg-[#1a2633] px-4 pt-4 pb-2 md:shadow-none sm:shadow-none lg:shadow-lg md:px-6 z-20 lg:border-b md:border-none lg:border-gray-800">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {/* Hamburger — mobile only */}
@@ -437,9 +441,12 @@ function Home() {
                             </div>
 
                             {/* for toggling pool markets on and off for viewing */}
-                            <PoolMarketsToggle
+                            {/** we are doing away with this poolstake functionality for now
+                            <PoolMarketsToggle // since we aiming to do away with this we will also have to do away with the toggle too.
                             active={showPoolMarkets}
                             onToggle={() => setShowPoolMarkets(!showPoolMarkets)}/>
+
+                             */}
 
                         </div>
                         {filterState.type === 'leagues' && (
@@ -479,6 +486,60 @@ function Home() {
 
                     </div>
 
+
+                    <div className="px-2 pt-2 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
+                        {filteredFixtures.length > 0 ? (
+                            <>
+                                {filteredFixtures.map((match) => (
+                                    <div key={match.match_id} className="mb-3 lg:mb-0">
+                                        <FixtureCard
+                                            keyId={match.match_id}
+                                            clickedFixtureId={selectedMatchId}
+                                            league={match.league_name}
+                                            matchTime={match.match_date}
+                                            homeTeam={match.home_team}
+                                            awayTeam={match.away_team}
+                                            onClickHomeButton={() => handleOptionclick(match.match_id, 'home', match.home_team, match.home_team, match.away_team)}
+                                            onClickAwayButton={() => handleOptionclick(match.match_id, 'away', match.away_team, match.home_team, match.away_team)}
+                                            onClickDrawButton={() => handleOptionclick(match.match_id, 'draw', 'draw', match.home_team, match.away_team)}
+                                            onClickStakeButton={handleStakeButtonClick}
+                                            homeButtonClicked={selectedMatchId === match.match_id && selectedOption === 'home'}
+                                            awayButtonClicked={selectedMatchId === match.match_id && selectedOption === 'away'}
+                                            drawButtonClicked={selectedMatchId === match.match_id && selectedOption === 'draw'}
+                                            isMatchLive={match.is_match_live}
+                                            scoreString={match.score_string}
+                                        />
+                                    </div>
+                                ))}
+
+                                <div
+                                    ref={loaderRef}
+                                    className="py-8 flex justify-center items-center min-h-[100px]"
+                                    style={{ marginBottom: '20px' }}
+                                >
+                                    {isFetching ? (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]"></div>
+                                            <p className="text-gray-400 text-xs">Loading more...</p>
+                                        </div>
+                                    ) : matchData.has_next_page ? (
+                                        <p className="text-gray-500 text-xs">↓ Scroll for more ↓</p>
+                                    ) : (
+                                        <p className="text-gray-400 text-sm">✓ All matches loaded</p>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex items-center justify-center h-64">
+                                <div className="text-center">
+                                    <p className="text-gray-400 text-lg mb-2">No matches found</p>
+                                    <p className="text-gray-500 text-sm">Try changing your filter</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* for now we have decided to move without without this pool stakig stuff so that we only have the normal stakes
                     { showPoolMarkets ? (
                         <div className="px-2 pt-2 lg:px-0 lg:grid lg:grid-cols-2 lg:gap-4 staggered-grid">
                             { filteredPoolStakes.length > 0 ? (
@@ -567,6 +628,9 @@ function Home() {
                         )}
                     </div>
                     ) }
+
+
+                     */}
 
                 </div>
 
