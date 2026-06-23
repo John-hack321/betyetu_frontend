@@ -38,6 +38,8 @@ import { useRouter } from "next/navigation"
 import { formatMatchDate } from "@/utils/dateUtils"
 import { updateCurrentPage } from "@/app/app_state/slices/pageTracking"
 import { truncateTeamName } from "@/app/components/fixtureCard"
+import MarketsDesktopSidebar from "@/app/components/marketsDesktopSidebar"
+import DesktopTradePanel from "@/app/components/desktopTradePanel"
 
 type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon'
 
@@ -1035,7 +1037,7 @@ function PredictionMarketDetail({
                     <span>peerstake</span>
                 </div>
             </div>
-            <div className="w-full" style={{ height: 300 }}>
+            <div className="w-full h-[300px] lg:h-[380px]">
                 {chartData.length > 1 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData} margin={{ top: 8, right: 1, left: 8, bottom: 8 }}>
@@ -1315,7 +1317,7 @@ function FixtureMarketDetail({
             </div>
 
             {/* ── Chart — three lines ── */}
-            <div className="w-full" style={{ height: 280 }}>
+            <div className="w-full h-[280px] lg:h-[360px]">
                 {chartData.length > 1 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData} margin={{ top: 8, right: 1, left: 8, bottom: 8 }}>
@@ -2021,7 +2023,7 @@ export function GroupMarketDetail({ marketData, isScrolled, onRefreshMarket }: G
             </div>
 
             {/* ── Chart — 4 coloured lines ── */}
-            <div className="w-full" style={{ height: 280 }}>
+            <div className="w-full h-[280px] lg:h-[360px]">
                 {chartData.length > 1 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData} margin={{ top: 8, right: 1, left: 8, bottom: 8 }}>
@@ -2360,8 +2362,8 @@ function MarketDetailPageInner() {
                     </div>
                 </div>
 
-                {/* Filter tabs */}
-                <div className="mt-4 overflow-x-scroll hide-horizontal-scrollbar">
+                {/* Filter tabs — mobile only */}
+                <div className="mt-4 overflow-x-scroll hide-horizontal-scrollbar lg:hidden">
                     <div className="flex gap-6 min-w-max">
                         {filterTabs.map((tab) => (
                             <button
@@ -2378,32 +2380,59 @@ function MarketDetailPageInner() {
                 </div>
             </div>
 
-            {/* ── Scrollable body ── */}
-            <div
-                className="flex-1 overflow-y-auto bg-[#1a2633] hide-vertical-scrollbar"
-                onScroll={(e) => setIsBodyScrolled(e.currentTarget.scrollTop > 0)}
-            >
-                <button
-                    onClick={() => router.push('/markets')}
-                    className="flex items-center w-full bg-[#1a2633] gap-1.5 px-4 pt-3 pb-0 text-gray-400 hover:text-white text-sm transition-colors group"
-                >
-                    <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
-                    Markets
-                </button>
+            {/* ── Main content: 3-col on desktop ── */}
+            <div className="flex-1 flex overflow-hidden lg:grid lg:grid-cols-[260px_1fr_280px] xl:grid-cols-[280px_1fr_300px] lg:gap-6 lg:px-6 lg:pb-6 min-h-0">
 
-                {loading ? (
-                    <div className="flex items-center justify-center py-24">
-                        <div className="flex flex-col items-center gap-3">
-                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]" />
-                            <p className="text-gray-500 text-sm">Loading market…</p>
+                <MarketsDesktopSidebar variant="detail" activePage="markets" />
+
+                <div
+                    className="flex-1 overflow-y-auto bg-[#1a2633] hide-vertical-scrollbar min-w-0"
+                    onScroll={(e) => setIsBodyScrolled(e.currentTarget.scrollTop > 0)}
+                >
+                    <button
+                        onClick={() => router.push('/markets')}
+                        className="flex items-center w-full bg-[#1a2633] gap-1.5 px-4 pt-3 pb-0 text-gray-400 hover:text-white text-sm transition-colors group lg:hidden"
+                    >
+                        <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+                        Markets
+                    </button>
+
+                    {loading ? (
+                        <div className="flex items-center justify-center py-24">
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#FED800]" />
+                                <p className="text-gray-500 text-sm">Loading market…</p>
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                    <MarketDetailContentRouter
+                    ) : (
+                        <div className="lg:max-w-4xl lg:mx-auto lg:px-2">
+                            <MarketDetailContentRouter
+                                marketType={marketToRender}
+                                marketData={marketData}
+                                isScrolled={isBodyScrolled}
+                                onRefreshMarket={loadMarketDetail}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {!loading && (
+                    <DesktopTradePanel
                         marketType={marketToRender}
-                        marketData={marketData}
-                        isScrolled={isBodyScrolled}
-                        onRefreshMarket={loadMarketDetail}
+                        yesPct={predMarketYesPct}
+                        noPct={noPct}
+                        homePct={homePct}
+                        drawPct={drawPct}
+                        awayPct={awayPct}
+                        homeTeam={matchPredMarket?.home_team}
+                        awayTeam={matchPredMarket?.away_team}
+                        isResolved={isResolved}
+                        isLocked={marketToRender === 'fixture' ? isMatchPredLocked : isLocked}
+                        onBuyYes={() => { setSideChoice({ type: 'normal', side: 'yes' }); setBuySellButtonsClicked(true) }}
+                        onBuyNo={() => { setSideChoice({ type: 'normal', side: 'no' }); setBuySellButtonsClicked(true) }}
+                        onBuyHome={() => { setSideChoice({ type: 'match_based', side: 'home' }); setBuySellButtonsClicked(true) }}
+                        onBuyDraw={() => { setSideChoice({ type: 'match_based', side: 'draw' }); setBuySellButtonsClicked(true) }}
+                        onBuyAway={() => { setSideChoice({ type: 'match_based', side: 'away' }); setBuySellButtonsClicked(true) }}
                     />
                 )}
             </div>

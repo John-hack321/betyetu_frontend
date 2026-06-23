@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 // =====================================================================
-//  Helper – count-down hook (locks to 30 June of current/next year)
+//  Helper – count-down hook (locks to 30 July of current/next year)
 // =====================================================================
 function useCountdown(target: Date) {
   const [now, setNow] = useState<Date | null>(null);
@@ -191,7 +191,7 @@ function ComingSoonModal({
           <h3 className="text-3xl font-black text-white mb-2">Coming Soon</h3>
           <p className="text-gray-300 mb-6">
             We&apos;re putting the finishing touches on PeerStake. Sign-ups open
-            on <span className="text-[#FED800] font-semibold">30 June</span>.
+            on <span className="text-[#FED800] font-semibold">30 July</span>.
           </p>
 
           <div className="grid grid-cols-4 gap-3 mb-6">
@@ -233,26 +233,20 @@ function ComingSoonModal({
 //  Page
 // =====================================================================
 export default function LandingPage() {
-  const [showComingSoon, setShowComingSoon] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  // Lock countdown target to 30 June 23:59:59 (current year, or next if past)
+  // Lock countdown target to 30 July 23:59:59 (current year, or next if past)
   const target = useMemo(() => {
     const now = new Date();
     let year = now.getFullYear();
-    let t = new Date(year, 5, 30, 23, 59, 59); // month is 0-indexed → 5 = June
+    let t = new Date(year, 6, 30, 23, 59, 59); // month is 0-indexed → 6 = July
     if (t.getTime() < now.getTime()) {
       year += 1;
-      t = new Date(year, 5, 30, 23, 59, 59);
+      t = new Date(year, 6, 30, 23, 59, 59);
     }
     return t;
   }, []);
   const countdown = useCountdown(target);
-
-  const openModal = (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    setShowComingSoon(true);
-  };
 
   // -------------------------------------------------------------------
   //  Static data
@@ -389,7 +383,7 @@ export default function LandingPage() {
     },
     {
       q: "When is launch?",
-      a: "Public sign-ups open on 30 June. Drop your number on the early-access list and we'll text you the moment the doors open.",
+      a: "Public sign-ups open on 30 July. Drop your number on the early-access list and we'll text you the moment the doors open.",
     },
   ];
 
@@ -565,14 +559,12 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <a
               href="/login"
-              onClick={openModal}
               className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
             >
               Login
             </a>
             <a
               href="/signup"
-              onClick={openModal}
               className="px-6 py-2 bg-gradient-to-r from-[#FED800] to-[#ffd700] text-black font-bold rounded-full hover:scale-105 transition-transform shadow-lg shadow-[#FED800]/20"
             >
               Sign Up
@@ -595,7 +587,7 @@ export default function LandingPage() {
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-[#60991A]"></span>
                   </span>
                   <span className="text-sm font-medium text-[#60991A]">
-                    Launching 30 June — early access open
+                    Launching 30 July — early access open
                   </span>
                 </div>
               </Reveal>
@@ -622,7 +614,6 @@ export default function LandingPage() {
                 <div className="flex flex-col sm:flex-row gap-4">
                   <a
                     href="/signup"
-                    onClick={openModal}
                     className="group px-8 py-4 bg-gradient-to-r from-[#FED800] to-[#ffd700] text-black font-bold rounded-full transition-all flex items-center justify-center gap-2 animate-ctaglow"
                   >
                     Get early access
@@ -1014,7 +1005,7 @@ export default function LandingPage() {
               <div className="relative text-center text-black">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/15 rounded-full text-xs font-bold uppercase tracking-wider mb-5">
                   <Clock className="w-3.5 h-3.5" />
-                  Public launch — 30 June
+                  Public launch — 30 July
                 </div>
                 <h2 className="text-4xl md:text-5xl font-black mb-3">
                   Be first in line.
@@ -1049,7 +1040,6 @@ export default function LandingPage() {
 
                 <a
                   href="/signup"
-                  onClick={openModal}
                   className="inline-flex items-center gap-2 px-10 py-4 bg-black text-white font-bold rounded-full hover:scale-105 transition-transform shadow-xl"
                 >
                   <Bell className="w-4 h-4" />
@@ -1158,15 +1148,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {/* ----------------------------------------------------------- */}
-      {/*  Coming-soon modal                                           */}
-      {/* ----------------------------------------------------------- */}
-      <ComingSoonModal
-        open={showComingSoon}
-        onClose={() => setShowComingSoon(false)}
-        countdown={countdown}
-      />
 
       {/* unused import shim — keeps tree-shake happy if hooks change */}
       <span className="hidden">

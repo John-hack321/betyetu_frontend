@@ -5,6 +5,7 @@ import { SearchBar } from "../components/searchBar"
 import FooterComponent from "../components/footer"
 
 import { Menu, Search, HomeIcon, LayoutDashboard, User , Trophy} from "lucide-react"
+import AppDesktopNav from "../components/appDesktopNav"
 import { useEffect, useEffectEvent, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -118,28 +119,7 @@ export default function Dashboard () {
             {/* Mobile:  single scrollable column with sticky hero    */}
             <div className="flex-1 flex flex-col overflow-hidden lg:grid lg:grid-cols-[280px_1fr_280px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[350px_1fr_350px] lg:gap-6 lg:overflow-hidden lg:px-6 lg:pt-6">
 
-                 {/* ── Left Sidebar (desktop only, sticky) ─────────── */}
-                <div className="hidden lg:block bg-[#1a2633] rounded-lg p-4 self-start sticky top-6 h-fit">
-                    <h3 className="text-gray-200 text-lg font-semibold mb-4">Navigation</h3>
-                    <div className="flex flex-col gap-2">
-                        <button onClick={() => router.push('/main')} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 text-gray-300 font-medium transition-colors">
-                            <HomeIcon size={20} />
-                            <span>Home</span>
-                        </button>
-                        <button onClick={() => router.push('/stakes')} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 text-gray-300 font-medium transition-colors">
-                            <Trophy size={20} />
-                            <span>My Bets</span>
-                        </button>
-                        <button onClick={() => router.push('/dashboard')} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 text-gray-300 font-medium transition-colors">
-                            <LayoutDashboard size={20} />
-                            <span>Dashboard</span>
-                        </button>
-                        <button onClick={() => router.push('/profile')} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 text-gray-300 font-medium transition-colors">
-                            <User size={20} />
-                            <span>Profile</span>
-                        </button>
-                    </div>
-
+                <AppDesktopNav activePage="dashboard">
                     <h3 className="text-gray-200 text-lg font-semibold my-4">Quick Links</h3>
                     <div className="flex flex-col gap-2">
                         <button
@@ -153,7 +133,7 @@ export default function Dashboard () {
                             📱 Scan QR Code
                         </button>
                     </div>
-                </div>
+                </AppDesktopNav>
 
                 {/* in between here we will have the actual listing of the unique stakes */}
 

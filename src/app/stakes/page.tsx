@@ -18,6 +18,7 @@ import { AppDispatch } from "../app_state/store"
 import { setStakesData, StakeInterface } from "../app_state/slices/stakesData"
 import { getUserStakesData } from "../api/stakes"
 import { SearchBar } from "../components/searchBar"
+import AppDesktopNav from "../components/appDesktopNav"
 
 type FilterType = 'all' | 'live' | 'won' | 'lost' | 'pending';
 
@@ -391,30 +392,7 @@ function StakesPage() {
       {/* Main Content Area => represents both desktop and mobile */}
       <div className="flex-1 flex flex-col overflow-hidden lg:flex-row lg:gap-4 lg:px-6 lg:pt-6 lg:max-w-[1400px] lg:mx-auto lg:w-full">
         
-        {/* Left Sidebar - Desktop Only */}
-        <div className="hidden lg:block lg:w-[260px] xl:w-[280px] bg-[#16202C] rounded-lg p-4 self-start sticky top-6 h-fit flex-shrink-0">
-          {/* Navigation Section */}
-          <h3 className="text-gray-200 text-lg font-semibold mb-4">Navigation</h3>
-          <div className="flex flex-col gap-2 mb-6">
-            <button onClick={() => router.push('/main')} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 text-gray-300 font-medium transition-colors">
-              <HomeIcon size={20} />
-              <span>Home</span>
-            </button>
-            <button onClick={() => router.push('/stakes')} className="flex items-center gap-3 p-3 rounded-lg bg-[#FED800] text-black font-semibold transition-colors">
-              <Trophy size={20} />
-              <span>My Bets</span>
-            </button>
-            <button onClick={() => router.push('/dashboard')} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 text-gray-300 font-medium transition-colors">
-              <LayoutDashboard size={20} />
-              <span>Dashboard</span>
-            </button>
-            <button onClick={() => router.push('/profile')} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 text-gray-300 font-medium transition-colors">
-              <User size={20} />
-              <span>Profile</span>
-            </button>
-          </div>
-
-          {/* Quick Tips Section */}
+        <AppDesktopNav activePage="stakes" className="lg:w-[260px] xl:w-[280px] bg-[#16202C] flex-shrink-0">
           <h3 className="text-gray-200 text-lg font-semibold mb-4 pt-6 border-t border-gray-700">Quick Tips</h3>
           <div className="space-y-3">
             <div className="bg-[#1a2633] rounded-lg p-3 border border-gray-700">
@@ -453,7 +431,7 @@ function StakesPage() {
               </div>
             </div>
           </div>
-        </div>
+        </AppDesktopNav>
 
         {/* Center Content - Stakes List */}
         <div className="flex-1 flex flex-col overflow-hidden lg:min-w-0">

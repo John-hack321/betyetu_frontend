@@ -2,14 +2,14 @@
 import { useAuth } from "../context/authContext"
 import MenuOverlay from "../components/menuOverlay"
 import FooterComponent from "../components/footer"
-import { fetchMarkets } from "../api/predictionMarket"
+import { fetchMarkets, fetchMarketDetail } from "../api/predictionMarket"
 import { GroupMarket, PredictionMarket, MatchPredictionMarket } from "../app_state/slices/predictionMarketData"
 import ProtectedRoute from "../components/protectedRoute"
 import { useRouter } from "next/navigation"
 
-import { useState, useEffect } from "react"
-import { Menu, Router, Search } from "lucide-react"
-import { useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { Menu, Search } from "lucide-react"
+import { LineChart, Line, ResponsiveContainer } from "recharts"
 
 // redux imports 
 import { RootState, AppDispatch } from "../app_state/store"
@@ -19,6 +19,7 @@ import { SearchBar } from "../components/searchBar"
 import { setMarkets } from "../app_state/slices/predictionMarketData"
 import { truncateTeamName } from "../components/fixtureCard"
 import { formatMatchDate } from "@/utils/dateUtils"
+import MarketsDesktopSidebar from "../components/marketsDesktopSidebar"
 
 type FilterType = 'all' | 'football' | 'kenya' | 'premier-league' | 'ucl' | 'afcon' | 'live' | 'closing-soon' | 'politics'
 
@@ -54,6 +55,129 @@ function getCategoryLabel(category?: string): string {
 
 function normalizeForSearch(value: unknown): string {
     return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function getMarketVolume(market: PredictionMarket | GroupMarket | MatchPredictionMarket): number {
+    if (market.market_type === 'group') {
+        return market.sub_markets.reduce((sum, sm) => sum + sm.total_collected, 0)
+    }
+    return market.total_collected
+}
+
+function getLocksAtTime(market: PredictionMarket | GroupMarket | MatchPredictionMarket): number {
+    if (!market.locks_at) return Number.POSITIVE_INFINITY
+    const time = new Date(market.locks_at).getTime()
+    return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time
+}
+
+function sortMarketsByCloseDate(
+    markets: (PredictionMarket | GroupMarket | MatchPredictionMarket)[]
+): (PredictionMarket | GroupMarket | MatchPredictionMarket)[] {
+    return [...markets].sort((a, b) => getLocksAtTime(a) - getLocksAtTime(b))
+}
+
+const cardBaseClass =
+    'flex flex-col rounded-2xl bg-[#131e28] border border-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.2)] cursor-pointer transition-all hover:border-white/10 hover:shadow-[0_12px_32px_rgba(0,0,0,0.28)] h-full'
+const cardMobileSpacing = 'p-4 sm:p-5 gap-4 mb-3 lg:mb-0'
+
+function generateSyntheticSparkline(endValue: number, points = 28): { v: number }[] {
+    const data: { v: number }[] = []
+    let current = Math.min(0.92, Math.max(0.08, endValue + (Math.random() - 0.5) * 0.18))
+    for (let i = 0; i < points - 1; i++) {
+        const drift = (endValue - current) * 0.12
+        current = Math.min(0.95, Math.max(0.05, current + drift + (Math.random() - 0.5) * 0.07))
+        data.push({ v: current })
+    }
+    data.push({ v: endValue })
+    return data
+}
+
+function FeaturedMarketSparkline({
+    market,
+}: {
+    market: PredictionMarket | GroupMarket | MatchPredictionMarket
+}) {
+    const [chartData, setChartData] = useState<{ v: number }[]>([])
+    const [loading, setLoading] = useState(true)
+
+    const endValue = useMemo(() => {
+        if (market.market_type === 'prediction') return market.yes_price
+        if (market.market_type === 'fixture') return market.home_price
+        return market.sub_markets[0]?.yes_price ?? 0.5
+    }, [market])
+
+    const strokeColor = useMemo(() => {
+        const pct = endValue * 100
+        if (pct >= 60) return '#10b981'
+        if (pct >= 40) return '#3b82f6'
+        return '#ef4444'
+    }, [endValue])
+
+    useEffect(() => {
+        let cancelled = false
+
+        const load = async () => {
+            setLoading(true)
+            try {
+                const detail = await fetchMarketDetail(market.id, market.market_type)
+                let history: number[] = []
+
+                if (market.market_type === 'prediction' && detail && 'price_history' in detail) {
+                    history = ((detail.price_history as { yes_price_at_trade: number }[]) ?? [])
+                        .map((p) => p.yes_price_at_trade)
+                        .filter((v) => typeof v === 'number')
+                } else if (market.market_type === 'fixture' && detail && 'price_history' in detail) {
+                    history = ((detail.price_history as { home_price_at_trade: number }[]) ?? [])
+                        .map((p) => p.home_price_at_trade)
+                        .filter((v) => typeof v === 'number')
+                } else if (market.market_type === 'group' && detail && 'sub_markets' in detail) {
+                    const top = detail.sub_markets?.[0]
+                    history = ((top?.price_history as { yes_price_at_trade: number }[]) ?? [])
+                        .map((p) => p.yes_price_at_trade)
+                        .filter((v) => typeof v === 'number')
+                }
+
+                if (!cancelled) {
+                    setChartData(
+                        history.length > 1
+                            ? history.map((v) => ({ v }))
+                            : generateSyntheticSparkline(endValue)
+                    )
+                }
+            } catch {
+                if (!cancelled) setChartData(generateSyntheticSparkline(endValue))
+            } finally {
+                if (!cancelled) setLoading(false)
+            }
+        }
+
+        load()
+        return () => { cancelled = true }
+    }, [market.id, market.market_type, endValue])
+
+    return (
+        <div
+            className="w-full max-w-[280px] h-[100px] shrink-0 rounded-xl bg-[#0d1520]/60 border border-white/5 p-2"
+            onClick={(e) => e.stopPropagation()}
+        >
+            {loading ? (
+                <div className="w-full h-full rounded-lg bg-white/5 animate-pulse" />
+            ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                        <Line
+                            type="monotone"
+                            dataKey="v"
+                            stroke={strokeColor}
+                            strokeWidth={2.5}
+                            dot={false}
+                            activeDot={false}
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            )}
+        </div>
+    )
 }
 
 function ProbabilityGauge({ yesPct }: { yesPct: number }) {
@@ -97,7 +221,7 @@ function PredictionMarketCard ({ market }: { market: PredictionMarket }) {
     return (
         <div 
         onClick={()=> router.push(`/markets/${market.id}?type=${market.market_type}`)}
-        className="flex flex-col rounded-2xl p-4 sm:p-5 bg-[#131e28] gap-4 mb-3 border border-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.2)]">
+        className={`${cardBaseClass} ${cardMobileSpacing}`}>
 
             {/* question and probability chance */}
             <div className="flex flex-row items-start justify-between gap-3">
@@ -143,7 +267,7 @@ function GroupMarketCard ({ market }: { market: GroupMarket }) {
     return (
         <div 
         onClick={()=> router.push(`/markets/${market.id}?type=${market.market_type}`)}
-        className="bg-[#131e28] rounded-xl p-3 sm:p-3.5 flex flex-col mb-3 gap-2.5 border border-white/5 shadow-[0_6px_18px_rgba(0,0,0,0.18)]">
+        className={`${cardBaseClass} p-3 sm:p-3.5 gap-2.5 mb-3 lg:mb-0`}>
             {/* main market question */}
             <div className="flex items-start justify-between gap-2">
                 <h3 className="text-slate-100 font-semibold leading-6">
@@ -244,7 +368,7 @@ function FixtureMarketCard ({ market }: { market: MatchPredictionMarket }) {
     return (
         <div 
         onClick={()=> router.push(`/markets/${market.id}?type=${market.market_type}`)}
-        className="flex p-4 sm:p-5 flex-col rounded-2xl bg-[#131e28] gap-4 mb-3 border border-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.2)]"> {/** initial bg color : 1e2d3d */}
+        className={`${cardBaseClass} ${cardMobileSpacing}`}>
             {/* fixture header */}
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -307,6 +431,134 @@ function MarketCard ({ market }: { market: PredictionMarket | GroupMarket | Matc
         default:
             return null
     }
+}
+
+function FeaturedMarketCard ({ market }: { market: PredictionMarket | GroupMarket | MatchPredictionMarket }) {
+    const router = useRouter()
+    const volume = getMarketVolume(market)
+    const yesButtonStyle = 'bg-emerald-500/20 border-emerald-400/35 text-emerald-200'
+    const noButtonStyle = 'bg-rose-500/20 border-rose-400/35 text-rose-100'
+
+    const navigate = () => router.push(`/markets/${market.id}?type=${market.market_type}`)
+
+    if (market.market_type === 'prediction') {
+        const yesPct = market.yes_price * 100
+        return (
+            <div
+                onClick={navigate}
+                className="hidden lg:flex col-span-full rounded-2xl bg-gradient-to-br from-[#1a2d3d] to-[#131e28] border border-[#FED800]/20 p-6 gap-6 cursor-pointer hover:border-[#FED800]/35 transition-all shadow-[0_12px_40px_rgba(0,0,0,0.25)] mb-2"
+            >
+                <div className="flex-1 min-w-0 flex flex-col justify-between gap-4">
+                    <div>
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#FED800] mb-3">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#FED800] animate-pulse" />
+                            Trending
+                        </span>
+                        <h2 className="text-white font-bold text-2xl leading-snug mb-2">{market.question}</h2>
+                        <p className="text-slate-400 text-sm capitalize">{getCategoryLabel(market.category)}</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-slate-400">
+                        <span className="font-medium text-slate-300">Ksh {formatVolumeTiny(volume)} Vol.</span>
+                        <span>·</span>
+                        <span>{formatMatchDate(market.locks_at)}</span>
+                    </div>
+                </div>
+                <FeaturedMarketSparkline market={market} />
+                <div className="flex flex-col items-center justify-center shrink-0">
+                    <ProbabilityGauge yesPct={yesPct} />
+                </div>
+                <div className="flex flex-col justify-center gap-3 w-48 shrink-0">
+                    <button className={`rounded-xl border py-3 font-semibold text-sm transition-all hover:brightness-110 ${yesButtonStyle}`}>
+                        Yes {(yesPct).toFixed(0)}%
+                    </button>
+                    <button className={`rounded-xl border py-3 font-semibold text-sm transition-all hover:brightness-110 ${noButtonStyle}`}>
+                        No {(100 - yesPct).toFixed(0)}%
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    if (market.market_type === 'fixture') {
+        const hasTrades = market.total_collected >= 100
+        const homeStyle = getFixtureButtonStyle(market.home_price, hasTrades, 'home')
+        const drawStyle = getFixtureButtonStyle(market.draw_price, hasTrades, 'draw')
+        const awayStyle = getFixtureButtonStyle(market.away_price, hasTrades, 'away')
+
+        return (
+            <div
+                onClick={navigate}
+                className="hidden lg:flex col-span-full rounded-2xl bg-gradient-to-br from-[#1a2d3d] to-[#131e28] border border-[#FED800]/20 p-6 gap-6 cursor-pointer hover:border-[#FED800]/35 transition-all shadow-[0_12px_40px_rgba(0,0,0,0.25)] mb-2"
+            >
+                <div className="flex-1 min-w-0">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#FED800] mb-3">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FED800] animate-pulse" />
+                        Trending Match
+                    </span>
+                    <div className="flex items-center gap-8 mb-4">
+                        <div>
+                            <p className="text-white font-bold text-xl">{market.home_team}</p>
+                            <p className="text-emerald-400 font-black text-2xl mt-1">{(market.home_price * 100).toFixed(0)}%</p>
+                        </div>
+                        <span className="text-slate-500 text-sm font-semibold">vs</span>
+                        <div>
+                            <p className="text-white font-bold text-xl">{market.away_team}</p>
+                            <p className="text-orange-400 font-black text-2xl mt-1">{(market.away_price * 100).toFixed(0)}%</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-slate-400">
+                        <span className="font-medium text-slate-300">Ksh {formatVolumeTiny(volume)} Vol.</span>
+                        <span>·</span>
+                        <span>Closes {formatMatchDate(market.locks_at)}</span>
+                    </div>
+                </div>
+                <FeaturedMarketSparkline market={market} />
+                <div className="flex flex-col justify-center gap-2 w-64 shrink-0">
+                    <div className="flex gap-2">
+                        <button className={`flex-1 px-2 py-3 rounded-xl text-sm font-semibold border ${homeStyle.bar} ${homeStyle.text}`}>
+                            {truncateTeamName(market.home_team)}
+                        </button>
+                        <button className={`flex-[0.7] px-2 py-3 rounded-xl text-sm font-semibold border ${drawStyle.bar} ${drawStyle.text}`}>
+                            Draw
+                        </button>
+                        <button className={`flex-1 px-2 py-3 rounded-xl text-sm font-semibold border ${awayStyle.bar} ${awayStyle.text}`}>
+                            {truncateTeamName(market.away_team)}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // group market featured
+    const topOptions = market.sub_markets.slice(0, 2)
+    return (
+        <div
+            onClick={navigate}
+            className="hidden lg:flex col-span-full rounded-2xl bg-gradient-to-br from-[#1a2d3d] to-[#131e28] border border-[#FED800]/20 p-6 gap-6 cursor-pointer hover:border-[#FED800]/35 transition-all shadow-[0_12px_40px_rgba(0,0,0,0.25)] mb-2"
+        >
+            <div className="flex-1 min-w-0">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#FED800] mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#FED800] animate-pulse" />
+                    Trending
+                </span>
+                <h2 className="text-white font-bold text-2xl leading-snug mb-4">{market.question}</h2>
+                <div className="space-y-2">
+                    {topOptions.map((sub) => (
+                        <div key={sub.id} className="flex items-center justify-between gap-4">
+                            <span className="text-slate-200 font-semibold">{sub.option}</span>
+                            <span className="text-white font-bold tabular-nums">{(sub.yes_price * 100).toFixed(0)}%</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <FeaturedMarketSparkline market={market} />
+            <div className="flex flex-col justify-end text-sm text-slate-400 shrink-0">
+                <span className="font-medium text-slate-300">Ksh {formatVolumeTiny(volume)} Vol.</span>
+                <span className="mt-1">{formatMatchDate(market.locks_at)}</span>
+            </div>
+        </div>
+    )
 }
 
 function MarketsPage () {
@@ -381,16 +633,34 @@ function MarketsPage () {
 
         switch (filterState.type) {
             case "all":
-                return filtered
+                filtered = filtered
+                break
             case  "football":
-                return [...filtered.filter((m) => m.category == "football"), ...filtered.filter((m) => m.category == "sports")]
+                filtered = [...filtered.filter((m) => m.category == "football"), ...filtered.filter((m) => m.category == "sports")]
+                break
             case "politics":
-                return [...filtered.filter((m) => m.category == "politics"), ...filtered.filter((m) => m.market_type == "group" && m.sub_markets[0].category == "politics")]
+                filtered = [...filtered.filter((m) => m.category == "politics"), ...filtered.filter((m) => m.market_type == "group" && m.sub_markets[0].category == "politics")]
+                break
             default:
-                return filtered
+                break
         }
 
+        return sortMarketsByCloseDate(filtered)
+
     }, [predictionMarketData.data, search, filterState.type])
+
+    const trendingMarket = useMemo(() => {
+        if (!filteredMarkets.length) return null
+        const featured = filteredMarkets.find((m) => m.featured)
+        if (featured) return featured
+        // Already sorted by close date — first market closes soonest
+        return filteredMarkets[0]
+    }, [filteredMarkets])
+
+    const gridMarkets = useMemo(() => {
+        if (!trendingMarket) return filteredMarkets
+        return filteredMarkets.filter((m) => m.id !== trendingMarket.id)
+    }, [filteredMarkets, trendingMarket])
 
     const handleTabClick = (tabId: FilterType) => {
         setFilterState({ type: tabId, leagueId: null })
@@ -441,11 +711,12 @@ function MarketsPage () {
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col overflow-hidden lg:grid lg:grid-cols-[280px_1fr_280px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[350px_1fr_350px] lg:gap-6 lg:overflow-hidden lg:px-6 lg:pt-6">
-            {/** we will decide later on whethe we need the left and right side bars */}
+            <div className="flex-1 flex flex-col overflow-hidden lg:grid lg:grid-cols-[260px_1fr_260px] xl:grid-cols-[280px_1fr_280px] 2xl:grid-cols-[300px_1fr_300px] lg:gap-6 lg:overflow-hidden lg:px-6 lg:pt-4 lg:pb-6">
 
-                {/* central content  TODO : Fix the hide vertical scrollbar part */}
-                <div className="overflow-y-auto hide-vertical-scrollbar pb-24 lg:pb-4  lg:pr-4">
+                <MarketsDesktopSidebar variant="list" activePage="markets" />
+
+                {/* central content */}
+                <div className="overflow-y-auto hide-vertical-scrollbar pb-24 lg:pb-4 min-w-0">
 
                     {/* filters for mobile */}
                     <div className="sticky top-0 bg-[#1a2633] z-10 p-2  md:hidden">  
@@ -482,10 +753,21 @@ function MarketsPage () {
                         </div> 
                     </div> {/* end of mobile header */}
 
-                    {/* Filter — desktop : this is just a stand in for now we are focused on mobile : I will make this better laters*/}
+                    {/* Filter + search — desktop */}
                     <div className="hidden lg:block sticky top-0 bg-[#1a2633] z-10 pb-4 mb-4">
-                        <div className="bg-[#1a2633] rounded-lg p-4 border border-gray-700">
-                            <div className="flex gap-6 border-b border-gray-700 pb-3">
+                        <div className="bg-[#131e28] rounded-xl p-4 border border-white/5">
+                            {searchButtonClicked && (
+                                <div className="mb-4">
+                                    <SearchBar
+                                        onClose={() => {
+                                            setSearch('')
+                                            setSearchButtonClicked(false)
+                                        }}
+                                        handleOnChange={(e) => setSearch(e.target.value)}
+                                    />
+                                </div>
+                            )}
+                            <div className="flex gap-6 border-b border-gray-700 pb-3 overflow-x-auto hide-horizontal-scrollbar">
                                 {filterTabs.map((tab) => (
                                     <button
                                         key={tab.id}
@@ -505,23 +787,51 @@ function MarketsPage () {
                         </div>
                     </div>
 
-                    {/** rendering the markets now */}
-                    <div className=" lg:px-0 lg:grid lg:grid-cols-2 px-3 flex flex-col  lg:gap-4 staggered-grid">
-                        {filteredMarkets!.length > 0 ? (
-                            filteredMarkets!.map((market) => (
-                                <MarketCard key={market.created_at} market={market} /> // I dont think created_at is a good way for assigning market we will fix this later on 
+                    {loading ? (
+                        <div className="flex items-center justify-center py-24">
+                            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#FED800]" />
+                        </div>
+                    ) : error ? (
+                        <div className="text-center text-red-400 py-12">{error}</div>
+                    ) : (
+                    <div className="px-3 lg:px-0 flex flex-col lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4 markets-grid">
+                        {trendingMarket && <FeaturedMarketCard market={trendingMarket} />}
+                        {gridMarkets.length > 0 ? (
+                            gridMarkets.map((market) => (
+                                <MarketCard key={`${market.market_type}-${market.id}`} market={market} />
                             ))
-                        ) : (
-                            <div className="text-center text-gray-400">
+                        ) : !trendingMarket ? (
+                            <div className="col-span-full text-center text-gray-400 py-16">
                                 No markets found
                             </div>
-                        )}
+                        ) : null}
                     </div>
+                    )}
 
-                </div> {/* end of center content */}
-                
+                </div>
+
+                {/* Right sidebar — desktop */}
+                <div className="hidden lg:block self-start sticky top-6">
+                    <div className="bg-[#131e28] rounded-2xl border border-white/5 p-4">
+                        <h3 className="text-gray-300 text-sm font-bold mb-3">Market categories</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {['Politics', 'Sports', 'Football', 'Kenya'].map((cat) => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setSearch(cat.toLowerCase())}
+                                    className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#23313D] text-gray-300 hover:bg-[#2a3d4f] hover:text-white transition-colors"
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-gray-500 text-xs mt-4 leading-relaxed">
+                            Browse prediction markets on politics, football fixtures, and multi-outcome events.
+                        </p>
+                    </div>
+                </div>
+
             </div>
-
 
             {/* Footer — mobile only */}
             <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden">

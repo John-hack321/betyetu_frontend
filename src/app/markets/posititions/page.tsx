@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, TrendingUp, TrendingDown, Clock, Activity, ChevronRight, BarChart2 } from 'lucide-react'
+import { ArrowLeft, TrendingUp, TrendingDown, Activity, ChevronRight, BarChart2 } from 'lucide-react'
 import { fetchMyPositions, UserPosition } from '../../api/predictionMarket'
 import FooterComponent from '../../components/footer'
+import MarketsDesktopSidebar from '../../components/marketsDesktopSidebar'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../app_state/store'
 import ProtectedRoute from '../../components/protectedRoute'
@@ -119,15 +120,15 @@ function PositionsPageInner() {
     const settledPositions = positions.filter(p => p.position_status === 'settled').length
 
     return (
-        <div className="flex flex-col min-h-screen bg-[#0f1923]">
+        <div className="flex flex-col min-h-screen lg:h-screen lg:overflow-hidden bg-[#0f1923]">
             {/* Header */}
-            <div className="sticky top-0 z-20 bg-[#0f1923]/95 backdrop-blur-sm border-b border-gray-800/60 px-4 py-3">
-                <div className="max-w-3xl mx-auto flex items-center gap-3">
-                    <button onClick={() => router.push('/markets')} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+            <div className="flex-none bg-[#0f1923]/95 backdrop-blur-sm border-b border-gray-800/60 px-4 py-3 lg:px-6">
+                <div className="max-w-6xl mx-auto flex items-center gap-3">
+                    <button onClick={() => router.push('/markets')} className="p-2 hover:bg-white/10 rounded-lg transition-colors lg:hidden">
                         <ArrowLeft size={20} className="text-gray-400" />
                     </button>
                     <div className="flex-1">
-                        <h1 className="text-white font-bold text-base">My Positions</h1>
+                        <h1 className="text-white font-bold text-base lg:text-xl">My Positions</h1>
                         <p className="text-gray-500 text-xs">{positions.length} total positions</p>
                     </div>
                     <button
@@ -140,8 +141,11 @@ function PositionsPageInner() {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto pb-24">
-                <div className="max-w-3xl mx-auto px-4 py-5">
+            <div className="flex-1 flex overflow-hidden lg:grid lg:grid-cols-[260px_1fr] xl:grid-cols-[280px_1fr] lg:gap-6 lg:px-6 lg:py-6 min-h-0">
+                <MarketsDesktopSidebar variant="list" activePage="positions" />
+
+                <div className="flex-1 overflow-y-auto pb-24 lg:pb-4 min-w-0">
+                <div className="max-w-4xl mx-auto px-4 py-5 lg:px-0">
 
                     {/* Summary cards */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -203,12 +207,13 @@ function PositionsPageInner() {
                             </button>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
                             {filtered.map((pos, i) => (
                                 <PositionCard key={`${pos.market_id}-${pos.side}-${i}`} pos={pos} />
                             ))}
                         </div>
                     )}
+                </div>
                 </div>
             </div>
 

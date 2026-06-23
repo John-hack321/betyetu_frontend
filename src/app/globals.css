@@ -80,10 +80,17 @@ html {
 }
 
 
-/* Staggered/Cascading Grid Effect */
-@media (min-width: 768px) { /* Corresponds to md: breakpoint */
+/* Staggered/Cascading Grid Effect — mobile list only */
+@media (max-width: 1023px) {
   .staggered-grid > *:nth-child(2n) {
-    margin-top: 1rem; /* Adjusted to a smaller value for less space */
+    margin-top: 1rem;
+  }
+}
+
+/* Markets grid — uniform columns on desktop (Polymarket-style) */
+@media (min-width: 1024px) {
+  .markets-grid {
+    align-items: stretch;
   }
 }
 
